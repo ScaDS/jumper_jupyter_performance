@@ -1,7 +1,10 @@
+import logging
 from unittest.mock import patch
 
 import pandas as pd
 
+from jumper_extension.adapters.visualizer.backends.matplotlib import MatplotlibPerformanceVisualizer
+from jumper_extension.adapters.visualizer.backends.plotly import PlotlyPerformanceVisualizer
 from jumper_extension.ipython.magics import PerfmonitorMagics
 from jumper_extension.core.service import build_perfmonitor_magic_adapter
 from jumper_extension.ipython.extension import (
@@ -10,7 +13,7 @@ from jumper_extension.ipython.extension import (
 )
 
 
-def test_initialization_and_basic_operations(ipython, mock_cpu_only):
+def test_initialization_and_basic_operations(ipython, mock_cpu_only, caplog):
     """Test initialization, start/stop, and basic operations"""
     magics = PerfmonitorMagics(ipython, build_perfmonitor_magic_adapter())
     assert not magics.magic_adapter.service.monitor.running
@@ -24,9 +27,13 @@ def test_initialization_and_basic_operations(ipython, mock_cpu_only):
     magics.perfmonitor_start("")
     magics.perfmonitor_start("")  # Already running
     magics.perfmonitor_stop("")
+    assert not magics.magic_adapter.service.monitor.running
 
     # Test invalid interval (no monitor running)
+    caplog.set_level(logging.WARNING, logger="extension")
     magics.perfmonitor_start("invalid")  # Invalid interval
+    assert "Invalid interval value: invalid" in caplog.text
+    assert not magics.magic_adapter.service.monitor.running
 
 
 def test_no_monitor_error_cases(ipython, mock_cpu_only):
@@ -119,6 +126,73 @@ def test_plot_scenarios(ipython, mock_cpu_only):
         magics.magic_adapter.service.monitor, "start_time", 0.0
     ):
         magics.perfmonitor_plot("--cell 0")
+
+    magics.perfmonitor_stop("")
+
+
+def test_plot_backend_selection_via_magic(ipython, mock_cpu_only):
+    """Test selecting matplotlib/plotly backend via %perfmonitor_plot."""
+    magics = PerfmonitorMagics(ipython, build_perfmonitor_magic_adapter())
+    magics.perfmonitor_start("")
+
+    # Add one executed cell so --cell 0 is valid and filter_perfdata has range
+    cell_info = type("Info", (), {"raw_cell": "x = 1"})()
+    magics.pre_run_cell(cell_info)
+    magics.post_run_cell(type("Result", (), {"result": None})())
+
+    ch = magics.magic_adapter.service.cell_history.view()
+    start_t = float(ch.iloc[0]["start_time"])
+    end_t = float(ch.iloc[0]["end_time"])
+    if end_t <= start_t:
+        end_t = start_t + 0.01
+
+    df = pd.DataFrame(
+        {
+            "time": [start_t, end_t],
+            "cpu_util_min": [10.0, 20.0],
+            "cpu_util_avg": [30.0, 40.0],
+            "cpu_util_max": [50.0, 60.0],
+        }
+    )
+
+    service = magics.magic_adapter.service
+    monitor = service.monitor
+
+    with patch.object(monitor.data, "view", return_value=df), patch.object(
+        PlotlyPerformanceVisualizer, "_render_direct_plot"
+    ) as mock_plotly_render:
+        magics.perfmonitor_plot(
+            "--backend plotly --metrics cpu_summary --level process --cell 0"
+        )
+        assert isinstance(service.visualizer, PlotlyPerformanceVisualizer)
+        assert service.settings.visualizer_backend == "plotly"
+        assert mock_plotly_render.called
+
+    # No --backend: should use default from settings ("plotly")
+    with patch.object(monitor.data, "view", return_value=df), patch.object(
+        PlotlyPerformanceVisualizer, "_render_direct_plot"
+    ) as mock_plotly_default_render:
+        magics.perfmonitor_plot("--metrics cpu_summary --level process --cell 0")
+        assert isinstance(service.visualizer, PlotlyPerformanceVisualizer)
+        assert mock_plotly_default_render.called
+
+    with patch.object(monitor.data, "view", return_value=df), patch.object(
+        MatplotlibPerformanceVisualizer, "_render_direct_plot"
+    ) as mock_matplotlib_render:
+        magics.perfmonitor_plot(
+            "--backend matplotlib --metrics cpu_summary --level process --cell 0"
+        )
+        assert isinstance(service.visualizer, MatplotlibPerformanceVisualizer)
+        assert service.settings.visualizer_backend == "matplotlib"
+        assert mock_matplotlib_render.called
+
+    # No --backend again: should keep using settings default ("matplotlib")
+    with patch.object(monitor.data, "view", return_value=df), patch.object(
+        MatplotlibPerformanceVisualizer, "_render_direct_plot"
+    ) as mock_matplotlib_default_render:
+        magics.perfmonitor_plot("--metrics cpu_summary --level process --cell 0")
+        assert isinstance(service.visualizer, MatplotlibPerformanceVisualizer)
+        assert mock_matplotlib_default_render.called
 
     magics.perfmonitor_stop("")
 

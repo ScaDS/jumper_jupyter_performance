@@ -1,46 +1,51 @@
-:root {
-  --bg: #ffffff;
-  --text: #111827;         /* near black */
-  --muted: #4b5563;        /* gray-600 */
-  --accent: #1f2937;       /* neutral accent for tags outline dots */
-  --tag-icon-size: 25px;  /* default icon size for tag widgets */
+/* All variables and resets are scoped to the container to avoid leaking
+   into VS Code / JupyterLab dark-theme styles.
+   Fallback chain for each token:
+     1. VS Code Jupyter webview  (--vscode-*)
+     2. JupyterLab               (--jp-*)
+     3. Static light-theme value  */
+.jump-container {
+  --bg:     var(--vscode-editor-background,     var(--jp-layout-color0,       #ffffff));
+  --text:   var(--vscode-editor-foreground,     var(--jp-content-font-color0, #111827));
+  --muted:  var(--vscode-descriptionForeground, var(--jp-content-font-color2, #4b5563));
+  --border: var(--vscode-widget-border,         var(--jp-border-color1,       #e5e7eb));
+  --accent: #1f2937;
+  --tag-icon-size: 25px;
   --max-content-width: 720px;
-}
 
-/* Normalize box sizing to avoid width overflow/layout overlap */
-html { box-sizing: border-box; }
-*, *::before, *::after { box-sizing: inherit; }
+  /* Scoped box-sizing reset */
+  box-sizing: border-box;
 
-html, body {
   margin: 0;
   padding: 0;
   background: var(--bg);
   font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   color: var(--text);
 }
+.jump-container *, .jump-container *::before, .jump-container *::after { box-sizing: border-box; }
 
-.jr-divider {
+.jump-divider {
   border: 0;
-  border-top: 1px solid #9ca3af;
+  border-top: 1px solid var(--border);
   margin: 0 0 8px 0;
   max-width: var(--max-content-width, 720px);
   width: 100%;
 }
 
-.jr-container {
+.jump-container {
   background: var(--bg);
   padding: 12px 4px 4px 4px;
   position: relative; /* allow absolute children like taglist */
 }
 
 /* Common content width to align header subtitle with table right edge */
-.jr-content {
-  max-width: var(--max-content-width); /* matches .jr-table-wrap */
+.jump-content {
+  max-width: var(--max-content-width); /* matches .jump-table-wrap */
   width: 100%;
   margin: 0; /* keep left-aligned within container */
 }
 
-.jr-header {
+.jump-header {
   display: flex;
   flex-direction: row; /* title left, meta right */
   flex-wrap: wrap;     /* allow header to grow in height on small widths */
@@ -52,7 +57,7 @@ html, body {
   position: relative;
 }
 
-.jr-right {
+.jump-right {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -62,13 +67,13 @@ html, body {
   top: 0;
 }
 
-.jr-title {
+.jump-title {
   font-weight: 650;
   letter-spacing: 0.3px;
   color: var(--text);
 }
 
-.jr-subtitle {
+.jump-subtitle {
   color: var(--muted);
   display: flex;
   align-items: center;
@@ -77,17 +82,17 @@ html, body {
   text-align: right;
 }
 
-.jr-tags {
+.jump-tags {
   margin-top: 4px;
   align-self: flex-end;
 }
 
-.jr-kv { display: inline-flex; gap: 6px; align-items: baseline; }
-.jr-k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
-.jr-v { color: var(--text); font-variant-numeric: tabular-nums; }
-.jr-sep { opacity: 0.35; }
+.jump-kv { display: inline-flex; gap: 6px; align-items: baseline; }
+.jump-k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+.jump-v { color: var(--text); font-variant-numeric: tabular-nums; }
+.jump-sep { opacity: 0.35; }
 
-.jr-section-title {
+.jump-section-title {
   color: var(--muted);
   font-size: 12px;
   text-transform: uppercase;
@@ -95,9 +100,9 @@ html, body {
   margin: 12px 0 8px;
 }
 
-.jr-tags .jr-section-title { display: none; }
+.jump-tags .jump-section-title { display: none; }
 
-.jr-taglist {
+.jump-taglist {
   /* Keep tag row in normal document flow and avoid overlapping table */
   position: static !important;
   display: flex;
@@ -115,37 +120,40 @@ html, body {
   z-index: 0;               /* sit below subsequent content if stacked */
 }
 
-.jr-tag {
+.jump-tag {
   display: inline-flex;
   gap: 10px;
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 1px 10px !important; /* enough room for dot and text */
-  color: var(--text);
   line-height: 1.2;
   min-height: 28px;
 }
+/* Higher specificity to override JupyterLab's span background reset */
+.jump-container .jump-tag {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
 /* Remove the colored dot before each tag; only SVG + name remain */
-.jr-tag::before { content: none; display: none; }
-.jr-tag-icon { opacity: 0.9; }
-.jr-tag-name { font-size: 13px; letter-spacing: 0.02em; }
+.jump-tag::before { content: none; display: none; }
+.jump-tag-icon { opacity: 0.9; }
+.jump-tag-name { font-size: 13px; letter-spacing: 0.02em; }
 
-.jr-tag--small { padding: 4px 8px; }
-.jr-tag--small .jr-tag-name { font-size: 12px; }
+.jump-tag--small { padding: 4px 8px; }
+.jump-tag--small .jump-tag-name { font-size: 12px; }
 
 /* Tag theme classes: set color via CSS custom property */
-.jr-tag--cpu-bound      { --tag-color: #ef4444; } /* red */
-.jr-tag--memory-bound   { --tag-color: #3b82f6; } /* blue */
-.jr-tag--gpu-util-bound { --tag-color: #8b5cf6; } /* violet */
-.jr-tag--gpu-memory-bound { --tag-color: #14b8a6; } /* teal */
-.jr-tag--normal         { --tag-color: #22c55e; } /* green */
-.jr-tag--unknown        { --tag-color: #9ca3af; } /* gray */
-.jr-tag--gpu-allocated-but-not-used { --tag-color: #9ca3af; } /* gray */
+.jump-tag--cpu-bound      { --tag-color: #ef4444; } /* red */
+.jump-tag--memory-bound   { --tag-color: #3b82f6; } /* blue */
+.jump-tag--gpu-util-bound { --tag-color: #8b5cf6; } /* violet */
+.jump-tag--gpu-memory-bound { --tag-color: #14b8a6; } /* teal */
+.jump-tag--normal         { --tag-color: #22c55e; } /* green */
+.jump-tag--unknown        { --tag-color: #9ca3af; } /* gray */
+.jump-tag--gpu-allocated-but-not-used { --tag-color: #9ca3af; } /* gray */
 
 /* Icon placeholder: allows inlining SVG later via --tag-icon variable */
-.jr-tag-icon {
+.jump-tag-icon {
   display: inline-flex;
   width: var(--tag-icon-size, 20px);
   height: var(--tag-icon-size, 20px);
@@ -153,7 +161,7 @@ html, body {
   justify-content: center;
 }
 /* Render masked icon only when there is no inline SVG inside */
-.jr-tag-icon:empty::before {
+.jump-tag-icon:empty::before {
   content: "";
   display: block;
   width: var(--tag-icon-size, 20px);
@@ -164,13 +172,13 @@ html, body {
   mask: var(--tag-icon) no-repeat center / contain;
 }
 /* Ensure any inline SVG scales nicely inside the placeholder */
-.jr-tag-icon svg { display: block; width: var(--tag-icon-size, 20px); height: var(--tag-icon-size, 20px); }
+.jump-tag-icon svg { display: block; width: var(--tag-icon-size, 20px); height: var(--tag-icon-size, 20px); }
 
 /* Ensure the metrics section starts on its own line in normal flow */
-.jr-metrics { display: block; clear: both; }
+.jump-metrics { display: block; clear: both; }
 
 /* Metrics table (left-aligned, constrained) */
-.jr-table-wrap {
+.jump-table-wrap {
   max-width: 720px;
   background: var(--bg);
   margin-top: 4px;
@@ -178,13 +186,13 @@ html, body {
   z-index: 1;
 }
 
-.jr-table {
+.jump-table {
   width: 100%;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
 
-.jr-table thead th {
+.jump-table thead th {
   background: var(--bg);
   color: var(--muted);
   font-weight: 600;
@@ -195,11 +203,11 @@ html, body {
   padding: 8px 8px;
 }
 
-.jr-table tbody td {
+.jump-table tbody td {
   padding: 8px 8px;
 }
 
-.jr-col-metric {
+.jump-col-metric {
   color: var(--text);
   font-weight: 500;
 }

@@ -1,38 +1,30 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JUmPER Performance Report</title>
-  <style>
-  {{ inline_styles | safe }}
-  </style>
-</head>
-<body>
-  <div class="jr-container">
-    <hr class="jr-divider" />
-    <div class="jr-content">
-      <header class="jr-header">
-        <div class="jr-title">JUmPER Performance Report</div>
-        <div class="jr-right">
-          <div class="jr-subtitle">
-            <span class="jr-kv">
-              <span class="jr-k">Duration</span>
-              <span class="jr-v">{{ '%.2f' % duration }}s</span>
+<style>
+{{ inline_styles | safe }}
+</style>
+<div class="jump-container">
+    <hr class="jump-divider" />
+    <div class="jump-content">
+      <header class="jump-header">
+        <div class="jump-title">JUmPER Performance Report</div>
+        <div class="jump-right">
+          <div class="jump-subtitle">
+            <span class="jump-kv">
+              <span class="jump-k">Duration</span>
+              <span class="jump-v">{{ '%.2f' % duration }}s</span>
             </span>
-            <span class="jr-sep">•</span>
-            <span class="jr-kv">
-              <span class="jr-k">Cells</span>
-              <span class="jr-v">{{ n_cells }}</span>
+            <span class="jump-sep">•</span>
+            <span class="jump-kv">
+              <span class="jump-k">Cells</span>
+              <span class="jump-v">{{ n_cells }}</span>
             </span>
           </div>
         </div>
       </header>
 
-      <div class="jr-taglist">
+      <div class="jump-taglist">
         {% for t in tags %}
-          <span class="jr-tag jr-tag--{{ t.slug }}">
-            <span class="jr-tag-icon" aria-hidden="true">
+          <span class="jump-tag jump-tag--{{ t.slug }}">
+            <span class="jump-tag-icon" aria-hidden="true">
               {% if t.slug == 'gpu-util-bound' %}
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 96" width="16" height="12">
                   <g fill="none" stroke="var(--tag-color, #666666)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -129,14 +121,14 @@
                 </svg>
               {% endif %}
             </span>
-            <span class="jr-tag-name">{{ t.name }}</span>
+            <span class="jump-tag-name">{{ t.name }}</span>
           </span>
         {% endfor %}
       </div>
 
-      <section class="jr-metrics">
-        <div class="jr-table-wrap">
-          <table class="jr-table" role="grid">
+      <section class="jump-metrics">
+        <div class="jump-table-wrap">
+          <table class="jump-table" role="grid">
             <thead>
               <tr>
                 <th>Metric</th>
@@ -149,7 +141,7 @@
             <tbody>
               {% for row in metrics %}
                 <tr>
-                  <td class="jr-col-metric">{{ row.name }}</td>
+                  <td class="jump-col-metric">{{ row.name }}</td>
                   <td>{{ '%.2f' % row.avg }}</td>
                   <td>{{ '%.2f' % row.min }}</td>
                   <td>{{ '%.2f' % row.max }}</td>
@@ -162,5 +154,3 @@
       </section>
     </div>
   </div>
-</body>
-</html>

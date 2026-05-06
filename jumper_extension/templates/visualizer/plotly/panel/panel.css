@@ -1,0 +1,68 @@
+/* ── Panels grid ─────────────────────────────────────────────────────────── */
+.jump-vis-panels-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.jump-vis-panel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ── Individual panel ────────────────────────────────────────────────────── */
+.jump-vis-panel {
+  flex: 1 1 0;
+  min-width: 280px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+}
+
+/* ── Panel control row (metric / level dropdowns) ────────────────────────── */
+.jump-vis-ctrl-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.jump-vis-ctrl-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.jump-vis-ctrl-row select {
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── Plot area inside each panel ─────────────────────────────────────────── */
+.jump-vis-plot-area {
+  width: 100%;
+  min-height: 220px;
+}
+
+/* ── Status messages ─────────────────────────────────────────────────────── */
+.jump-vis-no-data {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 13px;
+  padding: 20px 0;
+}
+
+.jump-vis-max-notice {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 4px 0;
+}

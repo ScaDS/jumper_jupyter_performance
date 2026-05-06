@@ -1,0 +1,10 @@
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<div class="jumper-live-grid" style="--jumper-ncols: {{ ncols }};">
+  {% for panel_id, label in panels %}
+  <div class="jumper-live-cell">
+    <div id="{{ panel_id }}" style="min-height:220px">
+      <p class="jumper-live-initializing">Initialising {{ label }}…</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>

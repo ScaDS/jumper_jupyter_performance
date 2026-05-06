@@ -1,0 +1,18 @@
+/* ── Show-idle checkbox ──────────────────────────────────────────────────── */
+.jump-vis-ctrl-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.jump-vis-ctrl-label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--slider-thumb);
+  width: 14px;
+  height: 14px;
+}

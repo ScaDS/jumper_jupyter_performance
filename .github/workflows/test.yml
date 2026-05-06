@@ -19,6 +19,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .[test]
+        pip install -e ./jumper_wrapper_kernel
 
     - name: Run tests with coverage
       run: |

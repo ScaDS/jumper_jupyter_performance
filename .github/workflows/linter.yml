@@ -17,4 +17,4 @@ jobs:
       - uses: py-actions/flake8@v2
         with:
           ignore: "E203"
-          path: "jumper_extension"
+          path: "jumper_extension jumper_wrapper_kernel/jumper_wrapper_kernel"

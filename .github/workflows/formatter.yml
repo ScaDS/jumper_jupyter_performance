@@ -9,4 +9,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: rickstaa/action-black@v1
         with:
-          black_args: "-l 79 ."
+          black_args: "-l 79 jumper_extension tests jumper_wrapper_kernel/jumper_wrapper_kernel"

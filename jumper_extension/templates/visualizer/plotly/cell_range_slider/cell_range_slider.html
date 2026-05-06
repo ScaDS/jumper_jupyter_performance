@@ -1,0 +1,19 @@
+<div class="jump-vis-range-wrap">
+  <span class="jump-vis-range-label">
+    Cell range:&nbsp;<span class="jump-vis-range-label-value"
+                           id="{{ container_id }}-range-val">{{ init_lo }}–{{ init_hi }}</span>
+  </span>
+  <div class="jump-vis-dual-range">
+    <div class="jump-vis-dual-range-track">
+      <div class="jump-vis-dual-range-fill" id="{{ container_id }}-range-fill"></div>
+    </div>
+    <input type="range"
+           id="{{ container_id }}-range-min"
+           min="{{ min_cell_index }}" max="{{ max_cell_index }}"
+           value="{{ init_lo }}" step="1">
+    <input type="range"
+           id="{{ container_id }}-range-max"
+           min="{{ min_cell_index }}" max="{{ max_cell_index }}"
+           value="{{ init_hi }}" step="1">
+  </div>
+</div>

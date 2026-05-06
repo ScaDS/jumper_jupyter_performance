@@ -1,0 +1,45 @@
+/* ── Scoped container base ───────────────────────────────────────────────── */
+/* Token fallback chain: VS Code → JupyterLab → static light value */
+.jump-vis-container {
+  --bg:           var(--vscode-editor-background,     var(--jp-layout-color0,       #ffffff));
+  --text:         var(--vscode-editor-foreground,     var(--jp-content-font-color0, #111827));
+  --muted:        var(--vscode-descriptionForeground, var(--jp-content-font-color2, #4b5563));
+  --border:       var(--vscode-widget-border,         var(--jp-border-color1,       #e5e7eb));
+  --slider-track: #d1d5db;
+  --slider-range: #6b7280;
+  --slider-thumb: #374151;
+
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Ubuntu,
+               Cantarell, Noto Sans, Arial;
+  padding: 8px 4px 4px 4px;
+}
+.jump-vis-container *,
+.jump-vis-container *::before,
+.jump-vis-container *::after { box-sizing: border-box; }
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+.jump-vis-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0 10px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+.jump-vis-logo img {
+  height: 28px;
+  width: auto;
+  vertical-align: middle;
+}
+
+.jump-vis-config-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+}

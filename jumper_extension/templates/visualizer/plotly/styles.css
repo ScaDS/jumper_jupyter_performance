@@ -1,0 +1,5 @@
+/* Styles are now split into per-component CSS files.
+   See: toolbar/toolbar.css, show_idle_checkbox/show_idle_checkbox.css,
+        cell_range_slider/cell_range_slider.css,
+        add_panel_button/add_panel_button.css, panel/panel.css
+*/

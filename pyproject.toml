@@ -12,6 +12,8 @@ requires-python = ">=3.8"
 dependencies = [
     "ipython",
     "matplotlib",
+    "plotly",
+    "kaleido",
     "pandas",
     "numpy",
     "ipympl",
@@ -20,7 +22,7 @@ dependencies = [
     "ipywidgets",
     "jinja2",
 ]
-urls = {Homepage = "https://github.com/ScaDS/jumper_ipython_extension"}
+urls = {Homepage = "https://github.com/ScaDS/jumper_jupyter_performance"}
 
 [project.entry-points."IPython.extensions"]
 jumper_extension = "jumper_extension:load_ipython_extension"
@@ -44,3 +46,5 @@ include = ["jumper_extension*"]
 
 [tool.setuptools.package-data]
 "jumper_extension.templates.report" = ["*.html", "*.css"]
+"jumper_extension.templates.visualizer.plotly" = ["**/*"]
+"jumper_extension.monitor.backends.native_c" = ["collector.c", "Makefile", "jumper_collector"]

@@ -30,4 +30,4 @@ This guide will cover saving plots or visualizer state and restoring it later fo
 
 ## Try it yourself:
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_ipython_extension/feature/binder?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fperfmonitor_pickle_plot.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_jupyter_performance/feature/binder?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fperfmonitor_pickle_plot.ipynb)

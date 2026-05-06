@@ -1,34 +1,51 @@
-site_name: JUmPER IPython Extension
-site_description: IPython extension for monitoring cell performance
-repo_url: https://github.com/ScaDS/jumper_ipython_extension
-repo_name: ScaDS/jumper_ipython_extension
+site_name: JUmPER – Jupyter meets Performance
+site_url: https://scads.github.io/jumper_jupyter_performance/
+site_description: Performance monitoring for IPython and Jupyter notebooks
+repo_url: https://github.com/ScaDS/jumper_jupyter_performance
+repo_name: ScaDS/jumper_jupyter_performance
 
 docs_dir: docs
 
 theme:
   name: material
   logo: img/JUmPER01.svg
+  custom_dir: overrides
 
 nav:
   - Home: index.md
-  - Getting started:
-      - Installation: getting-started/installation.md
-      - Quickstart: getting-started/quickstart.md
-  - How-to Guides:
-      - Session Transfer: guides/session-transfer.md
-      - Python Script Export: guides/script-export.md
-      - Plot Export: guides/plot-export.md
-  - Public API:
-      - Overview: api/index.md
-      - Jupyter API: api/jupyter.md
-      - Python API: api/python.md
-      - String Based API: api/string.md
-  - Internals:
-      - Architecture: internals/architecture.md
-      - Adapters: internals/adapters.md
-      - Core: internals/core.md
-      - IPython: internals/ipython.md
-      - Monitor: internals/monitor.md
+  - IPython Extension:
+      - Getting started:
+          - Installation: getting-started/installation.md
+          - Quickstart: getting-started/quickstart.md
+      - How-to Guides:
+          - Session Transfer: guides/session-transfer.md
+          - Python Script Export: guides/script-export.md
+          - Plot Export: guides/plot-export.md
+          - Custom Monitors: guides/custom-monitor.md
+      - Public API:
+          - Overview: api/index.md
+          - Jupyter API: api/jupyter.md
+          - Python API: api/python.md
+          - String Based API: api/string.md
+      - Internals:
+          - Architecture: internals/architecture.md
+          - Adapters: internals/adapters.md
+          - Core: internals/core.md
+          - IPython: internals/ipython.md
+          - Monitor: internals/monitor.md
+  - Wrapper Kernel:
+      - Overview: wrapper-kernel/index.md
+      - Getting started:
+          - Installation: wrapper-kernel/getting-started/installation.md
+          - Quickstart: wrapper-kernel/getting-started/quickstart.md
+      - User Guide:
+          - Magic Commands: wrapper-kernel/guides/magic-commands.md
+          - Auto-Wrap Kernels: wrapper-kernel/guides/wrap-kernel.md
+      - API Reference:
+          - Overview: wrapper-kernel/api/index.md
+          - Kernel: wrapper-kernel/api/kernel.md
+          - Installation: wrapper-kernel/api/install.md
+          - Utilities: wrapper-kernel/api/utilities.md
 
 markdown_extensions:
   - pymdownx.superfences
@@ -38,3 +55,9 @@ markdown_extensions:
 plugins:
   - search
   - mkdocstrings
+
+hooks:
+  - hooks/version_hook.py
+
+extra:
+  wrapper_version: "0.1.0"

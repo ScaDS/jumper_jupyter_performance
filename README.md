@@ -1,7 +1,8 @@
-[![Unit Tests](https://github.com/ScaDS/jumper_ipython_extension/actions/workflows/test.yml/badge.svg)](https://github.com/ScaDS/jumper_ipython_extension/actions/workflows/test.yml)
-[![Formatting](https://github.com/ScaDS/jumper_ipython_extension/actions/workflows/formatter.yml/badge.svg)](https://github.com/ScaDS/jumper_ipython_extension/actions/workflows/formatter.yml)
-[![Static Analysis](https://github.com/ScaDS/jumper_ipython_extension/actions/workflows/linter.yml/badge.svg)](https://github.com/ScaDS/jumper_ipython_extension/actions/workflows/linter.yml)
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_ipython_extension/feature/binder?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fquick_start.ipynb)
+[![Unit Tests](https://github.com/ScaDS/jumper_jupyter_performance/actions/workflows/test.yml/badge.svg)](https://github.com/ScaDS/jumper_jupyter_performance/actions/workflows/test.yml)
+[![Formatting](https://github.com/ScaDS/jumper_jupyter_performance/actions/workflows/formatter.yml/badge.svg)](https://github.com/ScaDS/jumper_jupyter_performance/actions/workflows/formatter.yml)
+[![Static Analysis](https://github.com/ScaDS/jumper_jupyter_performance/actions/workflows/linter.yml/badge.svg)](https://github.com/ScaDS/jumper_jupyter_performance/actions/workflows/linter.yml)
+[![Documentation](https://img.shields.io/badge/docs-online-blue?logo=github)](https://scads.github.io/jumper_jupyter_performance/latest/)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_jupyter_performance/feature/binder?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fquick_start.ipynb)
 
 <p align="center">
 <img width="450" src="docs/img/JUmPER01.png"/>
@@ -9,15 +10,15 @@
 
 # JUmPER: Jupyter meets Performance
 
-JUmPER brings performance engineering to Jupyter. It consists of the two repositories:
+JUmPER brings performance engineering to Jupyter. This repository contains two packages:
 
-- JUmPER Ipython extension (this repository)
+- **JUmPER IPython Extension** (`jumper_extension/`) — Real-time performance monitoring in IPython environments and Jupyter notebooks. Gather performance data on CPU usage, memory consumption, GPU utilization, and I/O operations for individual cells and present it as text reports or interactive plots.
 
-This extension is for real-time performance monitoring in IPython environments and Jupyter notebooks. It allows you to gather performance data on CPU usage, memory consumption, GPU utilization, and I/O operations for individual cells and present it in the notebook/IPython session either as text report or as a plot.
+- **JUmPER Wrapper Kernel** (`jumper_wrapper_kernel/`) — A Jupyter kernel that wraps other kernels (Python, R, Julia, etc.) while providing jumper-extension performance monitoring. See the [Wrapper Kernel](#jumper-wrapper-kernel) section below.
 
-- Score-P Jupyter kernel Python (https://github.com/score-p/scorep_jupyter_kernel_python)
+Related project:
 
-The Score-P kernel allows you to instrument, and trace or profile your Python code in Jupyter using [Score-P](https://score-p.org/) for in-detail performance analysis tasks. The Score-P kernel and the IPython extension can be seamlessly integrated.
+- [Score-P Jupyter kernel Python](https://github.com/score-p/scorep_jupyter_kernel_python) — Instrument, trace, or profile your Python code in Jupyter using [Score-P](https://score-p.org/). The Score-P kernel and the IPython extension can be seamlessly integrated.
 
 
 # Table of Content
@@ -33,6 +34,7 @@ The Score-P kernel allows you to instrument, and trace or profile your Python co
 	+ [Collected Metrics](#collected-metrics)
 * [Available Commands](#available-commands)
 * [Full Documentation](#full-documentation)
+* [JUmPER Wrapper Kernel](#jumper-wrapper-kernel)
 * [Contribution and Citing](#contribution-and-citing)
 
 ## Installation
@@ -72,7 +74,7 @@ Both GPU libraries can be installed simultaneously to monitor mixed GPU systems.
 ## Quick Start
 
 Try it yourself:
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_ipython_extension/feature/binder?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fquick_start.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_jupyter_performance/feature/binder?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fquick_start.ipynb)
 
 ### Load the Extension
 
@@ -84,10 +86,16 @@ Try it yourself:
 
 1. **Start monitoring**:
    ```python
-   %perfmonitor_start [interval]
+   %perfmonitor_start [interval] [--monitor TYPE] [--check-sanity]
    ```
 
    `interval` is an optional argument for configuring frequency of performance data gathering (in seconds), set to 1 by default. This command launches a performance monitoring daemon.
+
+   The `--monitor` option selects a backend (`default`, `native_c`, `thread`, `slurm_multinode`). The default backend is the native C collector (`native_c`); it is compiled on first use — you will see a `[JUmPER] Compiling native_c monitor binary...` message. If no C compiler is available or compilation fails, JUmPER automatically falls back to the `subprocess_python` monitor.
+
+   The optional `--check-sanity` flag runs a short validation of the selected backend (collecting a few samples, verifying expected metric columns are present, non-NaN, and non-zero) before real monitoring starts.
+
+   > **IMPORTANT.** `--check-sanity` was tailored for the `thread`, `subprocess_python` and `native_c` monitors. When used with any other monitor (e.g. `slurm_multinode`, or a custom monitor provided via the programmatic API) it is **expected to fail** because those backends populate a different set of per-level metric columns. A warning is printed in that case and the check still runs, but a failure does not necessarily indicate a broken monitor — only that the tailored check does not apply.
 
 2. **Run your code**
 
@@ -151,11 +159,66 @@ You can also run `%perfmonitor_plot` in a direct (non-widget) mode and save or e
   The command prints a small Python snippet showing how to load the pickle and display the plot in a separate session.
 
 Notes:
-- `--metrics` accepts a comma-separated list of metric keys (e.g., `cpu_summary`, `memory`, `io_read`, `io_write`, `io_read_count`, `io_write_count`, `gpu_util_summary`, `gpu_band_summary`, `gpu_mem_summary`).
+- `--metrics` accepts a comma-separated list of metric keys (see [Available Metric Keys](#available-metric-keys) below).
 - `--level` supports the same levels as reports: `process` (default), `user`, `system`, and `slurm` (if available).
 - `--cell` supports formats like `5`, `2:8`, `:5`, `3:`. Negative indices are supported (e.g., `-3:-1`).
 
+### Live plotting mode
 
+The `--live` flag enables a continuously updating plot that shows a sliding window of recent performance data. Panels auto-update in the background without blocking cell execution.
+
+- **Start live plotting with defaults** (2s update interval, 120s window, shows CPU and Memory):
+  ```python
+  %perfmonitor_plot --live
+  ```
+
+- **Custom update interval and window size:**
+  ```python
+  %perfmonitor_plot --live 1.0 60
+  ```
+  Updates every 1 second, showing the last 60 seconds of data.
+
+- **Select specific metrics for live panels:**
+  ```python
+  %perfmonitor_plot --live --metrics cpu_summary,memory
+  ```
+
+- **Monitor I/O alongside CPU:**
+  ```python
+  %perfmonitor_plot --live --metrics cpu_summary,io_read,io_write
+  ```
+
+- **GPU monitoring (requires pynvml or ADLXPybind):**
+  ```python
+  %perfmonitor_plot --live --metrics gpu_util_summary,gpu_mem_summary
+  ```
+
+Notes:
+- Without `--metrics`, live mode shows two default panels (typically CPU and Memory).
+- With `--metrics`, one panel is created per metric key specified.
+- Live updates stop automatically when the monitor stops or the kernel is interrupted.
+- The `--live` flag accepts up to two optional float arguments: update interval (default 2.0s) and sliding window size (default 120s).
+
+### Available Metric Keys
+
+The following metric keys can be used with `--metrics` for both direct and live plotting:
+
+| Metric Key | Description |
+|------------|-------------|
+| `cpu_summary` | CPU utilization summary (min/avg/max across CPUs) |
+| `memory` | Memory usage in GB |
+| `io_read` | I/O read throughput (MB/s) |
+| `io_write` | I/O write throughput (MB/s) |
+| `io_read_count` | I/O read operations per second |
+| `io_write_count` | I/O write operations per second |
+| `gpu_util_summary` | GPU utilization summary (min/avg/max across GPUs) |
+| `gpu_band_summary` | GPU memory bandwidth summary (min/avg/max) |
+| `gpu_mem_summary` | GPU memory usage summary (min/avg/max) |
+| `gpu_util` | GPU utilization per GPU |
+| `gpu_band` | GPU memory bandwidth per GPU |
+| `gpu_mem` | GPU memory usage per GPU |
+
+*GPU metric keys are only available when GPU monitoring libraries are installed.*
 
 5. **View cell execution history**:
    ```python
@@ -175,6 +238,16 @@ Notes:
    %perfmonitor_export_cell_history my_cells.json
    ```
    Export performance measurements for entire notebook and cell execution history with timestamps, allowing you to project measurements onto specific cells.
+
+### Custom Monitors
+
+Any object implementing `MonitorProtocol`
+(`jumper_extension/monitor/common.py`) can be plugged in via the
+`monitor=` argument of `service.start_monitoring` — see
+[`jumper_extension/monitor/README.md`](jumper_extension/monitor/README.md)
+for a worked `SlurmMultinodeMonitor` example and the full
+[Custom Monitors guide](https://scads.github.io/jumper_jupyter_performance/latest/guides/custom-monitor/)
+for a step-by-step walkthrough.
 
 ### Monitoring Right in Your Code
 Run the monitor around any code block and save its performance profile to CSV/JSON.
@@ -226,7 +299,7 @@ The extension supports four different levels of metric collection, each providin
 
 ## Full Documentation
 
-- Online (latest): https://scads.github.io/jumper_ipython_extension/latest/
+- Online (latest): https://scads.github.io/jumper_jupyter_performance/latest/
 - Local sources: `docs/` (serve locally with `mkdocs serve`)
 
 
@@ -240,12 +313,69 @@ The extension supports four different levels of metric collection, each providin
 | `%perfmonitor_start [interval]` | Start monitoring (default: 1 second interval) |
 | `%perfmonitor_stop` | Stop monitoring |
 | `%perfmonitor_perfreport [--cell RANGE] [--level LEVEL]` | Show performance report for specific cell range and monitoring level |
-| `%perfmonitor_plot [--metrics LIST] [--cell RANGE] [--level LEVEL] [--save-jpeg FILE] [--pickle FILE]` | Interactive plot with widgets; direct plotting of selected metrics; optional export to JPEG or pickle |
+| `%perfmonitor_plot [--metrics LIST] [--cell RANGE] [--level LEVEL] [--save-jpeg FILE] [--pickle FILE] [--live [INTERVAL WINDOW]]` | Interactive plot with widgets; direct plotting of selected metrics; live updating plots; optional export to JPEG or pickle |
 | `%cell_history` | Show execution history of all cells with interactive table |
 | `%perfmonitor_enable_perfreports` | Auto-generate reports after each cell |
 | `%perfmonitor_disable_perfreports` | Disable auto-reports |
 | `%perfmonitor_export_perfdata [--file filename] [--level LEVEL]` | Export performance data to dataframe. Export performance data to CSV if `--file` is set. |
 | `%perfmonitor_export_cell_history [filename]` | Export cell history to CSV/JSON |
+
+## JUmPER Wrapper Kernel
+
+The Jumper Wrapper Kernel is a Jupyter kernel that wraps other kernels while providing jumper-extension performance monitoring capabilities.
+
+### Installation
+
+```bash
+# Install the wrapper kernel (also installs jumper-extension as a dependency)
+pip install jumper_wrapper_kernel
+
+# Install the kernel spec
+python -m jumper_wrapper_kernel.install install
+```
+
+Or install from source:
+
+```bash
+pip install ./jumper_wrapper_kernel
+python -m jumper_wrapper_kernel.install install
+```
+
+### Usage
+
+1. Start Jupyter Notebook or JupyterLab
+2. Select **Jumper Wrapper Kernel** as your kernel
+3. Use the magic commands:
+
+```python
+# List available kernels
+%list_kernels
+
+# Wrap a kernel (e.g. Python, R, Julia)
+%wrap_kernel python3
+
+# Start performance monitoring (handled locally)
+%perfmonitor_start
+
+# Run code on the wrapped kernel
+import numpy as np
+x = np.random.rand(1000, 1000)
+y = np.dot(x, x.T)
+
+# View performance report (handled locally)
+%perfmonitor_perfreport
+```
+
+### Wrapper Kernel Demos
+
+- **How to Wrap a Kernel: Basic R Kernel Example**\
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_jupyter_performance/main?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fnew_R_wrapping.ipynb)
+
+- **H2O-Wrapped Tutorial**\
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_jupyter_performance/main?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fh2o-wrapper-tutorial.ipynb)
+
+For full wrapper kernel documentation, see the [Wrapper Kernel docs](https://scads.github.io/jumper_jupyter_performance/latest/wrapper-kernel/).
+
 
 ## Contribution and Citing:
 PRs are welcome. Feel free to use the pre-commit hooks provided in .githooks

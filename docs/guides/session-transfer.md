@@ -26,4 +26,4 @@ This guide will show how to export a monitoring session and import it on another
 
 ## Try it yourself:
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_ipython_extension/feature/binder?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fexport_session.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ScaDS/jumper_jupyter_performance/feature/binder?urlpath=%2Fdoc%2Ftree%2Fdemos%2Fexport_session.ipynb)

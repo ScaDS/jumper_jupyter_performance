@@ -1,0 +1,11 @@
+<div class="jumper-live-header">
+  <b>Live Performance Monitor</b>
+  <span class="jumper-live-status-wrap">
+    <span id="jumper-status-{{ session_id }}" class="jumper-live-status">&#9679; Live</span>
+    <span class="jumper-live-timing">window {{ window_seconds }}s / update {{ update_interval }}s</span>
+  </span>
+  <img src="{{ logo_src }}" alt="JUmPER" class="jumper-live-logo" onerror="this.style.display='none'">
+</div>
+<p class="jumper-live-panels">
+  Panels: {{ panel_labels }} (level: {{ level }}).
+</p>

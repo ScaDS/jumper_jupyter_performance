@@ -55,12 +55,8 @@ def mock_cpu_base():
         mock_mem.return_value.total = 8 * 1024**3
         mock_mem.return_value.available = 4 * 1024**3
         mock_proc.return_value.cpu_affinity.return_value = [0, 1, 2, 3]
-        mock_proc.return_value.cpu_percent.return_value = [
-            25.0,
-            25.0,
-            25.0,
-            25.0,
-        ]
+        # psutil.Process.cpu_percent() returns a single float value
+        mock_proc.return_value.cpu_percent.return_value = 25.0
         mock_proc.return_value.memory_full_info.return_value.uss = 2 * 1024**3
         mock_proc.return_value.io_counters.return_value = Mock(
             read_count=100, write_count=50, read_bytes=1024, write_bytes=512

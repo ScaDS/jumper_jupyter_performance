@@ -1,4 +1,5 @@
 import logging
+import shlex
 from contextlib import contextmanager
 from typing import Optional, Tuple, List, Dict, Iterator
 
@@ -8,6 +9,7 @@ from jumper_extension.adapters.script_writer import NotebookScriptWriter
 from jumper_extension.core.parsers import (
     parse_cell_range,
     parse_arguments,
+    build_perfmonitor_start_parser,
     build_perfreport_parser,
     build_auto_perfreports_parser,
     build_perfmonitor_plot_parser,
@@ -26,9 +28,10 @@ from jumper_extension.core.messages import (
     EXTENSION_ERROR_MESSAGES,
     EXTENSION_INFO_MESSAGES,
 )
-from jumper_extension.monitor.common import MonitorProtocol, PerformanceMonitor
+from jumper_extension.monitor.common import MonitorProtocol
+from jumper_extension.monitor.backends.thread import PerformanceMonitor
 from jumper_extension.adapters.session import SessionExporter, SessionImporter
-from jumper_extension.adapters.visualizer import build_performance_visualizer, \
+from jumper_extension.adapters.visualizer.visualizer import build_performance_visualizer, \
     VisualizerProtocol
 from jumper_extension.adapters.reporter import PerformanceReporter, build_performance_reporter
 from jumper_extension.adapters.cell_history import CellHistory
@@ -80,6 +83,41 @@ class PerfmonitorService:
         self.cell_history = cell_history
         self.script_writer = script_writer
         self._skip_report = False
+
+    @staticmethod
+    def _create_monitor(monitor_type: str = "default") -> MonitorProtocol:
+        """Create a monitor instance based on the requested type.
+
+        Args:
+            monitor_type: ``"default"`` for the best available backend
+                (native_c if compiled and healthy, else subprocess
+                Python), ``"thread"`` for the in-process threaded
+                monitor, ``"slurm_multinode"`` for the multi-node
+                SLURM monitor.
+
+        Returns:
+            A monitor satisfying :class:`MonitorProtocol`.
+        """
+        if monitor_type == "thread":
+            return PerformanceMonitor()
+        if monitor_type == "native_c":
+            from jumper_extension.monitor.backends.native_c import CSubprocessPerformanceMonitor
+            return CSubprocessPerformanceMonitor()
+        if monitor_type == "slurm_multinode":
+            from jumper_extension.monitor.backends.slurm_multinode import SlurmMultinodeMonitor
+            return SlurmMultinodeMonitor()
+        # default: try native_c first, fall back to subprocess Python
+        try:
+            from jumper_extension.monitor.backends.native_c.build import ensure_native_c
+            if ensure_native_c():
+                from jumper_extension.monitor.backends.native_c import CSubprocessPerformanceMonitor
+                logger.info("[JUmPER] Using native_c monitor (compiled C collector).")
+                return CSubprocessPerformanceMonitor()
+        except Exception:
+            pass
+        from jumper_extension.monitor.backends.subprocess_python import SubprocessPerformanceMonitor
+        logger.info("[JUmPER] Using subprocess_python monitor (Python collector).")
+        return SubprocessPerformanceMonitor()
 
     def on_pre_run_cell(
         self,
@@ -176,6 +214,9 @@ class PerfmonitorService:
     def start_monitoring(
         self,
         interval: Optional[float] = None,
+        monitor_type: str = "default",
+        check_sanity: bool = False,
+        monitor: Optional[MonitorProtocol] = None,
     ) -> Optional[ExtensionErrorCode]:
         """Start performance monitoring.
 
@@ -187,6 +228,10 @@ class PerfmonitorService:
             interval: Sampling interval in seconds. If ``None``, the
                 value from ``settings.monitoring.default_interval`` is
                 used.
+            monitor_type: Monitor backend to use. ``"default"`` uses
+                the standard single-node :class:`PerformanceMonitor`.
+                ``"slurm_multinode"`` uses the multi-node SLURM
+                monitor that connects to all allocated nodes via SSH.
 
         Returns:
             Optional[ExtensionErrorCode]: An error code if monitoring
@@ -200,10 +245,20 @@ class PerfmonitorService:
             Start monitoring with a custom interval::
 
                 service.start_monitoring(interval=0.5)
+
+            Start multi-node SLURM monitoring::
+
+                service.start_monitoring(monitor_type="slurm_multinode")
         """
-        # If an imported (offline) session is currently attached, swap to a live monitor
-        if self.monitor.is_imported:
-            self.monitor = PerformanceMonitor()
+        # If an imported (offline) session is currently attached, or the
+        # monitor has not been started yet, install the requested monitor.
+        # A user-supplied instance takes precedence over the built-in
+        # factory so custom backends can be plugged in.
+        if not self.monitor.running:
+            if monitor is not None:
+                self.monitor = monitor
+            else:
+                self.monitor = self._create_monitor(monitor_type)
 
         if self.monitor.running:
             logger.warning(
@@ -215,6 +270,26 @@ class PerfmonitorService:
             interval = self.settings.monitoring.default_interval
         else:
             self.settings.monitoring.user_interval = interval
+
+        if check_sanity:
+            from jumper_extension.monitor.sanity import (
+                is_supported_monitor,
+                run_sanity_check,
+            )
+            if is_supported_monitor(self.monitor) and monitor is None:
+                # Use a throw-away instance so the real monitor starts
+                # with a clean state.
+                sanity_monitor = self._create_monitor(monitor_type)
+                run_sanity_check(sanity_monitor)
+            else:
+                msg = (
+                    f"[JUmPER] --check-sanity was tailored for the "
+                    f"'thread', 'subprocess_python' and 'native_c' monitors. "
+                    f"'{type(self.monitor).__name__}' is not supported by "
+                    f"the tailored check; skipping sanity check."
+                )
+                logger.warning(msg)
+                print(msg)
 
         self.monitor.start(interval)
         self.settings.monitoring.running = self.monitor.running
@@ -246,6 +321,8 @@ class PerfmonitorService:
         level: Optional[str] = None,
         save_jpeg: Optional[str] = None,
         pickle_file: Optional[str] = None,
+        backend: Optional[str] = None,
+        live: Optional[Tuple[float, float]] = None,
     ) -> None:
         """Open an interactive performance plot.
 
@@ -254,6 +331,15 @@ class PerfmonitorService:
         ``level`` is provided (or inferred for exports), the plot is
         rendered directly without ipywidgets, which also enables JPEG
         and pickle exports.
+
+        Args:
+            metrics: Optional list of metric subset names to plot
+            cell_range: Optional tuple of (start_idx, end_idx) for cell range
+            level: Optional performance level for direct plotting
+            save_jpeg: Optional path to save plot as JPEG
+            pickle_file: Optional path to serialize plot data
+            backend: Optional visualizer backend ("matplotlib" or "plotly")
+            live: If set, tuple of (update_interval, window_seconds) for live plotting
 
         Returns:
             None
@@ -265,18 +351,49 @@ class PerfmonitorService:
             ...     level="process",
             ...     cell_range=(0, 3),
             ... )
+            >>> service.plot_performance(live=(2.0, 120.0))
         """
         if not self.monitor.running and not self.monitor.is_imported:
             logger.warning(
                 EXTENSION_ERROR_MESSAGES[ExtensionErrorCode.NO_ACTIVE_MONITOR]
             )
             return
+        
+        if live is not None and self.monitor.is_imported:
+            logger.warning(
+                "Live plotting is not available for imported sessions. "
+                "Use regular plotting instead."
+            )
+            return
+        
         if self.monitor.is_imported:
             logger.info(
                 EXTENSION_INFO_MESSAGES[ExtensionInfoCode.IMPORTED_SESSION_PLOT].format(
                     source=self.monitor.session_source
                 )
             )
+
+        selected_backend = (
+            (backend or self.settings.visualizer_backend) or "matplotlib"
+        )
+        selected_backend = selected_backend.strip().lower()
+        if backend:
+            self.settings.visualizer_backend = selected_backend
+
+        current_backend = (
+            "plotly"
+            if self.visualizer.__class__.__name__
+            == "PlotlyPerformanceVisualizer"
+            else "matplotlib"
+        )
+        if selected_backend != current_backend:
+            self.visualizer = build_performance_visualizer(
+                self.cell_history,
+                plots_disabled=False,
+                plots_disabled_reason="Plotting not available.",
+                backend=selected_backend,
+            )
+            self.visualizer.attach(self.monitor)
 
         effective_level = level
 
@@ -296,13 +413,23 @@ class PerfmonitorService:
                 )
                 return
 
-        self.visualizer.plot(
-            metric_subsets=metrics,
-            cell_range=cell_range,
-            level=effective_level,
-            save_jpeg=save_jpeg,
-            pickle_file=pickle_file,
-        )
+        if live is not None:
+            update_interval, window_seconds = live
+            self.visualizer.plot_live(
+                metric_subsets=metrics,
+                cell_range=cell_range,
+                level=effective_level,
+                update_interval=update_interval,
+                window_seconds=window_seconds,
+            )
+        else:
+            self.visualizer.plot(
+                metric_subsets=metrics,
+                cell_range=cell_range,
+                level=effective_level,
+                save_jpeg=save_jpeg,
+                pickle_file=pickle_file,
+            )
 
     def enable_perfreports(
         self,
@@ -745,10 +872,9 @@ class PerfmonitorMagicAdapter:
 
     def perfmonitor_start(self, line: str):
         """Start performance monitoring with specified interval (default: 1 second)."""
-        interval = None
         if line:
             try:
-                interval = float(line)
+                tokens = shlex.split(line)
             except ValueError:
                 logger.warning(
                     EXTENSION_ERROR_MESSAGES[
@@ -756,11 +882,45 @@ class PerfmonitorMagicAdapter:
                     ].format(interval=line)
                 )
                 return
-        self.service.start_monitoring(interval)
+
+            if tokens and tokens[0] != "--monitor":
+                try:
+                    float(tokens[0])
+                except ValueError:
+                    logger.warning(
+                        EXTENSION_ERROR_MESSAGES[
+                            ExtensionErrorCode.INVALID_INTERVAL_VALUE
+                        ].format(interval=tokens[0])
+                    )
+                    return
+
+        args = parse_arguments(self.parsers.perfmonitor_start, line)
+        if args is None:
+            return
+        self.service.start_monitoring(
+            interval=args.interval,
+            monitor_type=args.monitor,
+            check_sanity=args.check_sanity,
+        )
 
     def perfmonitor_stop(self, line: str):
         """Stop the active performance monitoring session."""
         self.service.stop_monitoring()
+
+    @staticmethod
+    def _parse_live_args(live_list):
+        """Parse --live argument list into (interval, window) tuple.
+
+        ``--live``           → (2.0, 120.0)
+        ``--live 1.0``       → (1.0, 120.0)
+        ``--live 2.0 60``    → (2.0, 60.0)
+        """
+        defaults = (2.0, 120.0)
+        if not live_list:
+            return defaults
+        interval = live_list[0] if len(live_list) >= 1 else defaults[0]
+        window = live_list[1] if len(live_list) >= 2 else defaults[1]
+        return (interval, window)
 
     def perfmonitor_plot(self, line: str):
         """Open interactive plot or direct plot/export of performance data."""
@@ -784,6 +944,8 @@ class PerfmonitorMagicAdapter:
             level=args.level,
             save_jpeg=args.save_jpeg,
             pickle_file=args.pickle_file,
+            backend=args.backend,
+            live=self._parse_live_args(args.live) if hasattr(args, 'live') and args.live is not None else None,
         )
 
     def perfmonitor_enable_perfreports(self, line: str):
@@ -861,7 +1023,7 @@ class PerfmonitorMagicAdapter:
             "perfmonitor_help -- show this comprehensive help",
             "perfmonitor_resources -- show available hardware resources",
             "show_cell_history -- show interactive table of cell execution history",
-            "perfmonitor_start [interval] -- start monitoring (default: 1 second)",
+            "perfmonitor_start [interval] [--monitor TYPE] -- start monitoring (default: 1s, monitor=default)",
             "perfmonitor_stop -- stop monitoring",
             "perfmonitor_perfreport [--cell RANGE] [--level LEVEL] -- show report",
             "perfmonitor_plot -- interactive plot with widgets for data exploration",
@@ -887,6 +1049,11 @@ class PerfmonitorMagicAdapter:
         available_levels = get_available_levels()
         if "slurm" in available_levels:
             print("  slurm   -- processes within current SLURM job (HPC environments)")
+
+        print("\nMonitor Types:")
+        print("  default           -- standard single-node monitoring (default)")
+        print("  slurm_multinode  -- multi-node SLURM monitoring via SSH")
+        print("                      (writes results to jumper_multinode.jsonl)")
 
         print("\nCell Range Formats:")
         print("  5       -- single cell (cell #5)")
@@ -966,7 +1133,8 @@ def build_perfmonitor_service(
         plots_disabled: bool = False,
         plots_disabled_reason: str = "Plotting not available.",
         display_disabled: bool = False,
-        display_disabled_reason: str = "Display not available."
+        display_disabled_reason: str = "Display not available.",
+        visualizer_backend: str = "matplotlib",
 ) -> PerfmonitorService:
     """Build a new :class:`PerfmonitorService` instance.
 
@@ -980,6 +1148,8 @@ def build_perfmonitor_service(
         display_disabled: If ``True``, disable rich display for reports.
         display_disabled_reason: Human-readable reason shown when rich
             display is disabled.
+        visualizer_backend: Visualizer backend to use. Supported values:
+            ``"matplotlib"`` (default) and ``"plotly"``.
 
     Returns:
         PerfmonitorService: A fully initialized service instance.
@@ -989,12 +1159,18 @@ def build_perfmonitor_service(
         >>> service = build_perfmonitor_service()
     """
     settings = Settings()
+    settings.visualizer_backend = (
+        visualizer_backend.strip().lower()
+        if visualizer_backend
+        else "matplotlib"
+    )
     monitor = PerformanceMonitor()
     cell_history = CellHistory()
     visualizer = build_performance_visualizer(
         cell_history,
         plots_disabled=plots_disabled,
         plots_disabled_reason=plots_disabled_reason,
+        backend=visualizer_backend,
     )
     reporter = build_performance_reporter(
         cell_history,
@@ -1017,7 +1193,8 @@ def build_perfmonitor_magic_adapter(
         plots_disabled: bool = False,
         plots_disabled_reason: str = "Plotting not available.",
         display_disabled: bool = False,
-        display_disabled_reason: str = "Display not available."
+        display_disabled_reason: str = "Display not available.",
+        visualizer_backend: str = "matplotlib",
 ) -> PerfmonitorMagicAdapter:
     """Build a new :class:`PerfmonitorMagicAdapter` instance.
 
@@ -1032,6 +1209,8 @@ def build_perfmonitor_magic_adapter(
         display_disabled: If ``True``, disable rich display for reports.
         display_disabled_reason: Human-readable reason shown when rich
             display is disabled.
+        visualizer_backend: Visualizer backend to use. Supported values:
+            ``"matplotlib"`` (default) and ``"plotly"``.
 
     Returns:
         PerfmonitorMagicAdapter: Adapter instance wrapping the service.
@@ -1047,9 +1226,11 @@ def build_perfmonitor_magic_adapter(
         plots_disabled_reason=plots_disabled_reason,
         display_disabled=display_disabled,
         display_disabled_reason=display_disabled_reason,
+        visualizer_backend=visualizer_backend,
     )
 
     parsers = ArgParsers(
+        perfmonitor_start=build_perfmonitor_start_parser(),
         perfreport=build_perfreport_parser(),
         auto_perfreports=build_auto_perfreports_parser(),
         perfmonitor_plot=build_perfmonitor_plot_parser(),

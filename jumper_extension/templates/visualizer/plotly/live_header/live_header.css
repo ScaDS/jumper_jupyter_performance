@@ -1,0 +1,27 @@
+.jumper-live-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.jumper-live-status {
+    color: green;
+    font-weight: bold;
+}
+
+.jumper-live-timing {
+    color: #666;
+    margin-left: 8px;
+}
+
+.jumper-live-logo {
+    height: auto;
+    width: 100px;
+}
+
+.jumper-live-panels {
+    color: #666;
+    font-size: 0.9em;
+}

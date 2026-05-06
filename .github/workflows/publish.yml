@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - 'wrapper-v*'
 jobs:
   wait-for-checks:
     runs-on: ubuntu-latest
@@ -19,8 +20,9 @@ jobs:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         wait-interval: 120
 
-  build:
+  build-extension:
     needs: [wait-for-checks]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     steps:
@@ -34,7 +36,6 @@ jobs:
 
     - name: Validate version
       run: |
-        # Extract versions
         PYPROJECT_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])" 2>/dev/null || python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
 
@@ -51,11 +52,47 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: dist
+        name: dist-extension
         path: dist/
 
-  publish:
-    needs: [build]
+  build-wrapper-kernel:
+    needs: [wait-for-checks]
+    if: startsWith(github.ref, 'refs/tags/wrapper-v')
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+        cache: 'pip'
+
+    - name: Validate version
+      run: |
+        PYPROJECT_VERSION=$(python -c "import toml; print(toml.load('jumper_wrapper_kernel/pyproject.toml')['project']['version'])" 2>/dev/null || python -c "import tomllib; print(tomllib.load(open('jumper_wrapper_kernel/pyproject.toml', 'rb'))['project']['version'])")
+        TAG_VERSION=${GITHUB_REF#refs/tags/wrapper-v}
+
+        if [[ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]]; then
+          echo "ERROR: Tag version ($TAG_VERSION) != pyproject.toml version ($PYPROJECT_VERSION)"
+          exit 1
+        fi
+
+    - name: Build package
+      run: |
+        python -m pip install --upgrade pip build
+        python -m build jumper_wrapper_kernel
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-wrapper-kernel
+        path: jumper_wrapper_kernel/dist/
+
+  publish-extension:
+    needs: [build-extension]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -70,7 +107,36 @@ jobs:
     - name: Download build artifacts
       uses: actions/download-artifact@v4
       with:
-        name: dist
+        name: dist-extension
+        path: dist/
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*
+        generate_release_notes: true
+
+  publish-wrapper-kernel:
+    needs: [build-wrapper-kernel]
+    if: startsWith(github.ref, 'refs/tags/wrapper-v')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/jumper-wrapper-kernel
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-wrapper-kernel
         path: dist/
 
     - name: Publish to PyPI

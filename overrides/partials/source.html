@@ -1,0 +1,43 @@
+<!-- Repository information (extended with wrapper kernel) -->
+<style>
+  .md-header__source {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+  }
+  .md-header__source .md-source {
+    flex-shrink: 0 !important;
+  }
+  .md-source .md-source__version {
+    display: block;
+    font-size: 0.6rem;
+    opacity: 0.75;
+    white-space: nowrap;
+  }
+</style>
+
+<!-- Original repo source -->
+<a href="{{ config.repo_url }}" title="{{ lang.t('source') }}" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    {% set icon = config.theme.icon.repo or "fontawesome/brands/git-alt" %}
+    {% include ".icons/" ~ icon ~ ".svg" %}
+  </div>
+  <div class="md-source__repository">
+    {{ config.repo_name }}
+  </div>
+</a>
+
+<!-- Wrapper kernel package info -->
+<a href="{{ config.repo_url }}/tree/main/jumper_wrapper_kernel" title="Wrapper Kernel" class="md-source">
+  <div class="md-source__icon md-icon">
+    {% include ".icons/fontawesome/solid/cubes.svg" %}
+  </div>
+  <div class="md-source__repository">
+    jumper-wrapper-kernel
+    <span class="md-source__version">v{{ config.extra.wrapper_version }}</span>
+  </div>
+</a>

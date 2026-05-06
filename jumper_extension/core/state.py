@@ -78,12 +78,14 @@ class Settings:
         monitoring: Settings for the monitoring loop.
         export_vars: Names for exported data variables.
         loaded_vars: Names for loaded data variables.
+        visualizer_backend: Default backend used for plotting.
     """
 
     perfreports: PerfomanceReports = field(default_factory=PerfomanceReports)
     monitoring: PerformanceMonitoring = field(default_factory=PerformanceMonitoring)
     export_vars: ExportVars = field(default_factory=ExportVars)
     loaded_vars: LoadedVars = field(default_factory=LoadedVars)
+    visualizer_backend: str = "matplotlib"
 
     def snapshot(self) -> "Settings":
         """Return a deep copy of the current settings.

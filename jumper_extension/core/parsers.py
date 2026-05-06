@@ -11,6 +11,7 @@ from jumper_extension.utilities import get_available_levels
 @dataclass
 class ArgParsers:
     """Configuration for command-line argument parsers."""
+    perfmonitor_start: argparse.ArgumentParser
     perfreport: argparse.ArgumentParser
     auto_perfreports: argparse.ArgumentParser
     perfmonitor_plot: argparse.ArgumentParser
@@ -20,6 +21,37 @@ class ArgParsers:
     import_cell_history: argparse.ArgumentParser
     export_session: argparse.ArgumentParser
     import_session: argparse.ArgumentParser
+
+
+def build_perfmonitor_start_parser() -> argparse.ArgumentParser:
+    """Build an ArgumentParser for the perfmonitor_start command."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "interval",
+        nargs="?",
+        type=float,
+        default=None,
+        help="Sampling interval in seconds (default: 1.0)",
+    )
+    parser.add_argument(
+        "--monitor",
+        type=str,
+        default="default",
+        choices=["default", "native_c", "thread", "slurm_multinode"],
+        help="Monitor backend to use (default: subprocess-based Python collector, "
+             "'native_c' for native C collector, "
+             "'thread' for in-process threaded monitor)",
+    )
+    parser.add_argument(
+        "--check-sanity",
+        dest="check_sanity",
+        action="store_true",
+        help="Run a short sanity check of the selected monitor before "
+             "starting real monitoring. Tailored for thread, "
+             "subprocess_python and native_c monitors; other monitors "
+             "are expected to fail this check.",
+    )
+    return parser
 
 
 def build_perfreport_parser() -> argparse.ArgumentParser:
@@ -71,6 +103,20 @@ def build_perfmonitor_plot_parser() -> argparse.ArgumentParser:
         dest="pickle_file",
         type=str,
         help="Serialize plot data to a pickle file"
+    )
+    parser.add_argument(
+        "--backend",
+        choices=["matplotlib", "plotly"],
+        help="Visualizer backend for this plot command",
+    )
+    parser.add_argument(
+        "--live",
+        nargs="*",
+        type=float,
+        metavar=("INTERVAL", "WINDOW"),
+        help="Enable live-updating plots. Optional args: INTERVAL (update rate "
+             "in seconds, default 2.0) and WINDOW (sliding window in seconds, "
+             "default 120). E.g. --live, --live 1.0, --live 2.0 60"
     )
     return parser
 
@@ -157,7 +203,7 @@ def parse_arguments(parser: argparse.ArgumentParser, line: str) -> Optional[argp
             if line
             else parser.parse_args([])
         )
-    except Exception:
+    except (SystemExit, Exception):
         args = None
     return args
 

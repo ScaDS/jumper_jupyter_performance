@@ -53,7 +53,7 @@ class DropCellTransformer:
 
 def load_ipython_extension(ipython):
     global _perfmonitor_magics
-    magic_adapter = build_perfmonitor_magic_adapter()
+    magic_adapter = build_perfmonitor_magic_adapter(visualizer_backend='plotly')
 
     tm = ipython.input_transformer_manager
     drop_transformer = DropCellTransformer(

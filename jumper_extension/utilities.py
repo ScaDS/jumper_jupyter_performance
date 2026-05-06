@@ -31,7 +31,10 @@ def filter_perfdata(cell_history_data, perfdata, compress_idle=True):
 
         if masks:
             combined_mask = pd.concat(masks, axis=1).any(axis=1)
-            return perfdata[combined_mask]
+            # Use .values to avoid IndexingError when perfdata has
+            # a non-unique or misaligned index (e.g. multi-level data
+            # at high sampling frequencies).
+            return perfdata.loc[combined_mask.values]
         else:
             return perfdata.iloc[0:0]
     else:
