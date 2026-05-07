@@ -389,7 +389,7 @@ A handler converts the value returned by `collect()` into DataFrame columns. Bui
 
 > **Note.** Handlers are also resolved via `_target_:`, so a custom handler can live anywhere — point `_target_:` at it and it works.
 
-`NetworkCollector` returns `list[int]` cumulative byte/packet counters → pair it with `CumulativeRateHandler` to get bytes/s and packets/s automatically.
+`NetworkCollector` returns `list[int]` cumulative byte/packet counters - so we can pair it with existing `CumulativeRateHandler` to get bytes/s and packets/s automatically.
 
 ### Step 3 — Register in `collectors.yaml`
 
@@ -407,7 +407,7 @@ collectors:
 
 #### The `inject:` key
 
-`inject:` lists `PerformanceMonitor` attributes your collector receives as constructor arguments. Use it when your collector needs monitor-level context:
+`inject:` lists all `PerformanceMonitor` attributes you may need in your collector. All collectors receive `inject` list as constructor arguments. Use it when your collector needs monitor-level context:
 
 | Value | Type | What you get |
 |-------|------|-------------|
