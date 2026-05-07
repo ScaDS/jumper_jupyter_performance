@@ -149,11 +149,9 @@ class SessionExporter:
                 "cell_history": list(ch_df.columns),
             },
             "visualizer": {
-                "default_metric_subsets": [
-                    "cpu",
-                    "mem",
-                    "io",
-                ] + (["gpu", "gpu_all"] if hardware.num_gpus else []),
+                "default_metric_subsets": list(
+                    getattr(self.visualizer, "default_subsets", ("cpu", "mem", "io"))
+                ) + (["gpu", "gpu_all"] if hardware.num_gpus else []),
                 "figsize": list(getattr(self.visualizer, "figsize", (5, 3))),
                 "io_window": getattr(self.visualizer, "_io_window", None),
                 "last_state": {},
