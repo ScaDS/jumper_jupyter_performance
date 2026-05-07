@@ -1,3 +1,5 @@
+default_subsets: [cpu, mem, io, network]
+
 subsets:
 
   cpu_all:
