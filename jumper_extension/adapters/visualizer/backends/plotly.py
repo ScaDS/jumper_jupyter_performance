@@ -500,7 +500,7 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
 
     def plot(
         self,
-        metric_subsets=("cpu", "mem", "io"),
+        metric_subsets=None,
         cell_range=None,
         show_idle=False,
         level=None,
@@ -510,9 +510,13 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
         """Plot performance metrics using a self-contained pure HTML/JS output."""
         metrics_missing = not metric_subsets
         if metrics_missing:
-            metric_subsets = ("cpu", "mem", "io")
+            metric_subsets = self.default_subsets
             if self._hardware and self._hardware.num_gpus:
-                metric_subsets += ("gpu", "gpu_all")
+                gpu_extra = tuple(
+                    s for s in ("gpu", "gpu_all")
+                    if s not in metric_subsets
+                )
+                metric_subsets = metric_subsets + gpu_extra
 
         valid_cells = self.cell_history.view()
         if len(valid_cells) == 0:

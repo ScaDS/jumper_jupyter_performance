@@ -39,7 +39,7 @@ class VisualizerProtocol(Protocol):
     def attach(self, monitor: MonitorProtocol) -> None: ...
     def plot(
         self,
-        metric_subsets=("cpu", "mem", "io"),
+        metric_subsets=None,
         cell_range=None,
         show_idle=False,
         level=None,
@@ -64,6 +64,7 @@ class PerformanceVisualizer:
         self.min_duration = None
         self._io_window = None
         self.subsets = {}
+        self.default_subsets: tuple[str, ...] = ("cpu", "mem", "io")
         self._hardware = None  # cached NodeInfo aggregate, populated in attach()
 
     def attach(
@@ -95,6 +96,8 @@ class PerformanceVisualizer:
     def _load_subsets_from_config(self, path) -> None:
         import yaml
         raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+        raw_defaults = raw.get("default_subsets", ["cpu", "mem", "io"])
+        self.default_subsets = tuple(str(s) for s in raw_defaults)
         self.subsets = {}
         for subset_key, metrics in raw.get("subsets", {}).items():
             self.subsets[subset_key] = {}
@@ -125,7 +128,7 @@ class PerformanceVisualizer:
     ) -> Tuple[str, ...]:
         """Map user-specified metrics or subsets to visualizer subset keys."""
         if not metrics:
-            return ("cpu", "mem", "io")
+            return self.default_subsets
 
         resolved: List[str] = []
         metric_list = (
@@ -162,7 +165,7 @@ class PerformanceVisualizer:
 
         # Remove duplicates while preserving order; fall back to defaults
         deduped = tuple(dict.fromkeys(resolved))
-        return deduped or ("cpu", "mem", "io")
+        return deduped or self.default_subsets
 
     def _compress_time_axis(self, perfdata, cell_range):
         """Compress time axis by removing idle periods between cells"""
@@ -348,7 +351,7 @@ class PerformanceVisualizer:
 
     def plot(
         self,
-        metric_subsets=("cpu", "mem", "io"),
+        metric_subsets=None,
         cell_range=None,
         show_idle=False,
         level=None,
@@ -357,12 +360,13 @@ class PerformanceVisualizer:
     ):
         metrics_missing = not metric_subsets
         if metrics_missing:
-            metric_subsets = ("cpu", "mem", "io")
+            metric_subsets = self.default_subsets
             if self._hardware and self._hardware.num_gpus:
-                metric_subsets += (
-                    "gpu",
-                    "gpu_all",
+                gpu_extra = tuple(
+                    s for s in ("gpu", "gpu_all")
+                    if s not in metric_subsets
                 )
+                metric_subsets = metric_subsets + gpu_extra
 
         """Plot performance metrics with interactive widgets for
         configuration."""
@@ -391,9 +395,10 @@ class PerformanceVisualizer:
                 start, end = end, start
             cell_range = (start, end)
 
+        metric_subsets = self._resolve_metric_subsets(metric_subsets)
+
         # If level is specified, plot directly without widgets
         if level is not None:
-            metric_subsets = self._resolve_metric_subsets(metric_subsets)
             return self._plot_direct(metric_subsets, cell_range, show_idle,
                                      level, save_jpeg, pickle_file)
 
@@ -647,7 +652,7 @@ class PerformanceVisualizer:
 
     def plot_live(
         self,
-        metric_subsets=("cpu", "mem", "io"),
+        metric_subsets=None,
         cell_range=None,
         show_idle=False,
         level=None,
@@ -686,9 +691,13 @@ class PerformanceVisualizer:
         if user_requested_keys is not None:
             # User specified --metrics: resolve and filter
             if not metric_subsets:
-                metric_subsets = ("cpu", "mem", "io")
+                metric_subsets = self.default_subsets
                 if self._hardware and self._hardware.num_gpus:
-                    metric_subsets += ("gpu", "gpu_all")
+                    gpu_extra = tuple(
+                        s for s in ("gpu", "gpu_all")
+                        if s not in metric_subsets
+                    )
+                    metric_subsets = metric_subsets + gpu_extra
             metric_subsets = self._resolve_metric_subsets(metric_subsets)
             metrics_list, labeled_options = self._collect_metric_options(
                 metric_subsets
@@ -832,7 +841,7 @@ class UnavailableVisualizer:
 
     def plot(
         self,
-        metric_subsets=("cpu", "mem", "io"),
+        metric_subsets=None,
         cell_range=None,
         show_idle=False,
     ) -> None:
