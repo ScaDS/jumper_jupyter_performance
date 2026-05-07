@@ -420,7 +420,12 @@ collectors:
 
 > **Tip.** You can add any attribute of `PerformanceMonitor` to `inject:` — for example, `node_info` to receive a fully populated `NodeInfo` object with the detected hardware layout: number of CPUs and GPUs, GPU memory size, per-level memory limits, and CPU handles. This lets your collector adapt its behaviour to the hardware — for instance, scale reporting thresholds by GPU memory, tag samples with the node name, or skip collection entirely when no GPUs are present.
 
-> **Note.** Custom metric subsets are not shown by default in `%perfmonitor_plot`. The default widget displays only the built-in subsets (`cpu`, `mem`, `io`, and `gpu` when available). To see your custom metrics, pass them explicitly via `--metrics`:
+> **Note.** Custom metric subsets are not shown by default in `%perfmonitor_plot`. The default widget shows only the subsets listed under `default_subsets:` in `plots.yaml` (initially `cpu`, `mem`, `io`, plus `gpu`/`gpu_all` when a GPU is detected). To include your subset in the default view, add it to that list:
+> ```yaml
+> # plots.yaml
+> default_subsets: [cpu, mem, io, network]
+> ```
+> Alternatively, request it on demand without changing the config:
 > ```python
 > %perfmonitor_plot --metrics net_bytes_recv --level system
 > ```
@@ -450,6 +455,29 @@ Four built-in plot types are available:
 | `composite_series` | Multiple columns from any collector on a single panel, with individual labels and colors |
 
 Once registered, the metric key works everywhere `--metrics` is accepted — interactive widgets, direct plots, live mode, and exports.
+
+### Controlling which subsets appear by default
+
+When `%perfmonitor_plot` is called without `--metrics`, it shows the subsets listed in `default_subsets:` at the top of `plots.yaml`:
+
+```yaml
+# plots.yaml
+default_subsets: [cpu, mem, io]   # shown when %perfmonitor_plot is called with no --metrics
+
+subsets:
+  cpu: ...
+  mem: ...
+  io: ...
+  network: ...   # not shown by default — request with --metrics or add to default_subsets
+```
+
+To make your custom subset part of the default view, append its name:
+
+```yaml
+default_subsets: [cpu, mem, io, network]
+```
+
+GPU subsets (`gpu`, `gpu_all`) are appended automatically at runtime when a GPU is detected, regardless of what is listed here.
 
 ### Example — combining NetworkCollector with disk I/O on one panel
 
