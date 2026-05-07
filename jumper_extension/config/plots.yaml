@@ -89,3 +89,43 @@ subsets:
       title: "I/O Write Operations (ops/s)"
       ylim: null
       label: "IO Write Ops"
+
+  network:
+    net_bytes_sent:
+      type: single_series
+      column: net_bytes_sent
+      title: "Network Sent (bytes/s)"
+      ylim: null
+      label: "Net Sent"
+    net_bytes_recv:
+      type: single_series
+      column: net_bytes_recv
+      title: "Network Received (bytes/s)"
+      ylim: null
+      label: "Net Recv"
+    net_packets_sent:
+      type: single_series
+      column: net_packets_sent
+      title: "Network Packets Sent (pkt/s)"
+      ylim: null
+      label: "Net Packets Sent"
+    net_packets_recv:
+      type: single_series
+      column: net_packets_recv
+      title: "Network Packets Received (pkt/s)"
+      ylim: null
+      label: "Net Packets Recv"
+    net_vs_disk_read:
+      type: composite_series
+      series:
+        - column: io_read
+          label: "Disk Read (bytes/s)"
+          color: "steelblue"
+          width: 2.0
+        - column: net_bytes_recv
+          label: "Net Recv (bytes/s)"
+          color: "darkorange"
+          width: 2.0
+      title: "Disk Read vs Network Receive (bytes/s)"
+      ylim: null
+      label: "Disk vs Network"

@@ -34,3 +34,10 @@ collectors:
     handler:
       _target_: jumper_extension.monitor.metrics.handlers.CumulativeRateHandler
       columns: [io_read_count, io_write_count, io_read, io_write]
+
+  network:
+    _target_: jumper_extension.monitor.metrics.network.psutil.PsutilNetworkCollector
+    inject: []
+    handler:
+      _target_: jumper_extension.monitor.metrics.handlers.CumulativeRateHandler
+      columns: [net_bytes_sent, net_bytes_recv, net_packets_sent, net_packets_recv]
