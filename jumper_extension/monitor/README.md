@@ -11,11 +11,14 @@ monitors implement, several **concrete backends**, and the low-level
 monitor/
 ├── common.py                       # MonitorProtocol + utility monitors
 ├── metrics/                        # Pluggable metric collectors (psutil, NVML, …)
+│   ├── common.py                   #   CollectorBackend + StorageHandler interfaces
+│   ├── handlers.py                 #   Built-in StorageHandlers (Scalar, Rate, …)
 │   ├── cpu/                        #   Used by the Python-based monitors only
 │   ├── gpu/                        #   (thread, subprocess_python, slurm_multinode).
 │   ├── io/                         #   The C collector (native_c) reads /proc and
 │   ├── memory/                     #   loads NVML directly — it has no dependency
-│   └── process/                    #   on anything in metrics/.
+│   ├── network/                    #   on anything in metrics/.
+│   └── process/
 └── backends/
     ├── thread/                     # In-process threaded monitor
     │   └── monitor.py              # PerformanceMonitor
