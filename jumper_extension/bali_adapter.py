@@ -240,6 +240,7 @@ class BaliAdapter:
                 dur_text = seg.get("duration_text_gen")
 
                 entry = {
+                    "cell_index": cell_idx,
                     "start_time": seg_start_compressed,
                     "end_time": seg_end_compressed,
                     "start_text_gen": start_text_gen_compressed,

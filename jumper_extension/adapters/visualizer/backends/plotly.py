@@ -264,6 +264,117 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
                 bgcolor="rgba(255,255,255,0.8)",
             )
 
+    def _compute_bali_segments_json(self, cell_range):
+        """Return BALI segments for the (no-idle) compressed x-axis as a list
+        of JSON-friendly dicts with pre-computed colors for both the
+        tokens-per-second and energy-efficiency colormaps.
+
+        Relies on ``self._compressed_cell_boundaries`` having been set
+        beforehand (call ``_prepare_processed_data_for_interactive`` first).
+        """
+        adapter = getattr(self, "bali_adapter", None)
+        if adapter is None:
+            return {"segments": [], "vmin": 0.0, "vmax": 100.0}
+
+        bali_segments = self._load_bali_segments()
+        if not bali_segments:
+            return {"segments": [], "vmin": 0.0, "vmax": 100.0}
+
+        primary_level = get_available_levels()[0]
+        # Use raw (uncompressed) perfdata for the energy integration; it
+        # carries the same gpu_power_avg column and its time domain is not
+        # needed by callers of the JSON output.
+        try:
+            reference_perfdata = self.monitor.data.view(level=primary_level)
+        except Exception:
+            reference_perfdata = None
+        if reference_perfdata is None or reference_perfdata.empty:
+            return {"segments": [], "vmin": 0.0, "vmax": 100.0}
+
+        compressed = adapter.compress_segments(
+            bali_segments,
+            cell_range,
+            reference_perfdata,
+            self.cell_history,
+            compressed_cell_boundaries=getattr(
+                self, "_compressed_cell_boundaries", None
+            ),
+        )
+
+        vmin, vmax = adapter.get_tokens_per_sec_range(bali_segments)
+        vmin_e, vmax_e = 0.0, 30.0
+
+        def _rgba(rgba):
+            r, g, b, a = rgba
+            return (
+                f"rgba({int(r * 255)},{int(g * 255)},"
+                f"{int(b * 255)},{a:.3f})"
+            )
+
+        out = []
+        for s in compressed:
+            tps = s.get("tokens_per_sec")
+            tpj = s.get("token_per_joule_full_segment")
+            is_error = bool(s.get("is_error"))
+            color_tokens = (
+                _rgba(adapter.get_color_for_tokens_per_sec(tps, vmin, vmax))
+                if (tps is not None and not is_error)
+                else None
+            )
+            color_energy = (
+                _rgba(
+                    adapter.get_color_for_energy_efficiency(
+                        tpj, vmin_e, vmax_e
+                    )
+                )
+                if (tpj is not None and not is_error)
+                else None
+            )
+            out.append(
+                {
+                    "cell_index": int(s.get("cell_index", -1)),
+                    "x0": float(s["start_time"]),
+                    "x1": float(s["end_time"]),
+                    "duration": float(s.get("duration") or 0.0),
+                    "is_error": is_error,
+                    "color_tokens": color_tokens,
+                    "color_energy": color_energy,
+                    "info": {
+                        "Model": s.get("model"),
+                        "Framework": s.get("framework"),
+                        "Batch Size": s.get("batch_size"),
+                        "Input Length": s.get("input_len"),
+                        "Output Length": s.get("output_len"),
+                        "Tokens/Second": (
+                            f"{tps:.2f}" if tps is not None else None
+                        ),
+                        "Tokens/Joule": (
+                            f"{tpj:.4f}" if tpj is not None else None
+                        ),
+                        "Segment Throughput (Tok/s)": s.get(
+                            "segment_throughput"
+                        ),
+                        "Text-Gen Throughput (Tok/s)": s.get(
+                            "text_gen_throughput"
+                        ),
+                        "Duration (s)": f"{(s.get('duration') or 0.0):.2f}",
+                        "Duration Text-Gen (s)": (
+                            f"{s['duration_text_gen']:.2f}"
+                            if s.get("duration_text_gen")
+                            else None
+                        ),
+                        "Error": s.get("error_message") if is_error else None,
+                    },
+                }
+            )
+        return {
+            "segments": out,
+            "vmin": float(vmin),
+            "vmax": float(vmax),
+            "vmin_e": float(vmin_e),
+            "vmax_e": float(vmax_e),
+        }
+
     def _compute_cell_boundaries_json(self, cell_range, show_idle):
         """Return cell boundary data as a list of plain dicts for JS consumption."""
         result = []
@@ -504,12 +615,17 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
         boundaries_true = self._compute_cell_boundaries_json(
             full_range, show_idle=True
         )
+        # BALI overlays use the compressed (no-idle) cell boundaries.  They
+        # are only meaningful when idle periods are hidden, matching the
+        # matplotlib backend.
+        bali = self._compute_bali_segments_json(full_range)
 
         return {
             "figures":          figures,
             "ylims":            ylims,
             "boundaries_false": boundaries_false,
             "boundaries_true":  boundaries_true,
+            "bali":             bali,
         }
 
     def _create_interactive_wrapper(
@@ -731,12 +847,14 @@ class InteractivePlotlyWrapper:
     _CSS_COMPONENTS = [
         "toolbar",
         "show_idle_checkbox",
+        "show_bali_checkbox",
         "cell_range_slider",
         "add_panel_button",
         "panel",
     ]
     _JS_COMPONENTS = [
         "show_idle_checkbox",
+        "show_bali_checkbox",
         "cell_range_slider",
         "add_panel_button",
         "panel",
@@ -762,6 +880,7 @@ class InteractivePlotlyWrapper:
             ylims              = pre.get("ylims", {})
             boundaries_false   = pre.get("boundaries_false", [])
             boundaries_true    = pre.get("boundaries_true", [])
+            bali               = pre.get("bali", {"segments": []})
             min_cell_index     = pre.get("min_cell_index", 0)
             max_cell_index     = pre.get("max_cell_index", 0)
             initial_cell_range = pre.get(
@@ -772,6 +891,7 @@ class InteractivePlotlyWrapper:
             ylims              = {}
             boundaries_false   = []
             boundaries_true    = []
+            bali               = {"segments": []}
             min_cell_index     = 0
             max_cell_index     = 0
             initial_cell_range = [0, 0]
@@ -825,6 +945,8 @@ class InteractivePlotlyWrapper:
             f"var YLIMS    = {json.dumps(ylims)};",
             f"var BND_F    = {json.dumps(boundaries_false)};",
             f"var BND_T    = {json.dumps(boundaries_true)};",
+            f"var BALI     = {json.dumps(bali)};",
+            f"var BALI_PWR = {json.dumps(['gpu_power', 'gpu_power_summary'])};",
             f"var OPTS     = {json.dumps(self.labeled_options)};",
             f"var LEVS     = {json.dumps(levels)};",
             f"var MAX      = {self.max_panels};",

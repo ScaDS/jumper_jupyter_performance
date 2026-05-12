@@ -278,8 +278,9 @@ class MatplotlibPerformanceVisualizer(PerformanceVisualizer):
         ax._bali_patches = []
         ax._bali_selected_patch = None
 
+        is_power_metric = metric in ("gpu_power_summary", "gpu_power")
         for s in draw_segments:
-            if metric == "gpu_power_summary":
+            if is_power_metric:
                 start, dur, tps, is_error = (
                     s["start_time"],
                     s["duration"],
@@ -303,7 +304,7 @@ class MatplotlibPerformanceVisualizer(PerformanceVisualizer):
                 alpha = 1.0
                 is_error_segment = True
             else:
-                if metric == "gpu_power_summary":
+                if is_power_metric:
                     color = self.bali_adapter.get_color_for_energy_efficiency(
                         tps, vmin_e, vmax_e
                     )
