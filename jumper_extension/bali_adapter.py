@@ -167,10 +167,41 @@ class BaliAdapter:
         stitched in order using their raw ``duration`` from ``cell_history``.
         """
         if not segments:
+            logger.warning("[BALI] compress_segments: no segments loaded")
             return []
 
         start_idx, end_idx = cell_range
         cell_data = cell_history.view(start_idx, end_idx + 1)
+        logger.warning(
+            "[BALI] compress_segments: %d segments, cell_range=%s, cells=%d, "
+            "compressed_boundaries=%s",
+            len(segments),
+            cell_range,
+            len(cell_data),
+            [
+                (int(cb["cell_index"]), float(cb["start_time"]))
+                for cb in (compressed_cell_boundaries or [])
+            ],
+        )
+        if segments:
+            s0 = segments[0]
+            logger.warning(
+                "[BALI] sample segment: start_timestamp_absolute=%r duration=%r "
+                "start_time=%r is_error=%r",
+                s0.get("start_timestamp_absolute"),
+                s0.get("duration"),
+                s0.get("start_time"),
+                s0.get("is_error"),
+            )
+        for _, _cell in cell_data.iterrows():
+            logger.warning(
+                "[BALI] cell %s: wallclock=[%r, %r] perf=[%r, %r]",
+                _cell.get("cell_index"),
+                _cell.get("wallclock_start_time"),
+                _cell.get("wallclock_end_time"),
+                _cell.get("start_time"),
+                _cell.get("end_time"),
+            )
 
         # Map cell_index -> compressed start_time on the plot axis.
         compressed_by_index = {}
