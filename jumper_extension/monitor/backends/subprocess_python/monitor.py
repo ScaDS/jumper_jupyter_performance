@@ -287,6 +287,7 @@ class SubprocessPerformanceMonitor:
                     sample.get("gpu_util", []),
                     sample.get("gpu_band", []),
                     sample.get("gpu_mem", []),
+                    sample.get("gpu_power", []),
                     sample.get("io_counters", [0, 0, 0, 0]),
                 )
                 self.n_measurements += 1

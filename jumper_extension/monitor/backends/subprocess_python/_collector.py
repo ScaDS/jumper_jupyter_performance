@@ -270,6 +270,7 @@ def _run_collector(
                     gpu_util,
                     gpu_band,
                     gpu_mem,
+                    gpu_power,
                     io_counters,
                 ) = data_tuple
 
@@ -283,6 +284,7 @@ def _run_collector(
                         "gpu_util": gpu_util,
                         "gpu_band": gpu_band,
                         "gpu_mem": gpu_mem,
+                        "gpu_power": gpu_power,
                         "io_counters": io_counters,
                     },
                 }

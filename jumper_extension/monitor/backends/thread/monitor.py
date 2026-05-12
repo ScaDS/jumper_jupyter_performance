@@ -91,7 +91,7 @@ class PerformanceMonitor:
         ]
 
         if self.num_gpus:
-            self.metrics.extend(["gpu_util", "gpu_band", "gpu_mem"])
+            self.metrics.extend(["gpu_util", "gpu_band", "gpu_mem", "gpu_power"])
 
         self.data = PerformanceData(
             self.num_cpus, self.num_system_cpus, self.num_gpus
@@ -133,18 +133,19 @@ class PerformanceMonitor:
 
     def _collect_gpu(self, level="process"):
         if self.num_gpus == 0:
-            return [], [], []
+            return [], [], [], []
 
         self._validate_level(level)
-        gpu_util, gpu_band, gpu_mem = [], [], []
+        gpu_util, gpu_band, gpu_mem, gpu_power = [], [], [], []
 
         for backend in self._gpu_backends:
-            b_util, b_band, b_mem = backend.collect(level)
+            b_util, b_band, b_mem, b_power = backend.collect(level)
             gpu_util.extend(b_util)
             gpu_band.extend(b_band)
             gpu_mem.extend(b_mem)
+            gpu_power.extend(b_power)
 
-        return gpu_util, gpu_band, gpu_mem
+        return gpu_util, gpu_band, gpu_mem, gpu_power
 
 
     def _collect_metrics(self):
