@@ -52,26 +52,30 @@ class BaliResultsParser:
             framework_data = benchmark_data[framework]
 
             for iteration_key, iteration_data in framework_data.items():
-                start_time = iteration_data.get("start_timestamp")
-                end_time = iteration_data.get("end_timestamp")
-                tokenize_time = iteration_data.get("tokenize_timestamp") 
-                
+                start_time = iteration_data.get("start_time")
+                end_time = iteration_data.get("end_time")
+                # ``generation_time`` is the duration of the text-generation
+                # phase; ``tokenize_time`` and ``setup_time`` are also
+                # durations (not absolute timestamps).
+                generation_time = iteration_data.get("generation_time")
+                duration = (
+                    (end_time - start_time)
+                    if (start_time is not None and end_time is not None)
+                    else None
+                )
+                start_text_gen = (
+                    end_time - generation_time
+                    if (end_time is not None and generation_time is not None)
+                    else None
+                )
+
                 segments.append(
                     {
                         "start_time": start_time,
                         "end_time": end_time,
-                        "start_text_gen": tokenize_time,
-                        "start_timestamp_absolute":iteration_data.get("start_timestamp_absolute"),
-                        "duration": (
-                            (end_time - start_time)
-                            if (start_time and end_time)
-                            else None
-                        ),
-                        "duration_text_gen": (
-                            (end_time - tokenize_time)
-                            if (end_time and tokenize_time)
-                            else None
-                        ),
+                        "start_text_gen": start_text_gen,
+                        "duration": duration,
+                        "duration_text_gen": generation_time,
                         "tokens_per_sec": iteration_data.get("token_per_sec"),
                         "framework": framework,
                         "iteration": iteration_key,

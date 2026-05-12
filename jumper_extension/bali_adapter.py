@@ -26,7 +26,6 @@ class BaliAdapter:
                 "num_samples",
                 "iteration",
                 "start_time",
-                "start_timestamp_absolute",
                 "end_time",
                 "duration",
                 "duration_text_gen",
@@ -158,50 +157,19 @@ class BaliAdapter:
 
         The compressed time axis starts at 0 and stitches together the
         rendered cells (no idle gaps). For each cell in the visible range we
-        find BALI segments that overlap that cell using wallclock time, then
-        position them at
-        ``compressed_cell_start + (segment_wallclock_start - cell_wallclock_start)``.
+        find BALI segments that overlap that cell using ``perf_counter``
+        time, then position them at
+        ``compressed_cell_start + (segment_perf_start - cell_perf_start)``.
 
         ``compressed_cell_boundaries`` (optional) is the list of rendered
         cells with their compressed ``start_time``. When omitted, cells are
         stitched in order using their raw ``duration`` from ``cell_history``.
         """
         if not segments:
-            logger.warning("[BALI] compress_segments: no segments loaded")
             return []
 
         start_idx, end_idx = cell_range
         cell_data = cell_history.view(start_idx, end_idx + 1)
-        logger.warning(
-            "[BALI] compress_segments: %d segments, cell_range=%s, cells=%d, "
-            "compressed_boundaries=%s",
-            len(segments),
-            cell_range,
-            len(cell_data),
-            [
-                (int(cb["cell_index"]), float(cb["start_time"]))
-                for cb in (compressed_cell_boundaries or [])
-            ],
-        )
-        if segments:
-            s0 = segments[0]
-            logger.warning(
-                "[BALI] sample segment: start_timestamp_absolute=%r duration=%r "
-                "start_time=%r is_error=%r",
-                s0.get("start_timestamp_absolute"),
-                s0.get("duration"),
-                s0.get("start_time"),
-                s0.get("is_error"),
-            )
-        for _, _cell in cell_data.iterrows():
-            logger.warning(
-                "[BALI] cell %s: wallclock=[%r, %r] perf=[%r, %r]",
-                _cell.get("cell_index"),
-                _cell.get("wallclock_start_time"),
-                _cell.get("wallclock_end_time"),
-                _cell.get("start_time"),
-                _cell.get("end_time"),
-            )
 
         # Map cell_index -> compressed start_time on the plot axis.
         compressed_by_index = {}
@@ -227,31 +195,32 @@ class BaliAdapter:
                 continue
             compressed_cell_start = compressed_by_index[cell_idx]
             try:
-                cell_wall_start = float(cell["wallclock_start_time"])
-                cell_wall_end = float(cell["wallclock_end_time"])
+                cell_perf_start = float(cell["start_time"])
+                cell_perf_end = float(cell["end_time"])
             except Exception:
                 continue
 
             for seg in segments:
-                seg_wall_start = seg.get("start_timestamp_absolute")
+                # BALI runs inside the kernel process, so its ``start_time``
+                # and ``end_time`` come from the same ``time.perf_counter()``
+                # clock as ``cell_history``.
+                seg_perf_start = seg.get("start_time")
                 seg_dur = seg.get("duration")
-                if seg_wall_start is None or seg_dur is None:
+                if seg_perf_start is None or seg_dur is None:
                     continue
-                seg_wall_end = seg_wall_start + seg_dur
+                seg_perf_end = seg_perf_start + seg_dur
 
-                # Wallclock overlap test
+                # perf_counter overlap test
                 if (
-                    seg_wall_end <= cell_wall_start
-                    or seg_wall_start >= cell_wall_end
+                    seg_perf_end <= cell_perf_start
+                    or seg_perf_start >= cell_perf_end
                 ):
                     continue
 
-                dt_in_cell = seg_wall_start - cell_wall_start
+                dt_in_cell = seg_perf_start - cell_perf_start
                 seg_start_compressed = compressed_cell_start + dt_in_cell
                 seg_end_compressed = seg_start_compressed + seg_dur
 
-                # start_text_gen is in BALI's perf_counter clock; the delta
-                # against the segment's own perf_counter start is safe to use.
                 start_text_gen_compressed = None
                 if (
                     seg.get("start_text_gen") is not None
