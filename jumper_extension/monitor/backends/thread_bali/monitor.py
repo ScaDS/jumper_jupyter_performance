@@ -23,7 +23,7 @@ from jumper_extension.utilities import detect_memory_limit, get_available_levels
 logger = logging.getLogger("extension")
 
 
-class PerformanceMonitor:
+class PerformanceBaliMonitor:
     def __init__(self):
         self.interval = 1.0
         self.running = False

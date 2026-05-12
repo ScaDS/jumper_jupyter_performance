@@ -100,6 +100,9 @@ class PerfmonitorService:
         """
         if monitor_type == "thread":
             return PerformanceMonitor()
+        if monitor_type == "thread_bali":
+            from jumper_extension.monitor.backends.thread_bali import PerformanceBaliMonitor
+            return PerformanceBaliMonitor()
         if monitor_type == "native_c":
             from jumper_extension.monitor.backends.native_c import CSubprocessPerformanceMonitor
             return CSubprocessPerformanceMonitor()
