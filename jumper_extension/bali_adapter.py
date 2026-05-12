@@ -96,36 +96,52 @@ class BaliAdapter:
     def get_energy_colormap(self):
         return self.parser.colormap_energy
 
-    def add_llm_performance_info(self,segment:Dict,perfdata,cell_data):
-        logger.info("Time before normalization: {}".format(perfdata["time"].tolist()))
-        logger.info(f"Cell start time: {cell_data['start_time']}")
-        
-        #copy df to avoid modifying original
-        perfdata = perfdata.copy()
-        #normalize perf time to runtime seconds
-        perfdata["time"] = perfdata["time"] - cell_data["start_time"]
-        logger.info(f"times and segment data for power{perfdata['time'],segment}")
+    def add_llm_performance_info(self, segment: Dict, perfdata) -> Dict:
+        """Compute energy / tokens-per-joule for a segment.
 
-        #get all relevant power measurements for the segment
-        full_segment_values = perfdata[(perfdata["time"] >= segment["start_time"]) & (perfdata["time"] <= segment["end_time"])]
-        text_gen_segment_values = perfdata[(perfdata["time"] >= segment["start_text_gen"]) & (perfdata["time"] <= segment["end_time"])]
+        ``segment["start_time"]`` / ``segment["end_time"]`` are already in
+        the same compressed-time coordinate system as ``perfdata["time"]``
+        (i.e. the x-axis used by the plots), so no further normalization is
+        required here.
+        """
+        seg_start = segment.get("start_time")
+        seg_end = segment.get("end_time")
+        seg_text_start = segment.get("start_text_gen")
+        total_tokens = segment.get("total_tokens") or 0
 
-        times = np.array(full_segment_values["time"], dtype=float)
-        times_gen = np.array(text_gen_segment_values["time"], dtype=float)
-        total_energy = np.trapz(full_segment_values["gpu_power_avg"], times)
-        text_gen_energy = np.trapz(text_gen_segment_values["gpu_power_avg"], times_gen)
+        def _trapz(values):
+            if values.empty or "gpu_power_avg" not in values.columns:
+                return 0.0
+            times = np.asarray(values["time"], dtype=float)
+            powers = np.asarray(values["gpu_power_avg"], dtype=float)
+            if len(times) < 2:
+                return 0.0
+            return float(np.trapz(powers, times))
 
-        logger.info(f"\n gpu_values: {full_segment_values['gpu_power_avg'].tolist()}")
-        logger.info(f"times for gpu values: {times}")
+        def _safe_div(a, b):
+            return a / b if b else None
+
+        full_values = perfdata[
+            (perfdata["time"] >= seg_start) & (perfdata["time"] <= seg_end)
+        ]
+        if seg_text_start is not None:
+            text_values = perfdata[
+                (perfdata["time"] >= seg_text_start)
+                & (perfdata["time"] <= seg_end)
+            ]
+        else:
+            text_values = full_values.iloc[0:0]
+
+        total_energy = _trapz(full_values)
+        text_gen_energy = _trapz(text_values)
 
         return {
             "total_energy": total_energy,
             "text_gen_energy": text_gen_energy,
-            "total_tokens": segment["total_tokens"],
-            "energy_per_token_text_gen": text_gen_energy / segment["total_tokens"],
-            "token_per_joule_text_gen": segment["total_tokens"] / text_gen_energy,
-            "energy_per_token_full_segment": total_energy / segment["total_tokens"],
-            "token_per_joule_full_segment": segment["total_tokens"] / total_energy
+            "energy_per_token_full_segment": _safe_div(total_energy, total_tokens),
+            "token_per_joule_full_segment": _safe_div(total_tokens, total_energy),
+            "energy_per_token_text_gen": _safe_div(text_gen_energy, total_tokens),
+            "token_per_joule_text_gen": _safe_div(total_tokens, text_gen_energy),
         }
 
 
@@ -135,80 +151,122 @@ class BaliAdapter:
             cell_range: Tuple[int, int],
             perfdata: Any,
             cell_history: Any,
+            compressed_cell_boundaries: List[Dict] = None,
             current_time_offset: float = 0,
     ) -> List[Dict]:
-        """
-        Compress BALI segments to match compressed time axis.
+        """Place BALI segments on the compressed plot x-axis.
+
+        The compressed time axis starts at 0 and stitches together the
+        rendered cells (no idle gaps). For each cell in the visible range we
+        find BALI segments that overlap that cell using wallclock time, then
+        position them at
+        ``compressed_cell_start + (segment_wallclock_start - cell_wallclock_start)``.
+
+        ``compressed_cell_boundaries`` (optional) is the list of rendered
+        cells with their compressed ``start_time``. When omitted, cells are
+        stitched in order using their raw ``duration`` from ``cell_history``.
         """
         if not segments:
             return []
 
         start_idx, end_idx = cell_range
         cell_data = cell_history.view(start_idx, end_idx + 1)
-        compressed, current_time, processed = [], current_time_offset, set()
 
+        # Map cell_index -> compressed start_time on the plot axis.
+        compressed_by_index = {}
+        if compressed_cell_boundaries:
+            for cb in compressed_cell_boundaries:
+                compressed_by_index[int(cb["cell_index"])] = float(
+                    cb["start_time"]
+                )
+        else:
+            running = float(current_time_offset)
+            for _, cell in cell_data.iterrows():
+                compressed_by_index[int(cell["cell_index"])] = running
+                try:
+                    running += float(cell["duration"])
+                except Exception:
+                    pass
+
+        compressed = []
         for _, cell in cell_data.iterrows():
-            if perfdata[
-                (perfdata["time"] >= cell["start_time"])
-                & (perfdata["time"] <= cell["end_time"])
-            ].empty:
+            cell_idx = int(cell["cell_index"])
+            if cell_idx not in compressed_by_index:
+                # Cell was filtered out (no perfdata), so it isn't drawn.
+                continue
+            compressed_cell_start = compressed_by_index[cell_idx]
+            try:
+                cell_wall_start = float(cell["wallclock_start_time"])
+                cell_wall_end = float(cell["wallclock_end_time"])
+            except Exception:
                 continue
 
-            cell_start, cell_end = cell["start_time"], cell["end_time"]
-            cell_duration = cell_end - cell_start
-            logger.info(f"BALI Segments:{segments}")
-            # time base - align segment to cell start
-            offset_start = cell_start - segments[0]["start_time"]
+            for seg in segments:
+                seg_wall_start = seg.get("start_timestamp_absolute")
+                seg_dur = seg.get("duration")
+                if seg_wall_start is None or seg_dur is None:
+                    continue
+                seg_wall_end = seg_wall_start + seg_dur
 
-            # TODO: add timer offset based on absolute time stamps
-            timer_offset = (segments[0]["start_timestamp_absolute"] -
-                            cell["wallclock_start_time"])
-            logger.info(f"Timer Offset: {timer_offset}s")
-
-            for i, seg in enumerate(segments):
-                seg_id = (i, cell["cell_index"])
-                if seg_id in processed:
+                # Wallclock overlap test
+                if (
+                    seg_wall_end <= cell_wall_start
+                    or seg_wall_start >= cell_wall_end
+                ):
                     continue
 
-                seg_start, seg_end = seg["start_time"], seg["end_time"]
+                dt_in_cell = seg_wall_start - cell_wall_start
+                seg_start_compressed = compressed_cell_start + dt_in_cell
+                seg_end_compressed = seg_start_compressed + seg_dur
 
-                # Adjust segment timestamps to align with cell start
-                seg_start = cell_start
-                if i > 0:
-                    seg_start = segments[i - 1]["end_time"] + offset_start
+                # start_text_gen is in BALI's perf_counter clock; the delta
+                # against the segment's own perf_counter start is safe to use.
+                start_text_gen_compressed = None
+                if (
+                    seg.get("start_text_gen") is not None
+                    and seg.get("start_time") is not None
+                ):
+                    delta_text_gen = (
+                        seg["start_text_gen"] - seg["start_time"]
+                    )
+                    start_text_gen_compressed = (
+                        seg_start_compressed + delta_text_gen
+                    )
 
-                overlap_start = max(seg_start, cell_start)
-                overlap_end = min(seg_end, cell_end)
+                input_len = seg.get("input_len") or 0
+                output_len = seg.get("output_len") or 0
+                num_samples = seg.get("num_samples") or 0
+                total_tokens = (input_len + output_len) * num_samples
+                dur_text = seg.get("duration_text_gen")
 
-                total_tokens = (seg["input_len"] + seg["output_len"]) * seg["num_samples"]
+                entry = {
+                    "start_time": seg_start_compressed,
+                    "end_time": seg_end_compressed,
+                    "start_text_gen": start_text_gen_compressed,
+                    "duration": seg_dur,
+                    "duration_text_gen": dur_text,
+                    "total_tokens": total_tokens,
+                    "tokens_per_sec": seg.get("tokens_per_sec"),
+                    "segment_throughput": (
+                        total_tokens / seg_dur if seg_dur else None
+                    ),
+                    "text_gen_throughput": (
+                        total_tokens / dur_text if dur_text else None
+                    ),
+                    "framework": seg.get("framework"),
+                    "iteration": seg.get("iteration"),
+                    "num_samples": num_samples,
+                    "model": seg.get("model"),
+                    "batch_size": seg.get("batch_size"),
+                    "input_len": input_len,
+                    "output_len": output_len,
+                    "is_error": seg.get("is_error", False),
+                    "error_message": seg.get("error_message"),
+                }
+                entry.update(self.add_llm_performance_info(entry, perfdata))
+                compressed.append(entry)
 
-                compressed.append(
-                    {
-                        "start_time": seg_start - cell_start + timer_offset,
-                        "end_time": seg_start + seg["duration"] - cell_start + timer_offset,
-                        "start_text_gen": seg["start_text_gen"]- cell_start + offset_start + timer_offset,
-                        "duration": seg["duration"],
-                        "total_tokens":total_tokens,
-                        "duration_text_gen": seg["duration_text_gen"],
-                        "tokens_per_sec": seg["tokens_per_sec"],
-                        "segment_throughput": total_tokens/seg["duration"],
-                        "text_gen_throughput": total_tokens/seg["duration_text_gen"],
-                        "framework": seg["framework"],
-                        "iteration": seg["iteration"],
-                        "num_samples": seg["num_samples"],
-                        "model": seg.get("model"),
-                        "batch_size": seg.get("batch_size"),
-                        "input_len": seg.get("input_len"),
-                        "output_len": seg.get("output_len"),
-                    }
-                )
-                llm_perf_data = self.add_llm_performance_info(compressed[-1], perfdata, cell)
-                compressed[-1].update(llm_perf_data)
-
-                processed.add(seg_id)
-            current_time += cell_duration
-
-        logger.info(f"{compressed}")
+        compressed.sort(key=lambda r: r["start_time"])
         return compressed
 
 

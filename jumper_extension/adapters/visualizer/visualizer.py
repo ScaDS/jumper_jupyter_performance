@@ -605,6 +605,9 @@ class PerformanceVisualizer(BaliVisualizationMixin):
                         current_cell_range,
                         reference_perfdata,
                         self.cell_history,
+                        compressed_cell_boundaries=getattr(
+                            self, "_compressed_cell_boundaries", None
+                        ),
                     )
                     if reference_perfdata is not None
                     and not reference_perfdata.empty
