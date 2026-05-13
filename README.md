@@ -258,6 +258,8 @@ monitor backend, JUmPER lets you register a **collector**: a `CollectorBackend`
 full [Custom Collectors guide](https://scads.github.io/jumper_jupyter_performance/latest/guides/custom-collector/)
 for a step-by-step walkthrough including a `NetworkCollector` example.
 
+>Note that: collectors integrate only with the existing thread and subprocess_python monitors
+
 ### Visualizing Custom Collector Metrics
 
 Custom collector columns are available to `%perfmonitor_plot --metrics` once
