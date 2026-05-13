@@ -22,6 +22,8 @@ nav:
           - Python Script Export: guides/script-export.md
           - Plot Export: guides/plot-export.md
           - Custom Monitors: guides/custom-monitor.md
+          - Custom Collectors: guides/custom-collector.md
+          - Visualizing Custom Collector Metrics: guides/visualizing-custom-collector-metrics.md
       - Public API:
           - Overview: api/index.md
           - Jupyter API: api/jupyter.md

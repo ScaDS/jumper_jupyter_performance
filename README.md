@@ -32,8 +32,6 @@ Related project:
 * [Metrics Collection](#metrics-collection)
 	+ [Performance Monitoring Levels](#performance-monitoring-levels)
 	+ [Collected Metrics](#collected-metrics)
-* [Adding a Custom Collector](#adding-a-custom-collector)
-* [Visualizing Custom Collector Metrics](#visualizing-custom-collector-metrics)
 * [Available Commands](#available-commands)
 * [Full Documentation](#full-documentation)
 * [JUmPER Wrapper Kernel](#jumper-wrapper-kernel)
@@ -251,6 +249,23 @@ for a worked `SlurmMultinodeMonitor` example and the full
 [Custom Monitors guide](https://scads.github.io/jumper_jupyter_performance/latest/guides/custom-monitor/)
 for a step-by-step walkthrough.
 
+### Custom Collectors
+
+To extend the metric pipeline with a new group of logically related metrics —
+for example network I/O or a hardware sensor — without replacing the entire
+monitor backend, JUmPER lets you register a **collector**: a `CollectorBackend`
++ `StorageHandler` pair loaded automatically from `collectors.yaml`. See the
+full [Custom Collectors guide](https://scads.github.io/jumper_jupyter_performance/latest/guides/custom-collector/)
+for a step-by-step walkthrough including a `NetworkCollector` example.
+
+### Visualizing Custom Collector Metrics
+
+Custom collector columns are available to `%perfmonitor_plot --metrics` once
+registered in `plots.yaml`. See the
+[Visualizing Custom Collector Metrics guide](https://scads.github.io/jumper_jupyter_performance/latest/guides/visualizing-custom-collector-metrics/)
+for the full reference — built-in plot types, `default_subsets`, and a
+disk-vs-network composite panel example.
+
 ### Monitoring Right in Your Code
 Run the monitor around any code block and save its performance profile to CSV/JSON.
 
@@ -297,228 +312,6 @@ The extension supports four different levels of metric collection, each providin
 **GPU Support Details:**
 - **NVIDIA GPUs**: Full support for all monitoring levels (process, user, system, slurm) including per-process GPU memory tracking
 - **AMD GPUs**: System-level monitoring supported; per-process and per-user metrics are limited by AMD ADLX API capabilities
-
-
-## Adding a Custom Collector
-
-JUmPER's metric pipeline is fully pluggable. A collector is a pair of:
-
-- **`CollectorBackend`** — gathers raw data each tick (see [`jumper_extension/monitor/metrics/common.py`](jumper_extension/monitor/metrics/common.py) for the full interface contract).
-- **`StorageHandler`** — converts the raw value into a flat `{column: value}` dict that becomes a DataFrame row.
-
-Both are registered in `jumper_extension/config/collectors.yaml` and instantiated automatically — no changes to the monitor or pipeline code are needed.
-
-> **Note.** Collectors added via `collectors.yaml` are loaded by the **`thread`** and **`subprocess_python`** monitors only. The default `native_c` monitor uses a compiled C binary with its own hardcoded collection logic and does not read `collectors.yaml`. To use a custom collector, start the monitor explicitly:
-> ```python
-> %perfmonitor_start --monitor thread
-> # or
-> %perfmonitor_start --monitor subprocess_python
-> ```
-
-### Step 1 — Create the collector module
-
-By convention each metric lives in its own subdirectory under `jumper_extension/monitor/metrics/`. The standard layout is:
-
-```
-jumper_extension/monitor/metrics/
-└── your_metric/
-    ├── common.py    # YourCollectorBackend — ABC that narrows the collect() return type
-    ├── psutil.py    # PsutilYourCollector  — concrete implementation
-    └── __init__.py  # re-exports YourCollectorBackend
-```
-
-`common.py` separates the interface from the implementation so multiple backends (psutil, native, remote) can coexist under the same metric. `__init__.py` re-exports the base class for clean imports.
-
-> **Note.** The `_target_:` key in `collectors.yaml` resolves any importable class, so you can place your collector anywhere in the package — `metrics/` is convention, not a requirement.
-
-#### Example — `NetworkCollector`
-
-**`metrics/network/common.py`**
-```python
-from abc import abstractmethod
-from jumper_extension.monitor.metrics.common import CollectorBackend
-from jumper_extension.monitor.metrics.context import CollectionContext
-
-class NetworkCollectorBackend(CollectorBackend):
-    """Base for network metric backends."""
-    name = "network-base"
-
-    @abstractmethod
-    def collect(self, level: str, context: CollectionContext) -> list[int]: ...
-```
-
-**`metrics/network/psutil.py`**
-```python
-import psutil
-from jumper_extension.monitor.metrics.context import CollectionContext
-from jumper_extension.monitor.metrics.network.common import NetworkCollectorBackend
-
-class PsutilNetworkCollector(NetworkCollectorBackend):
-    """System-wide network I/O via psutil.
-
-    psutil does not expose per-process network counters on Linux without root,
-    so only the 'system' level returns real data; other levels report zeros.
-    """
-    name = "network-psutil"
-
-    def collect(self, level: str, context: CollectionContext) -> list[int]:
-        if level == "system":
-            net = psutil.net_io_counters()
-            if net:
-                return [net.bytes_sent, net.bytes_recv,
-                        net.packets_sent, net.packets_recv]
-        return [0, 0, 0, 0]
-```
-
-**`metrics/network/__init__.py`**
-```python
-from jumper_extension.monitor.metrics.network.common import NetworkCollectorBackend
-```
-
-### Step 2 — Pick or create a StorageHandler
-
-A handler converts the value returned by `collect()` into DataFrame columns. Built-in handlers live in [`jumper_extension/monitor/metrics/handlers.py`](jumper_extension/monitor/metrics/handlers.py):
-
-| Handler | Raw type | Output columns | Use when |
-|---------|----------|----------------|----------|
-| `ScalarHandler(column="x")` | `float` | `{"x": v}` | Single scalar value (e.g. memory GB) |
-| `PerDeviceAggregateHandler(prefix="p_")` | `list[float]` | `p_0, p_1, …, p_avg, p_min, p_max` | Per-device readings to aggregate (e.g. per-CPU utilization) |
-| `PerDeviceMultiAggregateHandler(prefix="p_", metrics=[…])` | `tuple[list[float], …]` | Fan-out of PerDeviceAggregate per metric | Multiple metrics per device (e.g. GPU util + bandwidth + memory) |
-| `CumulativeRateHandler(columns=[…])` | `list[int]` | Per-column delta/second rates | Monotonically increasing counters (e.g. bytes transferred) |
-| `NoOpHandler()` | `None` | `{}` | Context-only backends that write no metric columns |
-
-> **Note.** Handlers are also resolved via `_target_:`, so a custom handler can live anywhere — point `_target_:` at it and it works.
-
-`NetworkCollector` returns `list[int]` cumulative byte/packet counters - so we can pair it with existing `CumulativeRateHandler` to get bytes/s and packets/s automatically.
-
-### Step 3 — Register in `collectors.yaml`
-
-```yaml
-collectors:
-  # ... existing collectors ...
-
-  network:
-    _target_: jumper_extension.monitor.metrics.network.psutil.PsutilNetworkCollector
-    inject: []
-    handler:
-      _target_: jumper_extension.monitor.metrics.handlers.CumulativeRateHandler
-      columns: [net_bytes_sent, net_bytes_recv, net_packets_sent, net_packets_recv]
-```
-
-#### The `inject:` key
-
-`inject:` lists all `PerformanceMonitor` attributes you may need in your collector. All collectors receive `inject` list as constructor arguments. Use it when your collector needs monitor-level context:
-
-| Value | Type | What you get |
-|-------|------|-------------|
-| `[]` | — | No injected dependencies (simplest case) |
-| `[node_info]` | `NodeInfo` | Hardware topology: CPU count and handles, GPU count and memory, per-level memory limits |
-| `[uid, slurm_job]` | `int, str\|int` | Current user ID and SLURM job ID — filter metrics by user or job scope |
-| `[pid, process, uid, slurm_job]` | mixed | Full process context — used by the built-in process collector to enumerate live PIDs |
-
-`NetworkCollector` uses `inject: []` because `psutil.net_io_counters()` needs no hardware context.
-
-> **Tip.** You can add any attribute of `PerformanceMonitor` to `inject:` — for example, `node_info` to receive a fully populated `NodeInfo` object with the detected hardware layout: number of CPUs and GPUs, GPU memory size, per-level memory limits, and CPU handles. This lets your collector adapt its behaviour to the hardware — for instance, scale reporting thresholds by GPU memory, tag samples with the node name, or skip collection entirely when no GPUs are present.
-
-> **Note.** Custom metric subsets are not shown by default in `%perfmonitor_plot`. The default widget shows only the subsets listed under `default_subsets:` in `plots.yaml` (initially `cpu`, `mem`, `io`, plus `gpu`/`gpu_all` when a GPU is detected). To include your subset in the default view, add it to that list:
-> ```yaml
-> # plots.yaml
-> default_subsets: [cpu, mem, io, network]
-> ```
-> Alternatively, request it on demand without changing the config:
-> ```python
-> %perfmonitor_plot --metrics net_bytes_recv --level system
-> ```
-
-## Visualizing Custom Collector Metrics
-
-Every column produced by a collector ends up as a column in the performance DataFrame. To make it available to `%perfmonitor_plot --metrics`, add an entry to `jumper_extension/config/plots.yaml` under `subsets:`:
-
-```yaml
-subsets:
-  your_subset:           # group name — also usable as a shorthand key in --metrics
-    your_metric_key:     # what the user types in --metrics
-      type: single_series
-      column: your_column    # column name declared in collectors.yaml handler columns
-      title: "Chart title"
-      ylim: null             # or [min, max]
-      label: "Legend label"
-```
-
-Four built-in plot types are available:
-
-| Type | Use when |
-|------|----------|
-| `single_series` | One line from one column |
-| `summary_series` | Three lines (min / avg / max) from three named columns |
-| `multi_series` | One line per device, matched by column prefix |
-| `composite_series` | Multiple columns from any collector on a single panel, with individual labels and colors |
-
-Once registered, the metric key works everywhere `--metrics` is accepted — interactive widgets, direct plots, live mode, and exports.
-
-### Controlling which subsets appear by default
-
-When `%perfmonitor_plot` is called without `--metrics`, it shows the subsets listed in `default_subsets:` at the top of `plots.yaml`:
-
-```yaml
-# plots.yaml
-default_subsets: [cpu, mem, io]   # shown when %perfmonitor_plot is called with no --metrics
-
-subsets:
-  cpu: ...
-  mem: ...
-  io: ...
-  network: ...   # not shown by default — request with --metrics or add to default_subsets
-```
-
-To make your custom subset part of the default view, append its name:
-
-```yaml
-default_subsets: [cpu, mem, io, network]
-```
-
-GPU subsets (`gpu`, `gpu_all`) are appended automatically at runtime when a GPU is detected, regardless of what is listed here.
-
-### Example — combining NetworkCollector with disk I/O on one panel
-
-A common HPC and ML scenario: you want to know whether your workload is bottlenecked by the local disk or by the network (e.g. data loaded from a Lustre/NFS mount). Both `io_read` and `net_bytes_recv` are collected as cumulative counters and stored in bytes/s — the same unit — so they can be plotted together on one panel using `composite_series`.
-
-Add to `plots.yaml`:
-
-```yaml
-subsets:
-  network:
-    net_vs_disk_read:
-      type: composite_series
-      series:
-        - column: io_read
-          label: "Disk Read (bytes/s)"
-          color: "steelblue"
-          width: 2.0
-        - column: net_bytes_recv
-          label: "Net Recv (bytes/s)"
-          color: "darkorange"
-          width: 2.0
-      title: "Disk Read vs Network Receive (bytes/s)"
-      ylim: null
-      label: "Disk vs Network"
-```
-
-> **Note.** `composite_series` renders columns without unit conversion. `io_read` will appear in bytes/s here, not MB/s (which is what `single_series` applies automatically). Both series stay on the same scale, making the comparison valid.
-
-Then plot it — use `--level system` because network counters are only meaningful at the system level:
-
-```python
-%perfmonitor_plot --metrics net_vs_disk_read --level system
-```
-
-Or in live mode:
-
-```python
-%perfmonitor_plot --live --metrics net_vs_disk_read --level system
-```
-
-A high `net_bytes_recv` with low `io_read` means data is arriving over the network; the inverse points to local disk as the bottleneck.
 
 ## Full Documentation
 

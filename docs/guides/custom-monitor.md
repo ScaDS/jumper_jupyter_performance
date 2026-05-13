@@ -14,6 +14,12 @@ This guide walks through:
 4. [Writing your own monitor](#writing-your-own-monitor)
 5. [Interaction with `--check-sanity`](#interaction-with-check-sanity)
 
+!!! tip "Adding a single metric group instead?"
+    You may want to add only some minor part of a monitor instead of the full
+    monitor backend reimplementation, we call this part a [collector](custom-collector.md)
+    which by its name collects one or more logically related metrics like,
+    for example, network statistics.
+
 ---
 
 ## The `MonitorProtocol` surface
