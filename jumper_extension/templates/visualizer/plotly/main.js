@@ -60,14 +60,36 @@
     var bnd    = buildBoundaryUpdates(bndArr, rng, ylim);
     var xRng   = xRangeForCells(bndArr, rng);
 
+    /* BALI overlays only make sense when idle periods are hidden, mirroring
+       the matplotlib backend.  When active, replace the cell-boundary
+       rectangles with BALI rectangles (the cell number annotations are kept
+       to preserve orientation). */
+    var showBali = (
+      key === 'false'
+      && typeof isShowBali === 'function'
+      && isShowBali(CID)
+      && typeof BALI !== 'undefined'
+      && BALI && BALI.segments && BALI.segments.length
+    );
+
+    var shapes = bnd.shapes;
+    var traces = (figData.data || []).slice();
+    if (showBali) {
+      var bali = buildBaliShapes(
+        BALI.segments, rng, ylim, metric, BALI_PWR
+      );
+      shapes = bali.shapes;
+      if (bali.hoverTrace) traces.push(bali.hoverTrace);
+    }
+
     /* Clone layout to avoid mutating the shared stored object */
     var layout = JSON.parse(JSON.stringify(figData.layout || {}));
-    layout.shapes      = bnd.shapes;
+    layout.shapes      = shapes;
     layout.annotations = bnd.annotations;
     layout.autosize    = true;
     if (xRng) { layout.xaxis = layout.xaxis || {}; layout.xaxis.range = xRng; }
 
-    renderPlotInPanel(plotDiv, figData.data || [], layout);
+    renderPlotInPanel(plotDiv, traces, layout);
   }
 
   /** Re-renders every registered panel (used by show-idle toggle and range slider). */
@@ -129,6 +151,7 @@
   function init() {
     initCellRangeSlider(CID, MIN_CELL, MAX_CELL, INIT_RNG, refreshAll);
     initShowIdle(CID, refreshAll);
+    if (typeof initShowBali === 'function') initShowBali(CID, refreshAll);
     initAddPanelButton(CID, addPanelRow);
     addPanelRow();   /* render initial two panels */
   }

@@ -123,6 +123,91 @@ function xRangeForCells(bndData, cellRange) {
   return [xMin - pad, xMax + pad];
 }
 
+/* ── BALI overlay helpers ────────────────────────────────────────────────── */
+
+/**
+ * Builds Plotly rectangle shapes for BALI segments whose owning cell falls
+ * within [cellRange[0], cellRange[1]].  Picks the colormap based on
+ * ``metric``: GPU power metrics use the energy-efficiency colormap, all
+ * other metrics use the tokens-per-second colormap.
+ *
+ * @param {Object[]} segments  - [{cell_index, x0, x1, color_tokens,
+ *                                  color_energy, is_error, info}, …]
+ * @param {number[]} cellRange - [lo, hi]
+ * @param {number[]} ylim      - [ymin, ymax]
+ * @param {string}   metric    - currently selected metric key
+ * @param {string[]} powerMetrics - metric keys that use the energy colormap
+ * @returns {{ shapes: Object[], hoverTrace: Object|null }}
+ */
+function buildBaliShapes(segments, cellRange, ylim, metric, powerMetrics) {
+  var shapes = [];
+  if (!segments || !segments.length) {
+    return { shapes: shapes, hoverTrace: null };
+  }
+  var lo = cellRange[0], hi = cellRange[1];
+  var ymin = ylim[0], ymax = ylim[1];
+  var isPower = (powerMetrics || []).indexOf(metric) >= 0;
+
+  var hx = [], hy = [], htext = [], hcolor = [];
+  var yMid = (ymin + ymax) / 2;
+
+  for (var i = 0; i < segments.length; i++) {
+    var s = segments[i];
+    if (s.cell_index < lo || s.cell_index > hi) continue;
+
+    var color = isPower ? s.color_energy : s.color_tokens;
+    var isError = !!s.is_error || !color;
+    if (isError) {
+      shapes.push({
+        type: 'rect',
+        x0: s.x0, x1: s.x1, y0: ymin, y1: ymax,
+        xref: 'x', yref: 'y',
+        fillcolor: 'rgba(0,0,0,0)',
+        line: { color: 'gray', width: 1, dash: 'dot' },
+        layer: 'below'
+      });
+    } else {
+      shapes.push({
+        type: 'rect',
+        x0: s.x0, x1: s.x1, y0: ymin, y1: ymax,
+        xref: 'x', yref: 'y',
+        fillcolor: color, opacity: 0.55,
+        line: { color: 'gray', width: 1 },
+        layer: 'below'
+      });
+    }
+
+    /* Hover text: assemble key/value lines from s.info */
+    var lines = ['<b>BALI segment</b>'];
+    var info  = s.info || {};
+    Object.keys(info).forEach(function (k) {
+      var v = info[k];
+      if (v === null || v === undefined || v === '') return;
+      lines.push(k + ': ' + v);
+    });
+    hx.push((s.x0 + s.x1) / 2);
+    hy.push(yMid);
+    htext.push(lines.join('<br>'));
+    hcolor.push(isError ? 'gray' : color);
+  }
+
+  var hoverTrace = null;
+  if (hx.length) {
+    hoverTrace = {
+      type: 'scatter',
+      mode: 'markers',
+      x: hx,
+      y: hy,
+      text: htext,
+      hovertemplate: '%{text}<extra></extra>',
+      marker: { size: 14, color: hcolor, opacity: 0.001 },
+      showlegend: false,
+      name: 'BALI'
+    };
+  }
+  return { shapes: shapes, hoverTrace: hoverTrace };
+}
+
 /* ── Plotly rendering ────────────────────────────────────────────────────── */
 
 /**

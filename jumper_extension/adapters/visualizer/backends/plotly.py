@@ -264,10 +264,14 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
                 bgcolor="rgba(255,255,255,0.8)",
             )
 
-    def _compute_bali_segments_json(self, cell_range):
+    def _compute_bali_segments_json(self, cell_range, reference_perfdata):
         """Return BALI segments for the (no-idle) compressed x-axis as a list
         of JSON-friendly dicts with pre-computed colors for both the
         tokens-per-second and energy-efficiency colormaps.
+
+        ``reference_perfdata`` must be the **compressed** per-level
+        DataFrame produced by ``_prepare_processed_data_for_interactive``;
+        ``add_llm_performance_info`` integrates GPU power over it.
 
         Relies on ``self._compressed_cell_boundaries`` having been set
         beforehand (call ``_prepare_processed_data_for_interactive`` first).
@@ -280,14 +284,6 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
         if not bali_segments:
             return {"segments": [], "vmin": 0.0, "vmax": 100.0}
 
-        primary_level = get_available_levels()[0]
-        # Use raw (uncompressed) perfdata for the energy integration; it
-        # carries the same gpu_power_avg column and its time domain is not
-        # needed by callers of the JSON output.
-        try:
-            reference_perfdata = self.monitor.data.view(level=primary_level)
-        except Exception:
-            reference_perfdata = None
         if reference_perfdata is None or reference_perfdata.empty:
             return {"segments": [], "vmin": 0.0, "vmax": 100.0}
 
@@ -617,8 +613,14 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
         )
         # BALI overlays use the compressed (no-idle) cell boundaries.  They
         # are only meaningful when idle periods are hidden, matching the
-        # matplotlib backend.
-        bali = self._compute_bali_segments_json(full_range)
+        # matplotlib backend.  We need the *compressed* perfdata for the
+        # primary level so that ``add_llm_performance_info`` integrates
+        # GPU power in the same time domain as the segments.
+        primary_level = get_available_levels()[0]
+        reference_perfdata = (perfdata_no_idle or {}).get(primary_level)
+        bali = self._compute_bali_segments_json(
+            full_range, reference_perfdata
+        )
 
         return {
             "figures":          figures,
