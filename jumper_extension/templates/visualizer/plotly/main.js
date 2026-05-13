@@ -94,6 +94,7 @@
 
   /** Re-renders every registered panel (used by show-idle toggle and range slider). */
   function refreshAll() {
+    if (typeof updateBaliScales === 'function') updateBaliScales(CID);
     Object.keys(panelRegistry).forEach(function (pid) {
       var p = panelRegistry[pid];
       renderPlot(pid, p.metricSel.value, p.levelSel.value);
@@ -153,6 +154,7 @@
     initShowIdle(CID, refreshAll);
     if (typeof initShowBali === 'function') initShowBali(CID, refreshAll);
     initAddPanelButton(CID, addPanelRow);
+    if (typeof updateBaliScales === 'function') updateBaliScales(CID);
     addPanelRow();   /* render initial two panels */
   }
 

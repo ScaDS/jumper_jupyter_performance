@@ -850,6 +850,7 @@ class InteractivePlotlyWrapper:
         "toolbar",
         "show_idle_checkbox",
         "show_bali_checkbox",
+        "bali_scales",
         "cell_range_slider",
         "add_panel_button",
         "panel",
@@ -857,6 +858,7 @@ class InteractivePlotlyWrapper:
     _JS_COMPONENTS = [
         "show_idle_checkbox",
         "show_bali_checkbox",
+        "bali_scales",
         "cell_range_slider",
         "add_panel_button",
         "panel",

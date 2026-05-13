@@ -1,0 +1,57 @@
+/* ── BALI colorbar scales ────────────────────────────────────────────────── */
+.jump-vis-bali-scales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+  padding: 4px 0 8px 0;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.jump-vis-bali-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.jump-vis-bali-scale-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.jump-vis-bali-scale-min,
+.jump-vis-bali-scale-max {
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+  text-align: center;
+}
+
+.jump-vis-bali-scale-bar {
+  width: 160px;
+  height: 12px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+/* Matches BaliResultsParser.colormap (blue_to_orange) */
+.jump-vis-bali-scale-bar--tokens {
+  background: linear-gradient(
+    to right,
+    #51829B 0%,
+    #9BB0C1 50%,
+    #F6995C 100%
+  );
+}
+
+/* Matches BaliResultsParser.colormap_energy (yellow_to_red) */
+.jump-vis-bali-scale-bar--energy {
+  background: linear-gradient(
+    to right,
+    #EADFB4 0%,
+    #F6995C 50%,
+    #874C62 100%
+  );
+}
