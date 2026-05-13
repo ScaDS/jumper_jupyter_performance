@@ -661,6 +661,10 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
             if self.monitor.num_gpus:
                 metric_subsets += ("gpu", "gpu_all")
 
+        # Drop any cached BALI segments so a re-render after additional
+        # BALI runs picks up the new result directories.
+        self._invalidate_bali_cache()
+
         valid_cells = self.cell_history.view()
         if len(valid_cells) == 0:
             logger.warning(

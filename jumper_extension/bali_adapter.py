@@ -55,9 +55,11 @@ class BaliAdapter:
     def get_segments_for_visualization(self, pid: int) -> List[Dict]:
         """
         Get BALI segments in the format needed for visualization.
+
+        Always re-reads from disk so new BALI runs (additional result
+        directories created after the first one was cached) are picked up.
         """
-        if self._segments_df.empty:
-            self.refresh_segments_from_disk(pid)
+        self.refresh_segments_from_disk(pid)
 
         df = self._segments_df
         df = df[df["start_time"].notna() & df["end_time"].notna()]
