@@ -231,15 +231,25 @@ class DiskPerformanceVisualizer(MatplotlibPerformanceVisualizer):
         metric_subsets=("cpu", "mem", "io"),
         cell_range=None,
         show_idle=False,
+        show_bali=True,
     ):
-        """Plot performance metrics using disk data."""
+        """Plot performance metrics using disk data.
+
+        BALI segments are shown by default for the disk-replay path
+        because the typical reason for ``%perfmonitor_plot --from-disk``
+        is to inspect previously computed BALI segments.
+        """
         if any(not df.empty for df in self.perfdata_by_level.values()):
             # Override the plot method to use disk data
-            self._plot_with_disk_data(metric_subsets, cell_range, show_idle)
+            self._plot_with_disk_data(
+                metric_subsets, cell_range, show_idle, show_bali
+            )
         else:
             logger.warning("No performance data found on disk")
 
-    def _plot_with_disk_data(self, metric_subsets, cell_range, show_idle):
+    def _plot_with_disk_data(
+        self, metric_subsets, cell_range, show_idle, show_bali=True
+    ):
         """Modified plot method that uses pre-loaded disk data."""
         # Use the parent class plot method but override data access
 
@@ -252,4 +262,6 @@ class DiskPerformanceVisualizer(MatplotlibPerformanceVisualizer):
         self.monitor.data = mock_data
 
         # Call parent plot method
-        super().plot(metric_subsets, cell_range, show_idle)
+        super().plot(
+            metric_subsets, cell_range, show_idle, show_bali=show_bali
+        )
