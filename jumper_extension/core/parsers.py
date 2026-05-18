@@ -118,6 +118,19 @@ def build_perfmonitor_plot_parser() -> argparse.ArgumentParser:
              "in seconds, default 2.0) and WINDOW (sliding window in seconds, "
              "default 120). E.g. --live, --live 1.0, --live 2.0 60"
     )
+    parser.add_argument(
+        "--from-disk",
+        dest="from_disk",
+        nargs="?",
+        const=-1,
+        type=int,
+        default=None,
+        metavar="PID",
+        help="Load perfdata, cell history and BALI segments from disk for "
+             "a previously monitored PID. If PID is omitted, the current "
+             "monitor's PID is used. Useful to re-plot BALI segments that "
+             "have been computed before.",
+    )
     return parser
 
 def build_auto_perfreports_parser() -> argparse.ArgumentParser:

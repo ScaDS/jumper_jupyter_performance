@@ -35,7 +35,16 @@ from jumper_extension.adapters.visualizer.visualizer import build_performance_vi
     VisualizerProtocol
 from jumper_extension.adapters.reporter import PerformanceReporter, build_performance_reporter
 from jumper_extension.adapters.cell_history import CellHistory
-from jumper_extension.utilities import get_available_levels
+from jumper_extension.utilities import (
+    get_available_levels,
+    save_perfdata_to_disk,
+    save_cell_history_to_disk,
+    save_monitor_metadata_to_disk,
+    load_cell_history_from_disk,
+)
+from jumper_extension.adapters.visualizer.backends.disk import (
+    DiskPerformanceVisualizer,
+)
 
 
 logger = logging.getLogger("extension")
@@ -314,8 +323,57 @@ class PerfmonitorService:
                 EXTENSION_ERROR_MESSAGES[ExtensionErrorCode.NO_ACTIVE_MONITOR]
             )
             return
+        # Persist the session to disk so it can be re-plotted later via
+        # ``%perfmonitor_plot --from-disk`` (also covers BALI segments,
+        # which are written to disk by the BALI hook independently).
+        try:
+            save_perfdata_to_disk(self.monitor.pid, self.monitor.data)
+            save_cell_history_to_disk(self.monitor.pid, self.cell_history)
+            save_monitor_metadata_to_disk(self.monitor.pid, self.monitor)
+        except Exception as exc:  # noqa: BLE001 - best-effort persistence
+            logger.warning(f"Failed to persist session to disk: {exc}")
         self.monitor.stop()
         self.settings.monitoring.running = False
+
+    def _plot_from_disk(
+        self,
+        pid: int,
+        metrics: Optional[List[str]] = None,
+        cell_range: Optional[Tuple[int, int]] = None,
+    ) -> None:
+        """Replay a previously saved session from disk.
+
+        Uses :class:`DiskPerformanceVisualizer` (matplotlib backend) to
+        render perfdata, cell history and BALI segments that were
+        persisted under ``perfdata_results/<pid>/``.
+        """
+        if pid is None or pid < 0:
+            pid = getattr(self.monitor, "pid", None) if self.monitor else None
+        if not pid:
+            logger.warning(
+                "No PID available for --from-disk. Provide a PID, e.g. "
+                "`%perfmonitor_plot --from-disk 12345`."
+            )
+            return
+
+        cell_history_data = load_cell_history_from_disk(pid)
+        if cell_history_data.empty:
+            logger.warning(
+                f"No cell history found on disk for PID {pid} "
+                f"(expected under perfdata_results/{pid}/)."
+            )
+            return
+
+        temp_cell_history = CellHistory()
+        temp_cell_history.data = cell_history_data
+
+        # Reuse the service's BALI adapter (if any) so cached segments and
+        # color scales stay consistent across plots.
+        bali_adapter = getattr(self, "bali_adapter", None)
+        visualizer = DiskPerformanceVisualizer(
+            pid, temp_cell_history, bali_adapter=bali_adapter
+        )
+        visualizer.plot(metric_subsets=metrics, cell_range=cell_range)
 
     def plot_performance(
         self,
@@ -326,6 +384,7 @@ class PerfmonitorService:
         pickle_file: Optional[str] = None,
         backend: Optional[str] = None,
         live: Optional[Tuple[float, float]] = None,
+        from_disk: Optional[int] = None,
     ) -> None:
         """Open an interactive performance plot.
 
@@ -356,12 +415,19 @@ class PerfmonitorService:
             ... )
             >>> service.plot_performance(live=(2.0, 120.0))
         """
-        if not self.monitor.running and not self.monitor.is_imported:
+        if from_disk is None and not self.monitor.running and not self.monitor.is_imported:
             logger.warning(
                 EXTENSION_ERROR_MESSAGES[ExtensionErrorCode.NO_ACTIVE_MONITOR]
             )
             return
-        
+
+        if from_disk is not None and live is not None:
+            logger.warning(
+                "Live plotting is not available with --from-disk. "
+                "Use regular plotting instead."
+            )
+            return
+
         if live is not None and self.monitor.is_imported:
             logger.warning(
                 "Live plotting is not available for imported sessions. "
@@ -375,6 +441,14 @@ class PerfmonitorService:
                     source=self.monitor.session_source
                 )
             )
+
+        if from_disk is not None:
+            self._plot_from_disk(
+                pid=from_disk,
+                metrics=metrics,
+                cell_range=cell_range,
+            )
+            return
 
         selected_backend = (
             (backend or self.settings.visualizer_backend) or "matplotlib"
@@ -949,6 +1023,7 @@ class PerfmonitorMagicAdapter:
             pickle_file=args.pickle_file,
             backend=args.backend,
             live=self._parse_live_args(args.live) if hasattr(args, 'live') and args.live is not None else None,
+            from_disk=getattr(args, "from_disk", None),
         )
 
     def perfmonitor_enable_perfreports(self, line: str):
