@@ -247,6 +247,7 @@ class PerfmonitorService:
         save_jpeg: Optional[str] = None,
         pickle_file: Optional[str] = None,
         backend: Optional[str] = None,
+        live: Optional[Tuple[float, float]] = None,
     ) -> None:
         """Open an interactive performance plot.
 
@@ -255,6 +256,15 @@ class PerfmonitorService:
         ``level`` is provided (or inferred for exports), the plot is
         rendered directly without ipywidgets, which also enables JPEG
         and pickle exports.
+
+        Args:
+            metrics: Optional list of metric subset names to plot
+            cell_range: Optional tuple of (start_idx, end_idx) for cell range
+            level: Optional performance level for direct plotting
+            save_jpeg: Optional path to save plot as JPEG
+            pickle_file: Optional path to serialize plot data
+            backend: Optional visualizer backend ("matplotlib" or "plotly")
+            live: If set, tuple of (update_interval, window_seconds) for live plotting
 
         Returns:
             None
@@ -266,12 +276,21 @@ class PerfmonitorService:
             ...     level="process",
             ...     cell_range=(0, 3),
             ... )
+            >>> service.plot_performance(live=(2.0, 120.0))
         """
         if not self.monitor.running and not self.monitor.is_imported:
             logger.warning(
                 EXTENSION_ERROR_MESSAGES[ExtensionErrorCode.NO_ACTIVE_MONITOR]
             )
             return
+        
+        if live is not None and self.monitor.is_imported:
+            logger.warning(
+                "Live plotting is not available for imported sessions. "
+                "Use regular plotting instead."
+            )
+            return
+        
         if self.monitor.is_imported:
             logger.info(
                 EXTENSION_INFO_MESSAGES[ExtensionInfoCode.IMPORTED_SESSION_PLOT].format(
@@ -319,13 +338,23 @@ class PerfmonitorService:
                 )
                 return
 
-        self.visualizer.plot(
-            metric_subsets=metrics,
-            cell_range=cell_range,
-            level=effective_level,
-            save_jpeg=save_jpeg,
-            pickle_file=pickle_file,
-        )
+        if live is not None:
+            update_interval, window_seconds = live
+            self.visualizer.plot_live(
+                metric_subsets=metrics,
+                cell_range=cell_range,
+                level=effective_level,
+                update_interval=update_interval,
+                window_seconds=window_seconds,
+            )
+        else:
+            self.visualizer.plot(
+                metric_subsets=metrics,
+                cell_range=cell_range,
+                level=effective_level,
+                save_jpeg=save_jpeg,
+                pickle_file=pickle_file,
+            )
 
     def enable_perfreports(
         self,
@@ -785,6 +814,21 @@ class PerfmonitorMagicAdapter:
         """Stop the active performance monitoring session."""
         self.service.stop_monitoring()
 
+    @staticmethod
+    def _parse_live_args(live_list):
+        """Parse --live argument list into (interval, window) tuple.
+
+        ``--live``           → (2.0, 120.0)
+        ``--live 1.0``       → (1.0, 120.0)
+        ``--live 2.0 60``    → (2.0, 60.0)
+        """
+        defaults = (2.0, 120.0)
+        if not live_list:
+            return defaults
+        interval = live_list[0] if len(live_list) >= 1 else defaults[0]
+        window = live_list[1] if len(live_list) >= 2 else defaults[1]
+        return (interval, window)
+
     def perfmonitor_plot(self, line: str):
         """Open interactive plot or direct plot/export of performance data."""
         args = parse_arguments(self.parsers.perfmonitor_plot, line)
@@ -808,6 +852,7 @@ class PerfmonitorMagicAdapter:
             save_jpeg=args.save_jpeg,
             pickle_file=args.pickle_file,
             backend=args.backend,
+            live=self._parse_live_args(args.live) if hasattr(args, 'live') and args.live is not None else None,
         )
 
     def perfmonitor_enable_perfreports(self, line: str):

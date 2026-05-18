@@ -77,6 +77,15 @@ def build_perfmonitor_plot_parser() -> argparse.ArgumentParser:
         choices=["matplotlib", "plotly"],
         help="Visualizer backend for this plot command",
     )
+    parser.add_argument(
+        "--live",
+        nargs="*",
+        type=float,
+        metavar=("INTERVAL", "WINDOW"),
+        help="Enable live-updating plots. Optional args: INTERVAL (update rate "
+             "in seconds, default 2.0) and WINDOW (sliding window in seconds, "
+             "default 120). E.g. --live, --live 1.0, --live 2.0 60"
+    )
     return parser
 
 def build_auto_perfreports_parser() -> argparse.ArgumentParser:

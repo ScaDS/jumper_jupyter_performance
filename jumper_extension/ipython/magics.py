@@ -145,10 +145,12 @@ class PerfmonitorMagics(Magics):
         """Open an interactive performance plot.
 
         This magic opens interactive widgets for exploring collected
-        performance data.
+        performance data. Supports live-updating plots that continuously
+        refresh with new data while allowing other cells to execute.
 
         Args:
             line: Raw argument string forwarded to the adapter.
+                Supports --live flag for continuous updates.
         Returns:
             None
 
@@ -156,6 +158,18 @@ class PerfmonitorMagics(Magics):
             Open an interactive plot for the current session::
 
                 %perfmonitor_plot
+
+            Open a live-updating plot (non-blocking, 2s updates)::
+
+                %perfmonitor_plot --live
+
+            Open a live plot with custom update interval (1 second)::
+
+                %perfmonitor_plot --live 1.0
+
+            Open a live plot with specific metrics and fast updates::
+
+                %perfmonitor_plot --live 0.5 --metrics cpu,mem
         """
         self.magic_adapter.perfmonitor_plot(line)
 

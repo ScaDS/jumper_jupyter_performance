@@ -153,11 +153,66 @@ You can also run `%perfmonitor_plot` in a direct (non-widget) mode and save or e
   The command prints a small Python snippet showing how to load the pickle and display the plot in a separate session.
 
 Notes:
-- `--metrics` accepts a comma-separated list of metric keys (e.g., `cpu_summary`, `memory`, `io_read`, `io_write`, `io_read_count`, `io_write_count`, `gpu_util_summary`, `gpu_band_summary`, `gpu_mem_summary`).
+- `--metrics` accepts a comma-separated list of metric keys (see [Available Metric Keys](#available-metric-keys) below).
 - `--level` supports the same levels as reports: `process` (default), `user`, `system`, and `slurm` (if available).
 - `--cell` supports formats like `5`, `2:8`, `:5`, `3:`. Negative indices are supported (e.g., `-3:-1`).
 
+### Live plotting mode
 
+The `--live` flag enables a continuously updating plot that shows a sliding window of recent performance data. Panels auto-update in the background without blocking cell execution.
+
+- **Start live plotting with defaults** (2s update interval, 120s window, shows CPU and Memory):
+  ```python
+  %perfmonitor_plot --live
+  ```
+
+- **Custom update interval and window size:**
+  ```python
+  %perfmonitor_plot --live 1.0 60
+  ```
+  Updates every 1 second, showing the last 60 seconds of data.
+
+- **Select specific metrics for live panels:**
+  ```python
+  %perfmonitor_plot --live --metrics cpu_summary,memory
+  ```
+
+- **Monitor I/O alongside CPU:**
+  ```python
+  %perfmonitor_plot --live --metrics cpu_summary,io_read,io_write
+  ```
+
+- **GPU monitoring (requires pynvml or ADLXPybind):**
+  ```python
+  %perfmonitor_plot --live --metrics gpu_util_summary,gpu_mem_summary
+  ```
+
+Notes:
+- Without `--metrics`, live mode shows two default panels (typically CPU and Memory).
+- With `--metrics`, one panel is created per metric key specified.
+- Live updates stop automatically when the monitor stops or the kernel is interrupted.
+- The `--live` flag accepts up to two optional float arguments: update interval (default 2.0s) and sliding window size (default 120s).
+
+### Available Metric Keys
+
+The following metric keys can be used with `--metrics` for both direct and live plotting:
+
+| Metric Key | Description |
+|------------|-------------|
+| `cpu_summary` | CPU utilization summary (min/avg/max across CPUs) |
+| `memory` | Memory usage in GB |
+| `io_read` | I/O read throughput (MB/s) |
+| `io_write` | I/O write throughput (MB/s) |
+| `io_read_count` | I/O read operations per second |
+| `io_write_count` | I/O write operations per second |
+| `gpu_util_summary` | GPU utilization summary (min/avg/max across GPUs) |
+| `gpu_band_summary` | GPU memory bandwidth summary (min/avg/max) |
+| `gpu_mem_summary` | GPU memory usage summary (min/avg/max) |
+| `gpu_util` | GPU utilization per GPU |
+| `gpu_band` | GPU memory bandwidth per GPU |
+| `gpu_mem` | GPU memory usage per GPU |
+
+*GPU metric keys are only available when GPU monitoring libraries are installed.*
 
 5. **View cell execution history**:
    ```python
@@ -242,7 +297,7 @@ The extension supports four different levels of metric collection, each providin
 | `%perfmonitor_start [interval]` | Start monitoring (default: 1 second interval) |
 | `%perfmonitor_stop` | Stop monitoring |
 | `%perfmonitor_perfreport [--cell RANGE] [--level LEVEL]` | Show performance report for specific cell range and monitoring level |
-| `%perfmonitor_plot [--metrics LIST] [--cell RANGE] [--level LEVEL] [--save-jpeg FILE] [--pickle FILE]` | Interactive plot with widgets; direct plotting of selected metrics; optional export to JPEG or pickle |
+| `%perfmonitor_plot [--metrics LIST] [--cell RANGE] [--level LEVEL] [--save-jpeg FILE] [--pickle FILE] [--live [INTERVAL WINDOW]]` | Interactive plot with widgets; direct plotting of selected metrics; live updating plots; optional export to JPEG or pickle |
 | `%cell_history` | Show execution history of all cells with interactive table |
 | `%perfmonitor_enable_perfreports` | Auto-generate reports after each cell |
 | `%perfmonitor_disable_perfreports` | Disable auto-reports |

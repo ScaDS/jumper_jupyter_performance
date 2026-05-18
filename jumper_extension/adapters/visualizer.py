@@ -3,6 +3,9 @@ import logging
 import pickle
 import re
 import uuid
+import threading
+import time
+from collections import deque
 from pathlib import Path
 from typing import List, runtime_checkable, Protocol, Optional, Tuple
 
@@ -601,6 +604,404 @@ class PerformanceVisualizer:
 
         display(widgets.VBox([config_widgets, plot_output]))
         update_plots()
+
+    # ---- Live plotting helpers ------------------------------------------ #
+
+    def _build_live_figure(self, metric, level, window_seconds):
+        """Build a Plotly Figure for a single metric panel in live mode.
+
+        Returns a ``go.Figure`` with traces, cell boundaries, and layout
+        configured for the current sliding window.  Returns *None* when
+        there is no data to show yet.
+        """
+        df = self.monitor.data.view(level=level)
+        now = time.perf_counter() - self.monitor.start_time
+        t_start = max(0, now - window_seconds)
+        t_end = now
+
+        config = next(
+            (subset[metric] for subset in self.subsets.values()
+             if metric in subset), None,
+        )
+        if not config or not isinstance(config, dict):
+            return None
+
+        fig = go.Figure()
+        plot_type = config.get("type")
+        title = config.get("title", "")
+        ylim = config.get("ylim")
+        y_values: list = []
+
+        has_data = df is not None and not df.empty
+        if has_data:
+            df = df.copy()
+            df["time"] = df["time"] - self.monitor.start_time
+            df = df[df["time"] >= t_start]
+            has_data = not df.empty
+
+        if has_data:
+            if plot_type == "single_series":
+                column = config.get("column")
+                if column and column in df.columns:
+                    series = df[column]
+                    if metric in ("io_read", "io_write",
+                                  "io_read_count", "io_write_count"):
+                        diffs = df[column].astype(float).diff().clip(lower=0)
+                        if metric in ("io_read", "io_write"):
+                            diffs = diffs / (1024**2)
+                        series = diffs.fillna(0.0)
+                        if self._io_window and self._io_window > 1:
+                            series = series.rolling(
+                                window=self._io_window,
+                                min_periods=1,
+                            ).mean()
+                    fig.add_trace(go.Scatter(
+                        x=df["time"], y=series,
+                        name=config.get("label", column),
+                        mode="lines",
+                        line=dict(color="blue", width=2),
+                    ))
+                    y_values.extend(series.tolist())
+                    if metric == "memory" and ylim is None:
+                        ylim = (0, self.monitor.memory_limits[level])
+
+            elif plot_type == "summary_series":
+                columns = config.get("columns", [])
+                if level == "system":
+                    title = re.sub(
+                        r"\d+", str(self.monitor.num_system_cpus), title
+                    )
+                dashes = ["dot", "solid", "dash"]
+                opacities = [0.35, 1.0, 0.35]
+                labels = ["Min", "Average", "Max"]
+                for i, col in enumerate(columns):
+                    if col not in df.columns:
+                        continue
+                    fig.add_trace(go.Scatter(
+                        x=df["time"], y=df[col],
+                        name=labels[i % len(labels)],
+                        mode="lines",
+                        line=dict(color="blue",
+                                  dash=dashes[i % len(dashes)],
+                                  width=2),
+                        opacity=opacities[i % len(opacities)],
+                    ))
+                    y_values.extend(df[col].tolist())
+
+            elif plot_type == "multi_series":
+                prefix = config.get("prefix", "")
+                series_cols = [
+                    c for c in df.columns
+                    if prefix and c.startswith(prefix)
+                    and not c.endswith("avg")
+                ]
+                avg_column = f"{prefix}avg" if prefix else None
+                for col in series_cols:
+                    fig.add_trace(go.Scatter(
+                        x=df["time"], y=df[col],
+                        name=col, mode="lines",
+                        opacity=0.5, line=dict(width=1),
+                    ))
+                    y_values.extend(df[col].tolist())
+                if avg_column and avg_column in df.columns:
+                    fig.add_trace(go.Scatter(
+                        x=df["time"], y=df[avg_column],
+                        name="Mean", mode="lines",
+                        line=dict(color="blue", width=2),
+                    ))
+                    y_values.extend(df[avg_column].tolist())
+
+        # Compute y-range
+        if ylim is None:
+            clean = [float(v) for v in y_values
+                     if v == v and abs(float(v)) != float("inf")]
+            if clean:
+                ymin, ymax = min(clean), max(clean)
+                pad = (ymax - ymin) * 0.05 or 1.0
+                ylim = (ymin - pad, ymax + pad)
+            else:
+                ylim = (0, 1)
+
+        # Cell boundaries
+        shapes, annotations = [], []
+        y_min, y_max = ylim
+        height = y_max - y_min
+        cells = self.cell_history.view()
+        if cells is not None and not cells.empty:
+            for _, cell in cells.iterrows():
+                try:
+                    c_start = (float(cell["start_time"])
+                               - self.monitor.start_time)
+                    dur = float(cell["duration"])
+                    cidx = int(cell["cell_index"])
+                except Exception:
+                    continue
+                if c_start + dur < t_start:
+                    continue
+                color = jumper_colors[cidx % len(jumper_colors)]
+                shapes.append(dict(
+                    type="rect", x0=c_start, x1=c_start + dur,
+                    y0=y_min, y1=y_max,
+                    fillcolor=color, opacity=0.4,
+                    line=dict(color="black", dash="dash", width=1),
+                    layer="below",
+                ))
+                annotations.append(dict(
+                    x=c_start + dur / 2, y=y_max - height * 0.1,
+                    text=f"#{cidx}", showarrow=False,
+                    font=dict(size=10),
+                    bgcolor="rgba(255,255,255,0.8)",
+                ))
+
+        # Show the currently executing cell as a live boundary
+        current = self.cell_history.current_cell
+        if current is not None:
+            try:
+                c_start = (float(current["start_time"])
+                           - self.monitor.start_time)
+                cidx = int(current["cell_index"])
+                c_end = now  # extends to current time
+                if c_end > t_start:
+                    color = jumper_colors[cidx % len(jumper_colors)]
+                    shapes.append(dict(
+                        type="rect", x0=c_start, x1=c_end,
+                        y0=y_min, y1=y_max,
+                        fillcolor=color, opacity=0.25,
+                        line=dict(color="black", dash="dot", width=1),
+                        layer="below",
+                    ))
+                    annotations.append(dict(
+                        x=c_start + (c_end - c_start) / 2,
+                        y=y_max - height * 0.1,
+                        text=f"#{cidx} ▶",
+                        showarrow=False,
+                        font=dict(size=10, color="green"),
+                        bgcolor="rgba(255,255,255,0.8)",
+                    ))
+            except Exception:
+                pass
+
+        fig.update_layout(
+            template="plotly_white",
+            title=title or "Waiting for data…",
+            xaxis=dict(title="Time (seconds)", range=[t_start, t_end]),
+            yaxis=dict(range=list(ylim)),
+            shapes=shapes,
+            annotations=annotations,
+            margin=dict(l=50, r=16, t=45, b=40),
+            height=max(220, int(self.figsize[1] * 105)),
+            legend=dict(
+                orientation="h", yanchor="top", y=0.99,
+                xanchor="center", x=0.5,
+                bgcolor="rgba(255,255,255,0.8)",
+            ),
+        )
+        return fig
+
+    def plot_live(
+        self,
+        metric_subsets=("cpu", "mem", "io"),
+        cell_range=None,
+        show_idle=False,
+        level=None,
+        update_interval=2.0,
+        window_seconds=120.0,
+    ):
+        """Plot performance metrics with a sliding-window live view.
+
+        Displays fixed panels that auto-update via a background thread
+        using ``IPython.display.update_display``.  No ipywidgets, no
+        JavaScript communication, no extra dependencies.
+
+        Args:
+            metric_subsets: Tuple of metric subset names to plot.
+            cell_range: Ignored for live plotting.
+            show_idle: Ignored for live plotting (always True).
+            level: Monitoring level (``"process"``, ``"user"``,
+                ``"system"``, or ``"slurm"``). Defaults to ``"process"``.
+            update_interval: Seconds between refreshes (default 2.0).
+            window_seconds: Width of the visible time window (default 120).
+        """
+        import plotly.io as pio
+
+        if not self.monitor.running:
+            logger.warning(
+                EXTENSION_ERROR_MESSAGES[ExtensionErrorCode.NO_ACTIVE_MONITOR]
+            )
+            return
+
+        # Remember which metric keys the user explicitly asked for
+        user_requested_keys = None
+        if metric_subsets is not None and len(metric_subsets) > 0:
+            user_requested_keys = set(
+                str(m).strip() for m in metric_subsets
+            )
+
+        # ---- Determine default metrics ------------------------------------ #
+        if user_requested_keys is not None:
+            # User specified --metrics: resolve and filter
+            if not metric_subsets:
+                metric_subsets = ("cpu", "mem", "io")
+                if self.monitor.num_gpus:
+                    metric_subsets += ("gpu", "gpu_all")
+            metric_subsets = self._resolve_metric_subsets(metric_subsets)
+            metrics_list, labeled_options = self._collect_metric_options(
+                metric_subsets
+            )
+            metrics_list = [
+                m for m in metrics_list if m in user_requested_keys
+            ]
+            labeled_options = [
+                (lbl, val) for lbl, val in labeled_options
+                if val in user_requested_keys
+            ]
+            if not metrics_list:
+                all_keys = []
+                for subset_cfg in self.subsets.values():
+                    all_keys.extend(subset_cfg.keys())
+                logger.warning(
+                    f"No matching metrics found. Available metric keys: "
+                    f"{', '.join(sorted(set(all_keys)))}"
+                )
+                return
+            default_metrics = list(dict.fromkeys(metrics_list))
+        else:
+            # No --metrics flag: always CPU + Memory; add GPU if available
+            default_metrics = ["cpu_summary", "memory"]
+            if self.monitor.num_gpus:
+                default_metrics += ["gpu_util_summary", "gpu_mem_summary"]
+            # Resolve subsets needed for these metrics
+            needed_subsets = ["cpu", "mem"]
+            if self.monitor.num_gpus:
+                needed_subsets.append("gpu")
+            metric_subsets = self._resolve_metric_subsets(needed_subsets)
+            _, labeled_options = self._collect_metric_options(metric_subsets)
+
+        # Map metric keys → human-readable labels
+        label_map = {val: lbl for lbl, val in labeled_options}
+        if level is None:
+            level = "process"
+        session_id = str(uuid.uuid4())[:8]
+        stop_event = threading.Event()
+        ncols = 2
+
+        # -- Display header (static) --------------------------------------- #
+        header_html = f"""
+<div style="display:flex;align-items:center;justify-content:space-between;
+            flex-wrap:wrap;margin-bottom:8px">
+  <b>Live Performance Monitor</b>
+  <span>
+    <span id="jumper-status-{session_id}"
+          style="color:green;font-weight:bold">● Live</span>
+    <span style="color:#666;margin-left:8px">
+      window {window_seconds:.0f}s / update {update_interval}s
+    </span>
+  </span>
+  <img src="{logo_image}" alt="JUmPER"
+       style="height:auto;width:100px" onerror="this.style.display='none'">
+</div>
+<p style="color:#666;font-size:0.9em">
+  Panels: {', '.join(label_map.get(m, m) for m in default_metrics)}
+  (level: {level}).
+</p>
+"""
+        display(HTML(header_html))
+
+        # -- Single display handle for the whole grid ---------------------- #
+        grid_id = f"jumper-live-grid-{session_id}"
+        init_items = "".join(
+            f"<div style='padding:4px'>"
+            f"<p style='color:#888'>Initialising "
+            f"{label_map.get(m, m)}…</p></div>"
+            for m in default_metrics
+        )
+        display(
+            HTML(
+                f"<div style='display:grid;"
+                f"grid-template-columns:repeat({ncols},1fr);"
+                f"gap:8px'>{init_items}</div>"
+            ),
+            display_id=grid_id,
+        )
+
+        # -- Background thread --------------------------------------------- #
+        def _render_grid():
+            """Build all panels and return a single HTML grid string."""
+            cells = []
+            for metric in default_metrics:
+                try:
+                    fig = self._build_live_figure(
+                        metric, level, window_seconds,
+                    )
+                    if fig is not None:
+                        html_frag = pio.to_html(
+                            fig,
+                            full_html=False,
+                            include_plotlyjs="cdn",
+                            config={"responsive": True,
+                                    "displayModeBar": True},
+                        )
+                    else:
+                        html_frag = (
+                            "<p style='color:#888;text-align:center'>"
+                            "Waiting for data…</p>"
+                        )
+                except Exception:
+                    logger.debug(
+                        "Live plot update error for %s", metric,
+                        exc_info=True,
+                    )
+                    html_frag = (
+                        "<p style='color:#888;text-align:center'>"
+                        "Waiting for data…</p>"
+                    )
+                cells.append(
+                    f"<div style='padding:4px'>{html_frag}</div>"
+                )
+            return (
+                f"<div style='display:grid;"
+                f"grid-template-columns:repeat({ncols},1fr);"
+                f"gap:8px'>{''.join(cells)}</div>"
+            )
+
+        def _live_loop():
+            try:
+                while not stop_event.is_set():
+                    try:
+                        grid_html = _render_grid()
+                        display(
+                            HTML(grid_html),
+                            display_id=grid_id,
+                            update=True,
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Live plot grid update error",
+                            exc_info=True,
+                        )
+                    if not self.monitor.running:
+                        break
+                    stop_event.wait(update_interval)
+            finally:
+                # Final render
+                try:
+                    grid_html = _render_grid()
+                    display(
+                        HTML(grid_html),
+                        display_id=grid_id,
+                        update=True,
+                    )
+                except Exception:
+                    pass
+
+        thread = threading.Thread(target=_live_loop, daemon=True)
+        thread.start()
+
+        logger.info(
+            f"Live plotting started (update every {update_interval}s, "
+            f"window {window_seconds:.0f}s). "
+            f"Interrupt kernel or stop monitor to end."
+        )
 
 
 class MatplotlibPerformanceVisualizer(PerformanceVisualizer):
