@@ -198,11 +198,63 @@ def load_perfdata_from_disk(pid, levels):
 def load_cell_history_from_disk(pid):
     """Load cell history from disk by PID"""
     filepath = f"perfdata_results/{pid}/cell_history.json"
+    expected_columns = [
+        "cell_index",
+        "raw_cell",
+        "cell_magics",
+        "start_time",
+        "end_time",
+        "duration",
+        "wallclock_start_time",
+        "wallclock_end_time",
+    ]
     if os.path.exists(filepath):
         with open(filepath, "r") as f:
             data = json.load(f)
-        return pd.DataFrame(data)
-    return pd.DataFrame()
+        df = pd.DataFrame(data)
+        # Make sure expected columns exist so downstream code that
+        # dereferences ``cell_index`` etc. does not blow up with KeyError
+        # for files written before a column was introduced or for empty
+        # histories.
+        for column in expected_columns:
+            if column not in df.columns:
+                df[column] = pd.Series(dtype="float64")
+        if not df.empty:
+            df["cell_index"] = pd.to_numeric(
+                df["cell_index"], errors="coerce"
+            ).fillna(0).astype(int)
+        return df
+    return pd.DataFrame(columns=expected_columns)
+
+
+def find_latest_pid_on_disk(base_dir: str = "perfdata_results"):
+    """Return the PID of the most recently written session under
+    ``base_dir`` (directory names that look like integer PIDs), or
+    ``None`` when no such directory exists.
+
+    Used by ``%perfmonitor_plot --from-disk`` (no argument) so that the
+    latest persisted run is replayed without having to specify a PID.
+    """
+    if not os.path.isdir(base_dir):
+        return None
+    candidates = []
+    for entry in os.listdir(base_dir):
+        full = os.path.join(base_dir, entry)
+        if not os.path.isdir(full):
+            continue
+        try:
+            pid = int(entry)
+        except ValueError:
+            continue
+        try:
+            mtime = os.path.getmtime(full)
+        except OSError:
+            continue
+        candidates.append((mtime, pid))
+    if not candidates:
+        return None
+    candidates.sort(reverse=True)
+    return candidates[0][1]
 
 
 def save_monitor_metadata_to_disk(pid, monitor):

@@ -41,6 +41,7 @@ from jumper_extension.utilities import (
     save_cell_history_to_disk,
     save_monitor_metadata_to_disk,
     load_cell_history_from_disk,
+    find_latest_pid_on_disk,
 )
 from jumper_extension.adapters.visualizer.backends.disk import (
     DiskPerformanceVisualizer,
@@ -347,14 +348,34 @@ class PerfmonitorService:
         render perfdata, cell history and BALI segments that were
         persisted under ``perfdata_results/<pid>/``.
         """
+        # Without an explicit PID: prefer the current monitor (if any),
+        # otherwise auto-pick the latest persisted session under
+        # ``perfdata_results/`` so users can simply call
+        # ``%perfmonitor_plot --from-disk`` after a kernel restart.
         if pid is None or pid < 0:
-            pid = getattr(self.monitor, "pid", None) if self.monitor else None
+            pid = (
+                getattr(self.monitor, "pid", None) if self.monitor else None
+            )
+            if not pid:
+                pid = find_latest_pid_on_disk()
+            else:
+                # If the live monitor PID has nothing on disk (e.g. fresh
+                # kernel), fall back to the latest stored session.
+                from jumper_extension.utilities import (
+                    load_cell_history_from_disk,
+                )
+                if load_cell_history_from_disk(pid).empty:
+                    latest = find_latest_pid_on_disk()
+                    if latest is not None:
+                        pid = latest
         if not pid:
             logger.warning(
-                "No PID available for --from-disk. Provide a PID, e.g. "
-                "`%perfmonitor_plot --from-disk 12345`."
+                "No persisted session found under perfdata_results/. "
+                "Run a session and call %perfmonitor_stop first, or pass "
+                "a PID explicitly: %perfmonitor_plot --from-disk 12345"
             )
             return
+        logger.info(f"Replaying session for PID {pid} from disk.")
 
         cell_history_data = load_cell_history_from_disk(pid)
         if cell_history_data.empty:
