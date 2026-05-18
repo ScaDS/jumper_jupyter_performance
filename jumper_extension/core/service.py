@@ -361,9 +361,6 @@ class PerfmonitorService:
             else:
                 # If the live monitor PID has nothing on disk (e.g. fresh
                 # kernel), fall back to the latest stored session.
-                from jumper_extension.utilities import (
-                    load_cell_history_from_disk,
-                )
                 if load_cell_history_from_disk(pid).empty:
                     latest = find_latest_pid_on_disk()
                     if latest is not None:
