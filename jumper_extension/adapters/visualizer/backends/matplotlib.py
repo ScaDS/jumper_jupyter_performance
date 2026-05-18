@@ -577,9 +577,13 @@ class InteractivePlotWrapper:
         ):
             return
 
-        segments = self.bali_adapter.get_segments_for_visualization(
-            self.monitor.bali_pid_directory
-        )
+        # ``bali_pid_directory`` is only present on the BALI-aware monitor
+        # backend; fall back to ``pid`` for the other monitor backends.
+        bali_pid = getattr(self.monitor, "bali_pid_directory", None) \
+            or getattr(self.monitor, "pid", None)
+        if bali_pid is None:
+            return
+        segments = self.bali_adapter.get_segments_for_visualization(bali_pid)
         vmin_e, vmax_e = 0, 30
 
         if not segments:

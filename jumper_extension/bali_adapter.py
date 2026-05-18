@@ -290,8 +290,16 @@ class BaliVisualizationMixin:
     def _load_bali_segments(self) -> List[Dict]:
         """Load BALI segments, using cache if available."""
         if self._cached_bali_segments is None:
+            # ``bali_pid_directory`` is only set by the BALI-aware monitor
+            # backend (``thread_bali``). Fall back to the regular monitor
+            # PID so the visualizer keeps working for other backends.
+            bali_pid = getattr(self.monitor, "bali_pid_directory", None) \
+                or getattr(self.monitor, "pid", None)
+            if bali_pid is None:
+                self._cached_bali_segments = []
+                return self._cached_bali_segments
             self._cached_bali_segments = self.bali_adapter.get_segments_for_visualization(
-                self.monitor.bali_pid_directory)
+                bali_pid)
             logging.info(f"cached segments: {self._cached_bali_segments}")
         return self._cached_bali_segments
 
