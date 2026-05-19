@@ -58,8 +58,8 @@ ENV PATH="${HOME}/.local/bin:${PATH}"
 
 # Install jumper_ipython_extension and jumper_wrapper_kernel
 RUN pip install --no-cache-dir \
-    "git+https://github.com/ScaDS/jumper_ipython_extension.git@main" \
-    "git+https://github.com/ScaDS/jumper_ipython_extension.git@main#subdirectory=jumper_wrapper_kernel"
+    "git+https://github.com/ScaDS/jumper_jupyter_performance.git@main" \
+    "git+https://github.com/ScaDS/jumper_jupyter_performance.git@main#subdirectory=jumper_wrapper_kernel"
 
 # Register the wrapper kernel spec
 RUN python3 -m jumper_wrapper_kernel.jumper_wrapper_kernel.install install
