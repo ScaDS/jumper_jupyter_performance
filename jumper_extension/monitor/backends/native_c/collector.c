@@ -746,22 +746,6 @@ static gpu_sample_t nvml_collect_process(int dev_idx,
 }
 
 /* ------------------------------------------------------------------ */
-/* JSON output helpers                                                */
-/* ------------------------------------------------------------------ */
-
-/* Write a JSON array of doubles. */
-static void json_double_array(FILE *f, double *arr, int n) {
-    fputc('[', f);
-    for (int i = 0; i < n; i++) {
-        if (i) fputc(',', f);
-        if (isnan(arr[i]) || isinf(arr[i]))
-            fprintf(f, "0.0");
-        else
-            fprintf(f, "%.4f", arr[i]);
-    }
-    fputc(']', f);
-}
-
 /* ------------------------------------------------------------------ */
 /* Handshake                                                          */
 /* ------------------------------------------------------------------ */
@@ -850,13 +834,36 @@ static void emit_ready(void) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Emit flat per-device aggregate columns (mirrors PerDeviceAggregateHandler) */
+/* Emits nothing when n == 0.                                         */
+/* ------------------------------------------------------------------ */
+
+static void emit_per_device_agg(FILE *fp, const char *prefix,
+                                 const double *vals, int n) {
+    if (n <= 0) return;
+    double avg = 0.0, mn = vals[0], mx = vals[0];
+    for (int i = 0; i < n; i++) {
+        avg += vals[i];
+        if (vals[i] < mn) mn = vals[i];
+        if (vals[i] > mx) mx = vals[i];
+    }
+    avg /= n;
+    fprintf(fp, ",\"%savg\":%.6f,\"%smin\":%.6f,\"%smax\":%.6f",
+            prefix, avg, prefix, mn, prefix, mx);
+    for (int i = 0; i < n; i++)
+        fprintf(fp, ",\"%s%d\":%.6f", prefix, i, vals[i]);
+}
+
+/* ------------------------------------------------------------------ */
 /* Emit one sample per active level                                   */
 /* ------------------------------------------------------------------ */
 
 static void emit_samples(double perf_time, double dt) {
-    static int pids_proc[MAX_PIDS];
-    static int pids_user[MAX_PIDS];
-    static int pids_slurm[MAX_PIDS];
+    static int           pids_proc[MAX_PIDS];
+    static int           pids_user[MAX_PIDS];
+    static int           pids_slurm[MAX_PIDS];
+    static io_counters_t prev_io[MAX_LEVELS];
+    static int           prev_io_valid[MAX_LEVELS];
     int n_proc = 0, n_user = 0, n_slurm = 0;
 
     /* Collect PID sets only once per tick */
@@ -952,19 +959,32 @@ static void emit_samples(double perf_time, double dt) {
             gpu_mem[g]  = gs.mem_gb;
         }
 
+        /* IO rates (mirrors CumulativeRateHandler; zeros on first tick) */
+        double io_rc = 0.0, io_wc = 0.0, io_rb = 0.0, io_wb = 0.0;
+        if (prev_io_valid[lv] && dt > 0.0) {
+            io_rc = (double)(io.read_count  - prev_io[lv].read_count)  / dt;
+            io_wc = (double)(io.write_count - prev_io[lv].write_count) / dt;
+            io_rb = (double)(io.read_bytes  - prev_io[lv].read_bytes)  / dt;
+            io_wb = (double)(io.write_bytes - prev_io[lv].write_bytes) / dt;
+            if (io_rc < 0.0) io_rc = 0.0;
+            if (io_wc < 0.0) io_wc = 0.0;
+            if (io_rb < 0.0) io_rb = 0.0;
+            if (io_wb < 0.0) io_wb = 0.0;
+        }
+        prev_io[lv]       = io;
+        prev_io_valid[lv] = 1;
+
         fprintf(stdout, "{\"wallclock\":%.6f,\"level\":\"%s\","
-                "\"sample\":{\"time\":%.6f,\"cpu_util\":",
+                "\"sample\":{\"time\":%.6f",
                 wallclock, g_level_names[lv], perf_time);
-        json_double_array(stdout, cpu_arr, ncpus_out);
-        fprintf(stdout, ",\"memory\":%.6f,\"gpu_util\":", memory);
-        json_double_array(stdout, gpu_util, ngpus);
-        fprintf(stdout, ",\"gpu_band\":");
-        json_double_array(stdout, gpu_band, ngpus);
-        fprintf(stdout, ",\"gpu_mem\":");
-        json_double_array(stdout, gpu_mem, ngpus);
-        fprintf(stdout, ",\"io_counters\":[%ld,%ld,%ld,%ld]}}\n",
-                io.read_count, io.write_count,
-                io.read_bytes, io.write_bytes);
+        emit_per_device_agg(stdout, "cpu_util_", cpu_arr, ncpus_out);
+        fprintf(stdout, ",\"memory\":%.6f", memory);
+        emit_per_device_agg(stdout, "gpu_util_", gpu_util, ngpus);
+        emit_per_device_agg(stdout, "gpu_band_", gpu_band, ngpus);
+        emit_per_device_agg(stdout, "gpu_mem_",  gpu_mem,  ngpus);
+        fprintf(stdout, ",\"io_read_count\":%.6f,\"io_write_count\":%.6f"
+                ",\"io_read\":%.6f,\"io_write\":%.6f}}\n",
+                io_rc, io_wc, io_rb, io_wb);
     }
 
     /* Commit this tick's snapshot into the cache and prune dead PIDs */
