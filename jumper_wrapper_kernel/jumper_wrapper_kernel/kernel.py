@@ -133,7 +133,10 @@ class JumperWrapperKernel(IPythonKernel):
             return
         
         try:
-            self._kernel_manager = KernelManager(kernel_name=kernel_name)
+            self._kernel_manager = KernelManager(
+                kernel_name=kernel_name,
+                kernel_spec_manager=self._kernel_spec_manager,
+            )
             self._kernel_manager.start_kernel()
             self._kernel_client = self._kernel_manager.client()
             self._kernel_client.start_channels()
@@ -327,7 +330,10 @@ class JumperWrapperKernel(IPythonKernel):
         
         # Start the new kernel
         try:
-            self._kernel_manager = KernelManager(kernel_name=kernel_name)
+            self._kernel_manager = KernelManager(
+                kernel_name=kernel_name,
+                kernel_spec_manager=self._kernel_spec_manager,
+            )
             self._kernel_manager.start_kernel()
             self._kernel_client = self._kernel_manager.client()
             self._kernel_client.start_channels()
