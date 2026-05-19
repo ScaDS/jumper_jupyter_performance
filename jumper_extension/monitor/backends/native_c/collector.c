@@ -952,9 +952,9 @@ static void emit_samples(double perf_time, double dt) {
             gpu_mem[g]  = gs.mem_gb;
         }
 
-        fprintf(stdout, "{\"time\":%.6f,\"wallclock\":%.6f,\"level\":\"%s\","
-                "\"sample\":{\"cpu_util\":",
-                perf_time, wallclock, g_level_names[lv]);
+        fprintf(stdout, "{\"wallclock\":%.6f,\"level\":\"%s\","
+                "\"sample\":{\"time\":%.6f,\"cpu_util\":",
+                wallclock, g_level_names[lv], perf_time);
         json_double_array(stdout, cpu_arr, ncpus_out);
         fprintf(stdout, ",\"memory\":%.6f,\"gpu_util\":", memory);
         json_double_array(stdout, gpu_util, ngpus);
