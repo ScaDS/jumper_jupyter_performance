@@ -18,6 +18,11 @@ def filter_perfdata(cell_history_data, perfdata, compress_idle=True):
     if cell_history_data is None or cell_history_data.empty:
         return perfdata.iloc[0:0]
 
+    # Guard against perfdata collected before the time column was introduced
+    if "time" not in perfdata.columns:
+        logger.warning("[JUmPER]: perfdata is missing 'time' column")
+        return perfdata.iloc[0:0]
+
     if compress_idle:
         # Remove idle periods between cells
         # Create time masks for each cell's execution period
