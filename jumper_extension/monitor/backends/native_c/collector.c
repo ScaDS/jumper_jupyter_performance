@@ -750,6 +750,26 @@ static gpu_sample_t nvml_collect_process(int dev_idx,
 /* Handshake                                                          */
 /* ------------------------------------------------------------------ */
 
+/* Emit a JSON array of column names for one level.
+   Mirrors the flat column layout produced by emit_samples(). */
+static void emit_columns_for_level(FILE *fp, int n_cpus, int n_gpus) {
+    fprintf(fp, "\"time\"");
+    fprintf(fp, ",\"cpu_util_avg\",\"cpu_util_min\",\"cpu_util_max\"");
+    for (int i = 0; i < n_cpus; i++)
+        fprintf(fp, ",\"cpu_util_%d\"", i);
+    fprintf(fp, ",\"memory\"");
+    if (n_gpus > 0) {
+        const char *metrics[] = {"util", "band", "mem"};
+        for (int m = 0; m < 3; m++) {
+            fprintf(fp, ",\"gpu_%s_avg\",\"gpu_%s_min\",\"gpu_%s_max\"",
+                    metrics[m], metrics[m], metrics[m]);
+            for (int g = 0; g < n_gpus; g++)
+                fprintf(fp, ",\"gpu_%s_%d\"", metrics[m], g);
+        }
+    }
+    fprintf(fp, ",\"io_read_count\",\"io_write_count\",\"io_read\",\"io_write\"");
+}
+
 static void emit_ready(void) {
     /* Detect CPU count via sched_getaffinity of target */
     cpu_set_t cpuset;
@@ -829,7 +849,21 @@ static void emit_ready(void) {
             fprintf(stdout, "\"%s\"", g_level_names[i]);
         }
     }
-    fprintf(stdout, "]}\n");
+    fprintf(stdout, "],\"columns_by_level\":{");
+    {
+        int ngpus = g_nvml.available ? g_nvml.num_gpus : 0;
+        int first = 1;
+        for (int i = 0; i < MAX_LEVELS; i++) {
+            if (!g_level_active[i]) continue;
+            if (!first) fputc(',', stdout);
+            first = 0;
+            int ncpus = (i == LEVEL_SYSTEM) ? g_num_sys_cpus : g_num_cpus;
+            fprintf(stdout, "\"%s\":[", g_level_names[i]);
+            emit_columns_for_level(stdout, ncpus, ngpus);
+            fputc(']', stdout);
+        }
+    }
+    fprintf(stdout, "}}\n");
     fflush(stdout);
 }
 
