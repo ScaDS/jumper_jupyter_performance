@@ -7,6 +7,7 @@ while keeping jumper-extension magic commands local.
 
 import sys
 import os
+import shlex
 from pathlib import Path
 from ipykernel.ipkernel import IPythonKernel
 from jupyter_client import KernelManager
@@ -46,8 +47,20 @@ class JumperWrapperMagics(Magics):
     
     @line_magic
     def list_kernels(self, line):
-        """List all available Jupyter kernels."""
-        self._kernel._list_kernels()
+        """List all available Jupyter kernels.
+
+        Usage:
+            %list_kernels
+            %list_kernels <extra_kernel_dir> [<extra_kernel_dir> ...]
+
+        Any path arguments are appended to the ``kernel_dirs`` of the
+        underlying ``KernelSpecManager`` so that kernels installed in
+        non-standard locations become discoverable. The extension is
+        persistent for the lifetime of the wrapper kernel, so subsequent
+        calls to ``%wrap_kernel`` can target kernels under those paths.
+        """
+        extra_dirs = shlex.split(line) if line else []
+        self._kernel._list_kernels(extra_kernel_dirs=extra_dirs)
     
     @line_magic
     def wrap_kernel(self, line):
@@ -185,27 +198,78 @@ class JumperWrapperKernel(IPythonKernel):
     def _get_available_kernels(self):
         """Get a list of available kernel specs."""
         return self._kernel_spec_manager.get_all_specs()
+
+    def _extend_kernel_dirs(self, extra_kernel_dirs):
+        """Append ``extra_kernel_dirs`` to the active KernelSpecManager.
+
+        Mirrors::
+
+            ksm.kernel_dirs = list(ksm.kernel_dirs) + extra_kernel_dirs
+
+        Duplicates and non-existent paths are filtered out (the latter
+        with a warning so the user knows their argument was ignored).
+        Returns the list of paths that were actually added so the caller
+        can echo them back to the user.
+        """
+        if not extra_kernel_dirs:
+            return []
+
+        existing = list(self._kernel_spec_manager.kernel_dirs)
+        added = []
+        for raw_path in extra_kernel_dirs:
+            path = os.path.expanduser(os.path.expandvars(raw_path))
+            if not os.path.isdir(path):
+                self.log.warning(
+                    f"%list_kernels: ignoring non-existent path '{raw_path}'"
+                )
+                continue
+            if path in existing or path in added:
+                continue
+            added.append(path)
+
+        if added:
+            self._kernel_spec_manager.kernel_dirs = existing + added
+        return added
     
     def _get_local_magics(self):
         """Get combined set of local magic commands."""
         return self._jumper_magic_commands | self._wrapper_magic_commands
     
-    def _list_kernels(self):
-        """List all available Jupyter kernels."""
+    def _list_kernels(self, extra_kernel_dirs=None):
+        """List all available Jupyter kernels.
+
+        Args:
+            extra_kernel_dirs: Optional list of additional directories to
+                append to the underlying ``KernelSpecManager.kernel_dirs``
+                before listing kernels. Useful for sites that install
+                kernels in non-default locations (e.g. shared software
+                trees on HPC systems). The extension persists on the
+                wrapper kernel instance, so any kernels discovered via
+                these paths can subsequently be used with
+                ``%wrap_kernel``.
+        """
+        added_dirs = self._extend_kernel_dirs(extra_kernel_dirs)
+
         kernels = self._get_available_kernels()
-        
+
         output = "Available Jupyter Kernels:\n"
         output += "-" * 50 + "\n"
-        
+
         for name, spec in kernels.items():
             display_name = spec.get('spec', {}).get('display_name', name)
             language = spec.get('spec', {}).get('language', 'unknown')
             output += f"  {name}: {display_name} ({language})\n"
-        
+
+        if added_dirs:
+            output += "\n" + "-" * 50 + "\n"
+            output += "Added kernel search paths:\n"
+            for path in added_dirs:
+                output += f"  {path}\n"
+
         if self._wrapped_kernel_name:
             output += "\n" + "-" * 50 + "\n"
             output += f"Currently wrapped kernel: {self._wrapped_kernel_name}\n"
-        
+
         self.send_response(self.iopub_socket, 'stream', {'name': 'stdout', 'text': output})
         
         return {
