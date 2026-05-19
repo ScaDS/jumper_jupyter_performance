@@ -1,4 +1,5 @@
-default_subsets: [cpu, mem, io, network]
+# To show a subset by default, add its name here (e.g. network)
+default_subsets: [cpu, mem, io]
 
 subsets:
 
