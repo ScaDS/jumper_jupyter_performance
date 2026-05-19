@@ -237,9 +237,22 @@ class DiskPerformanceVisualizer(MatplotlibPerformanceVisualizer):
 
         BALI segments are shown by default for the disk-replay path
         because the typical reason for ``%perfmonitor_plot --from-disk``
-        is to inspect previously computed BALI segments.
+        is to inspect previously computed BALI segments. The default
+        ``cell_range`` covers the *full* loaded history rather than the
+        last "long" cell, so BALI segments that ran in earlier cells are
+        included on the initial render.
         """
         if any(not df.empty for df in self.perfdata_by_level.values()):
+            if cell_range is None:
+                try:
+                    valid_cells = self.cell_history.view()
+                    if len(valid_cells) > 0:
+                        cell_range = (
+                            int(valid_cells["cell_index"].min()),
+                            int(valid_cells["cell_index"].max()),
+                        )
+                except Exception:  # noqa: BLE001 - defensive default
+                    cell_range = None
             # Override the plot method to use disk data
             self._plot_with_disk_data(
                 metric_subsets, cell_range, show_idle, show_bali

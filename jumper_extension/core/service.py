@@ -1,4 +1,5 @@
 import logging
+import os
 import shlex
 from contextlib import contextmanager
 from typing import Optional, Tuple, List, Dict, Iterator
@@ -348,30 +349,13 @@ class PerfmonitorService:
         render perfdata, cell history and BALI segments that were
         persisted under ``perfdata_results/<pid>/``.
         """
-        # Without an explicit PID: prefer the current monitor (if any),
-        # otherwise auto-pick the latest persisted session under
-        # ``perfdata_results/`` so users can simply call
-        # ``%perfmonitor_plot --from-disk`` after a kernel restart.
+        # Without an explicit PID: use the *current* process PID. This is
+        # the right default for the typical workflow where the user runs
+        # BALI and ``%perfmonitor_stop`` in the same kernel, then calls
+        # ``%perfmonitor_plot --from-disk`` (the BALI hook also writes
+        # under the running kernel's PID).
         if pid is None or pid < 0:
-            pid = (
-                getattr(self.monitor, "pid", None) if self.monitor else None
-            )
-            if not pid:
-                pid = find_latest_pid_on_disk()
-            else:
-                # If the live monitor PID has nothing on disk (e.g. fresh
-                # kernel), fall back to the latest stored session.
-                if load_cell_history_from_disk(pid).empty:
-                    latest = find_latest_pid_on_disk()
-                    if latest is not None:
-                        pid = latest
-        if not pid:
-            logger.warning(
-                "No persisted session found under perfdata_results/. "
-                "Run a session and call %perfmonitor_stop first, or pass "
-                "a PID explicitly: %perfmonitor_plot --from-disk 12345"
-            )
-            return
+            pid = os.getpid()
         logger.info(f"Replaying session for PID {pid} from disk.")
 
         cell_history_data = load_cell_history_from_disk(pid)
