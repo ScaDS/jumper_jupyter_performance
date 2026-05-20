@@ -585,19 +585,31 @@ def run_single(backend_name, freq_hz, n_darts_total, baseline_time, n_workers):
         #    afterwards keeps NVML's "do not fork after nvmlInit"
         #    contract intact (otherwise the parent segfaults at
         #    teardown — see the previous fix).
+        #
+        #    The wall-clock timer for the workload MUST start here,
+        #    not after ``monitor.start`` returns: the dart workers
+        #    begin computing the moment ``_spawn_dart_workers``
+        #    returns, and ``monitor.start`` (especially native_c,
+        #    which Popen's a subprocess and blocks on a "ready"
+        #    handshake) can take seconds.  Starting the timer after
+        #    the handshake hides that head-start and produced the
+        #    nonsensical "monitored run is faster than baseline"
+        #    measurements (the un-timed window grew with monitor
+        #    setup cost, not with sampling frequency).  The baseline
+        #    in ``_run_dart_workload`` captures its ``t0`` right
+        #    after spawn, so this matches the baseline's semantics.
         workers, queue, per_worker = _spawn_dart_workers(
             n_darts_total, n_workers
         )
+        t_workload_start = time.perf_counter()
         print(f"({len(workers)} dart workers, {per_worker:,}/worker) ",
               end="", flush=True)
 
-        # 2) Construct + start the monitor.  This is the moment from
-        #    which the workload is being observed; we measure
-        #    ``t_workload_start`` here so the reported duration
-        #    matches what the monitor saw.
+        # 2) Construct + start the monitor.  The workload is already
+        #    running while this happens; that startup time is part
+        #    of the wall-clock duration we report.
         monitor = BACKENDS[backend_name]()
         monitor.start(interval=interval)
-        t_workload_start = time.perf_counter()
 
         # 3) Snapshot process counts once while the workload is running.
         proc_counts = _snapshot_process_counts()
