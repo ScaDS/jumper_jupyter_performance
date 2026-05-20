@@ -340,7 +340,7 @@ python -m jumper_wrapper_kernel.install install
 # appended to the underlying KernelSpecManager.kernel_dirs and persist
 # for the lifetime of the wrapper kernel, so subsequent %wrap_kernel
 # calls can target kernels installed there.
-%list_kernels /software/util/JupyterLab/alpha/jupyterlab-4.1.8/share/jupyter/kernels
+%list_kernels /software/util/JupyterLab/jumper/kernels/
 
 # Wrap a kernel (e.g. Python, R, Julia)
 %wrap_kernel python3
