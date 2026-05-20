@@ -1,3 +1,3 @@
-from jumper_extension.monitor.metrics.cpu.common import CpuBackend
+from jumper_extension.monitor.metrics.cpu.common import CpuCollectorBackend
 
-__all__ = ["CpuBackend"]
+__all__ = ["CpuCollectorBackend"]

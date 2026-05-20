@@ -1,0 +1,22 @@
+.jump-vis-node-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.jump-vis-node-label[hidden] {
+  display: none;
+}
+
+.jump-vis-node-sel {
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+}

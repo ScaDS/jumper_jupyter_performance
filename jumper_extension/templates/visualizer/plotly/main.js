@@ -2,11 +2,18 @@
  * main.js  –  Orchestration IIFE for the interactive Plotly visualizer.
  *
  * Depends on data variables embedded by Python directly before this script:
- *   CID, FIGS, YLIMS, BND_F, BND_T, OPTS, LEVS, MAX, MIN_CELL, MAX_CELL, INIT_RNG
+ *   CID, FIGS, YLIMS, BND_F, BND_T, OPTS, LEVS, MAX, MIN_CELL, MAX_CELL,
+ *   INIT_RNG, NODES
+ *
+ * FIGS shape: { node: { metric: { level: { "true"|"false": figDict } } } }
+ * The "" key holds the aggregate view.  NODES lists the real node hostnames.
+ * Single-node sessions have NODES = ["local"]; the node-selector dropdown is
+ * rendered but hidden by the HTML hidden attribute.
  *
  * Depends on component functions (loaded in order before this file):
  *   show_idle_checkbox : initShowIdle
  *   cell_range_slider  : getCellRange, initCellRangeSlider
+ *   node_selector      : initNodeSelector
  *   add_panel_button   : initAddPanelButton, disableAddPanelButton
  *   panel              : createPanelElement, attachPanelEvents,
  *                        buildBoundaryUpdates, xRangeForCells, renderPlotInPanel
@@ -18,6 +25,8 @@
   var usedMetrics   = [];
   /* pid → { metricSel: <select>, levelSel: <select> } */
   var panelRegistry = {};
+  /* '' = aggregated view; hostname = per-node view */
+  var currentNode   = '';
 
   /* ── helpers ──────────────────────────────────────────────────────────── */
 
@@ -47,14 +56,14 @@
   function renderPlot(pid, metric, level) {
     var plotDiv = document.getElementById(pid + '-plot');
     var key     = showIdleKey();
-    var figData = ((FIGS[metric] || {})[level] || {})[key];
+    var figData = (((FIGS[currentNode] || {})[metric] || {})[level] || {})[key];
 
     if (!figData) {
       renderPlotInPanel(plotDiv, null, {});
       return;
     }
 
-    var ylim   = (((YLIMS[metric] || {})[level]) || {})[key] || [0, 1];
+    var ylim   = ((((YLIMS[currentNode] || {})[metric] || {})[level]) || {})[key] || [0, 1];
     var rng    = getCellRange(CID, MIN_CELL, MAX_CELL);
     var bndArr = (key === 'true') ? BND_T : BND_F;
     var bnd    = buildBoundaryUpdates(bndArr, rng, ylim);
@@ -70,7 +79,7 @@
     renderPlotInPanel(plotDiv, figData.data || [], layout);
   }
 
-  /** Re-renders every registered panel (used by show-idle toggle and range slider). */
+  /** Re-renders every registered panel. */
   function refreshAll() {
     Object.keys(panelRegistry).forEach(function (pid) {
       var p = panelRegistry[pid];
@@ -103,7 +112,6 @@
 
     if (pids.length > 0) {
       wrap.appendChild(row);
-      /* Attach events and render after the row is in the DOM */
       pids.forEach(function (pid) {
         attachPanelEvents(pid, renderPlot);
         panelRegistry[pid] = {
@@ -129,8 +137,12 @@
   function init() {
     initCellRangeSlider(CID, MIN_CELL, MAX_CELL, INIT_RNG, refreshAll);
     initShowIdle(CID, refreshAll);
+    initNodeSelector(CID, function (node) {
+      currentNode = node;
+      refreshAll();
+    });
     initAddPanelButton(CID, addPanelRow);
-    addPanelRow();   /* render initial two panels */
+    addPanelRow();
   }
 
   if (document.readyState === 'loading') {

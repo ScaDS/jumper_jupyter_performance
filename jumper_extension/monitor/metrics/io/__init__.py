@@ -1,3 +1,3 @@
-from jumper_extension.monitor.metrics.io.common import IoBackend
+from jumper_extension.monitor.metrics.io.common import IoCollectorBackend
 
-__all__ = ["IoBackend"]
+__all__ = ["IoCollectorBackend"]

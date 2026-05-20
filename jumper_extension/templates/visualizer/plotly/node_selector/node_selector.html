@@ -1,0 +1,8 @@
+<label class="jump-vis-node-label"{% if not is_multinode %} hidden{% endif %}>Node:
+  <select class="jump-vis-node-sel" id="{{ container_id }}-node">
+    <option value="">&lt;Aggregated&gt;</option>
+    {% for node in node_names %}
+    <option value="{{ node }}">{{ node }}</option>
+    {% endfor %}
+  </select>
+</label>

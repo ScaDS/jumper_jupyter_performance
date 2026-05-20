@@ -1,3 +1,3 @@
-from jumper_extension.monitor.metrics.process.common import ProcessBackend
+from jumper_extension.monitor.metrics.process.common import ProcessCollectorBackend
 
-__all__ = ["ProcessBackend"]
+__all__ = ["ProcessCollectorBackend"]

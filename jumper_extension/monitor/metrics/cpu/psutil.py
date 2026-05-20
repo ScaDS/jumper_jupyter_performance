@@ -1,36 +1,30 @@
 import psutil
 
-from jumper_extension.monitor.metrics.cpu.common import CpuBackend
+from jumper_extension.monitor.metrics.context import CollectionContext
+from jumper_extension.monitor.metrics.cpu.common import CpuCollectorBackend
 
 
-class PsutilCpuBackend(CpuBackend):
+class PsutilCpuCollector(CpuCollectorBackend):
     """CPU backend implemented via psutil."""
 
     name = "cpu-psutil"
 
-    def collect(self, level: str = "process") -> list[float]:
-        self._m._validate_level(level)
+    def collect(self, level: str, context: CollectionContext) -> list[float]:
+        num_cpus = self._node_info.num_cpus
         if level == "system":
-            # just return the whole system here
-            cpu_util_per_core = psutil.cpu_percent(percpu=True)
-            return cpu_util_per_core
+            return psutil.cpu_percent(percpu=True)
         elif level == "process":
-            # get process pids
-            pids = self._m.process_pids
             cpu_total = sum(
-                self._m._process_backend.safe_proc_call(
-                    pid, lambda p: p.cpu_percent(interval=0.1)
-                )
-                for pid in pids
+                context["cpu"].get(pid, 0.0) for pid in context["process_pids"]
             )
-            return [cpu_total / self._m.num_cpus] * self._m.num_cpus
-        else:  # user or slurm
+            return [cpu_total / num_cpus] * num_cpus
+        elif level == "user":
             cpu_total = sum(
-                self._m._process_backend.safe_proc_call(
-                    proc, lambda p: p.cpu_percent()
-                )
-                for proc in self._m._process_backend.get_filtered_processes(
-                    level, "cpu"
-                )
+                context["cpu"].get(pid, 0.0) for pid in context["user_pids"]
             )
-            return [cpu_total / self._m.num_cpus] * self._m.num_cpus
+            return [cpu_total / num_cpus] * num_cpus
+        else:  # slurm
+            cpu_total = sum(
+                context["cpu"].get(pid, 0.0) for pid in context["slurm_pids"]
+            )
+            return [cpu_total / num_cpus] * num_cpus

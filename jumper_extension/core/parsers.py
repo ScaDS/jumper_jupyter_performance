@@ -11,6 +11,7 @@ from jumper_extension.utilities import get_available_levels
 @dataclass
 class ArgParsers:
     """Configuration for command-line argument parsers."""
+    perfmonitor_start: argparse.ArgumentParser
     perfreport: argparse.ArgumentParser
     auto_perfreports: argparse.ArgumentParser
     perfmonitor_plot: argparse.ArgumentParser
@@ -20,6 +21,38 @@ class ArgParsers:
     import_cell_history: argparse.ArgumentParser
     export_session: argparse.ArgumentParser
     import_session: argparse.ArgumentParser
+
+
+def build_perfmonitor_start_parser() -> argparse.ArgumentParser:
+    """Build an ArgumentParser for the perfmonitor_start command."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "interval",
+        nargs="?",
+        type=float,
+        default=None,
+        help="Sampling interval in seconds (default: 1.0)",
+    )
+    parser.add_argument(
+        "--monitor",
+        type=str,
+        default="default",
+        choices=["default", "native_c", "subprocess_python", "thread", "slurm_multinode"],
+        help="Monitor backend to use (default: subprocess-based Python collector, "
+             "'native_c' for native C collector, "
+             "'subprocess_python' for explicit Python subprocess collector, "
+             "'thread' for in-process threaded monitor)",
+    )
+    parser.add_argument(
+        "--check-sanity",
+        dest="check_sanity",
+        action="store_true",
+        help="Run a short sanity check of the selected monitor before "
+             "starting real monitoring. Tailored for thread, "
+             "subprocess_python and native_c monitors; other monitors "
+             "are expected to fail this check.",
+    )
+    return parser
 
 
 def build_perfreport_parser() -> argparse.ArgumentParser:
@@ -171,7 +204,7 @@ def parse_arguments(parser: argparse.ArgumentParser, line: str) -> Optional[argp
             if line
             else parser.parse_args([])
         )
-    except Exception:
+    except (SystemExit, Exception):
         args = None
     return args
 

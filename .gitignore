@@ -173,4 +173,10 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
+# Compiled C monitoring collector
+jumper_collector
+
+# Benchmark results
+jumper_extension/monitor/benchmark/results/
+
 # End of https://www.toptal.com/developers/gitignore/api/python

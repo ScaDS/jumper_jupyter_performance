@@ -1,19 +1,13 @@
-from typing import TYPE_CHECKING
+from abc import abstractmethod
 
-if TYPE_CHECKING:
-    from jumper_extension.monitor.common import PerformanceMonitor
+from jumper_extension.monitor.metrics.common import CollectorBackend
+from jumper_extension.monitor.metrics.context import CollectionContext
 
 
-class IoBackend:
-    """Backend for I/O metrics."""
+class IoCollectorBackend(CollectorBackend):
+    """Base for I/O metric backends."""
 
     name = "io-base"
 
-    def __init__(self, monitor: "PerformanceMonitor"):
-        self._m = monitor
-
-    def setup(self) -> None:
-        return None
-
-    def collect(self, level: str = "process") -> list[int]:
-        raise NotImplementedError
+    @abstractmethod
+    def collect(self, level: str, context: CollectionContext) -> list[int]: ...

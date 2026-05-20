@@ -21,6 +21,8 @@ dependencies = [
     "itables",
     "ipywidgets",
     "jinja2",
+    "pydantic>=2.0",
+    "pyyaml",
 ]
 urls = {Homepage = "https://github.com/ScaDS/jumper_jupyter_performance"}
 
@@ -45,5 +47,7 @@ where = ["."]
 include = ["jumper_extension*"]
 
 [tool.setuptools.package-data]
+"jumper_extension.config" = ["*.yaml"]
 "jumper_extension.templates.report" = ["*.html", "*.css"]
-"jumper_extension.templates.plotly_visualizer" = ["**/*"]
+"jumper_extension.templates.visualizer.plotly" = ["**/*"]
+"jumper_extension.monitor.backends.native_c" = ["collector.c", "Makefile", "jumper_collector"]

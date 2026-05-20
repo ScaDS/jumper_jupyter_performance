@@ -1,19 +1,17 @@
-from typing import TYPE_CHECKING
+from abc import abstractmethod
 
-if TYPE_CHECKING:
-    from jumper_extension.monitor.common import PerformanceMonitor
+from jumper_extension.adapters.data import NodeInfo
+from jumper_extension.monitor.metrics.common import CollectorBackend
+from jumper_extension.monitor.metrics.context import CollectionContext
 
 
-class MemoryBackend:
-    """Backend for memory metrics."""
+class MemoryCollectorBackend(CollectorBackend):
+    """Base for memory metric backends."""
 
     name = "memory-base"
 
-    def __init__(self, monitor: "PerformanceMonitor"):
-        self._m = monitor
+    def __init__(self, node_info: NodeInfo):
+        self._node_info = node_info
 
-    def setup(self) -> None:
-        return None
-
-    def collect(self, level: str = "process") -> float:
-        raise NotImplementedError
+    @abstractmethod
+    def collect(self, level: str, context: CollectionContext) -> float: ...

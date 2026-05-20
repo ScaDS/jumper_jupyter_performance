@@ -1,3 +1,3 @@
-from jumper_extension.monitor.metrics.memory.common import MemoryBackend
+from jumper_extension.monitor.metrics.memory.common import MemoryCollectorBackend
 
-__all__ = ["MemoryBackend"]
+__all__ = ["MemoryCollectorBackend"]

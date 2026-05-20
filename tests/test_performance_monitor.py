@@ -25,9 +25,8 @@ def test_comprehensive_monitor_functionality(mock_cpu_gpu, temp_dir):
     monitor.start(0.1)
     assert monitor.interval == 0.1
     assert monitor.running
-    assert monitor.num_gpus == 1
-    assert "gpu_util" in monitor.metrics
-    assert monitor.gpu_name == "NVIDIA GeForce RTX 3080"
+    assert monitor.nodes.hardware["local"].num_gpus == 1
+    assert monitor.nodes.hardware["local"].gpu_name == "NVIDIA GeForce RTX 3080"
     assert monitor.wallclock_start_time is not None
     assert isinstance(monitor.wallclock_start_time, float)
 
@@ -44,14 +43,14 @@ def test_comprehensive_monitor_functionality(mock_cpu_gpu, temp_dir):
     assert monitor.wallclock_stop_time >= monitor.wallclock_start_time
 
     # Verify data collection
-    df = monitor.data.view("system")
+    df = monitor.nodes.view("system")
     assert len(df) > 0
     assert "cpu_util_avg" in df.columns
     assert "gpu_util_avg" in df.columns
 
     # Test data export
     filename = f"{temp_dir}/test.csv"
-    monitor.data.export(filename, level="system")
+    monitor.nodes.export(filename, level="system")
     assert os.path.exists(filename)
 
 
@@ -66,20 +65,35 @@ def test_cpu_only_and_slurm(mock_cpu_only):
             b"8589934592"
         )
         monitor = PerformanceMonitor()
-        assert monitor.num_gpus == 0
-        assert monitor.memory_limits["slurm"] == 8.0
-        assert "gpu_util" not in monitor.metrics
+        assert monitor.nodes.hardware["local"].num_gpus == 0
+        assert monitor.nodes.hardware["local"].memory_limits["slurm"] == 8.0
+        assert monitor.nodes.hardware["local"].num_gpus == 0
 
 
 def test_gpu_failures():
     """Test GPU setup failure scenarios"""
-    with patch("pynvml.nvmlInit"), patch(
-        "pynvml.nvmlDeviceGetCount", side_effect=Exception("GPU error")
+    def _failing_nvml_setup(self) -> dict:
+        self._handles = []
+        return {}
+
+    def _noop_adlx_setup(self) -> dict:
+        self._handles = []
+        return {}
+
+    with patch(
+        "jumper_extension.monitor.metrics.gpu.nvml.NvmlGpuCollector.setup",
+        _failing_nvml_setup,
+    ), patch(
+        "jumper_extension.monitor.metrics.gpu.adlx.AdlxGpuCollector.setup",
+        _noop_adlx_setup,
     ), patch("psutil.Process") as mock_proc:
         mock_proc.return_value.cpu_affinity.return_value = [0, 1]
         mock_proc.return_value.io_counters.return_value = Mock(
-            read_count=100, write_count=50, read_bytes=1024, write_bytes=512
+            read_count=100,
+            write_count=50,
+            read_bytes=1024,
+            write_bytes=512,
         )
 
         monitor = PerformanceMonitor()
-        assert monitor.num_gpus == 0
+        assert monitor.nodes.hardware["local"].num_gpus == 0

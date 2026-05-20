@@ -1,0 +1,18 @@
+.jumper-live-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--jumper-ncols, 2), 1fr);
+    gap: 8px;
+}
+
+.jumper-live-cell {
+    padding: 4px;
+}
+
+.jumper-live-placeholder {
+    color: #888;
+    text-align: center;
+}
+
+.jumper-live-initializing {
+    color: #888;
+}

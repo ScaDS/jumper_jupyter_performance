@@ -1,5 +1,6 @@
 import logging
 
+from jumper_extension.adapters.data import aggregate_node_info
 from jumper_extension.monitor.common import MonitorProtocol, UnavailablePerformanceMonitor
 from jumper_extension.core.messages import (
     ExtensionErrorCode,
@@ -49,7 +50,7 @@ class ReportBuilder:
         start_idx, end_idx = cell_range
         filtered_cells = self.cell_history.view(start_idx, end_idx + 1)
 
-        perfdata = self.monitor.data.view(level=level)
+        perfdata = self.monitor.nodes.view(level=level)
         perfdata = filter_perfdata(
             filtered_cells, perfdata, compress_idle=False
         )
@@ -64,8 +65,9 @@ class ReportBuilder:
             return
 
         # Analyze cell performance
-        memory_limit = self.monitor.memory_limits[level]
-        gpu_memory_limit = self.monitor.gpu_memory if self.monitor.num_gpus > 0 else None
+        hardware = aggregate_node_info(self.monitor.nodes.hardware)
+        memory_limit = hardware.memory_limits.get(level, 0.0)
+        gpu_memory_limit = hardware.gpu_memory if hardware.num_gpus > 0 else None
 
         tags_model = self.analyzer.analyze_cell_performance(
             perfdata,
@@ -197,26 +199,27 @@ class ReportPrinter(ReportBuilder):
             print("-" * 40)
 
         # Report table
+        hardware = aggregate_node_info(self.monitor.nodes.hardware)
         metrics = [
             (
-                f"CPU Util (Across {self.monitor.num_cpus} CPUs)",
+                f"CPU Util (Across {hardware.num_cpus} CPUs)",
                 "cpu_util_avg",
                 "-",
             ),
             (
                 "Memory (GB)",
                 "memory",
-                f"{self.monitor.memory_limits[level]:.2f}",
+                f"{hardware.memory_limits.get(level, 0.0):.2f}",
             ),
             (
-                f"GPU Util (Across {self.monitor.num_gpus} GPUs)",
+                f"GPU Util (Across {hardware.num_gpus} GPUs)",
                 "gpu_util_avg",
                 "-",
             ),
             (
                 "GPU Memory (GB)",
                 "gpu_mem_avg",
-                f"{self.monitor.gpu_memory:.2f}",
+                f"{hardware.gpu_memory:.2f}",
             ),
         ]
 
@@ -263,11 +266,12 @@ class ReportDisplayer(ReportBuilder):
         tags_display = self._format_performance_tags(tags_model)
 
         # Build report
+        hardware = aggregate_node_info(self.monitor.nodes.hardware)
         metrics_spec = [
-            (f"CPU Util (Across {self.monitor.num_cpus} CPUs)", "cpu_util_avg", "-"),
-            ("Memory (GB)", "memory", f"{self.monitor.memory_limits[level]:.2f}" if hasattr(self.monitor, "memory_limits") else "-"),
-            (f"GPU Util (Across {getattr(self.monitor, 'num_gpus', 0)} GPUs)", "gpu_util_avg", "-"),
-            ("GPU Memory (GB)", "gpu_mem_avg", f"{getattr(self.monitor, 'gpu_memory', 0.0):.2f}"),
+            (f"CPU Util (Across {hardware.num_cpus} CPUs)", "cpu_util_avg", "-"),
+            ("Memory (GB)", "memory", f"{hardware.memory_limits.get(level, 0.0):.2f}"),
+            (f"GPU Util (Across {hardware.num_gpus} GPUs)", "gpu_util_avg", "-"),
+            ("GPU Memory (GB)", "gpu_mem_avg", f"{hardware.gpu_memory:.2f}"),
         ]
         metrics_rows = []
         for name, col, total in metrics_spec:

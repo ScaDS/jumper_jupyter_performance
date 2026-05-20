@@ -106,12 +106,16 @@ class PerfmonitorMagics(Magics):
     def perfmonitor_start(self, line: str) -> None:
         """Start performance monitoring.
 
-        If an interval is provided as a single numeric argument, it is
-        interpreted as the sampling interval in seconds; otherwise the
-        default interval is used.
+        Supports an optional interval (sampling rate in seconds) and a
+        ``--monitor`` flag to select the monitor backend.
 
         Args:
-            line: Optional interval argument, for example ``"1.0"``.
+            line: Command line arguments. Examples:
+                - ``""`` (default interval, default monitor)
+                - ``"0.5"`` (0.5s interval, default monitor)
+                - ``"--monitor slurm_multinode"`` (default interval, SLURM multi-node)
+                - ``"0.5 --monitor slurm_multinode"`` (0.5s interval, SLURM multi-node)
+
         Returns:
             None
 
@@ -123,6 +127,14 @@ class PerfmonitorMagics(Magics):
             Start monitoring with a 0.5 second interval::
 
                 %perfmonitor_start 0.5
+
+            Start multi-node SLURM monitoring with default interval::
+
+                %perfmonitor_start --monitor slurm_multinode
+
+            Start multi-node SLURM monitoring with custom interval::
+
+                %perfmonitor_start 0.5 --monitor slurm_multinode
         """
         self.magic_adapter.perfmonitor_start(line)
 

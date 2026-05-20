@@ -1,4 +1,5 @@
 import logging
+import shlex
 from contextlib import contextmanager
 from typing import Optional, Tuple, List, Dict, Iterator
 
@@ -8,6 +9,7 @@ from jumper_extension.adapters.script_writer import NotebookScriptWriter
 from jumper_extension.core.parsers import (
     parse_cell_range,
     parse_arguments,
+    build_perfmonitor_start_parser,
     build_perfreport_parser,
     build_auto_perfreports_parser,
     build_perfmonitor_plot_parser,
@@ -26,9 +28,11 @@ from jumper_extension.core.messages import (
     EXTENSION_ERROR_MESSAGES,
     EXTENSION_INFO_MESSAGES,
 )
-from jumper_extension.monitor.common import MonitorProtocol, PerformanceMonitor
+from jumper_extension.adapters.data import aggregate_node_info
+from jumper_extension.monitor.common import MonitorProtocol
+from jumper_extension.monitor.backends.thread import PerformanceMonitor
 from jumper_extension.adapters.session import SessionExporter, SessionImporter
-from jumper_extension.adapters.visualizer import build_performance_visualizer, \
+from jumper_extension.adapters.visualizer.visualizer import build_performance_visualizer, \
     VisualizerProtocol
 from jumper_extension.adapters.reporter import PerformanceReporter, build_performance_reporter
 from jumper_extension.adapters.cell_history import CellHistory
@@ -80,6 +84,44 @@ class PerfmonitorService:
         self.cell_history = cell_history
         self.script_writer = script_writer
         self._skip_report = False
+
+    @staticmethod
+    def _create_monitor(monitor_type: str = "default") -> MonitorProtocol:
+        """Create a monitor instance based on the requested type.
+
+        Args:
+            monitor_type: ``"default"`` for the best available backend
+                (native_c if compiled and healthy, else subprocess
+                Python), ``"thread"`` for the in-process threaded
+                monitor, ``"slurm_multinode"`` for the multi-node
+                SLURM monitor.
+
+        Returns:
+            A monitor satisfying :class:`MonitorProtocol`.
+        """
+        if monitor_type == "thread":
+            return PerformanceMonitor()
+        if monitor_type == "subprocess_python":
+            from jumper_extension.monitor.backends.subprocess_python import SubprocessPerformanceMonitor
+            return SubprocessPerformanceMonitor()
+        if monitor_type == "native_c":
+            from jumper_extension.monitor.backends.native_c import CSubprocessPerformanceMonitor
+            return CSubprocessPerformanceMonitor()
+        if monitor_type == "slurm_multinode":
+            from jumper_extension.monitor.backends.slurm_multinode import SlurmMultinodeMonitor
+            return SlurmMultinodeMonitor()
+        # default: try native_c first, fall back to subprocess Python
+        try:
+            from jumper_extension.monitor.backends.native_c.build import ensure_native_c
+            if ensure_native_c():
+                from jumper_extension.monitor.backends.native_c import CSubprocessPerformanceMonitor
+                logger.info("[JUmPER] Using native_c monitor (compiled C collector).")
+                return CSubprocessPerformanceMonitor()
+        except Exception:
+            pass
+        from jumper_extension.monitor.backends.subprocess_python import SubprocessPerformanceMonitor
+        logger.info("[JUmPER] Using subprocess_python monitor (Python collector).")
+        return SubprocessPerformanceMonitor()
 
     def on_pre_run_cell(
         self,
@@ -145,19 +187,20 @@ class PerfmonitorService:
                     source=self.monitor.session_source
                 )
             )
+        hardware = aggregate_node_info(self.monitor.nodes.hardware)
         print("[JUmPER]:")
         cpu_info = (
-            f"  CPUs: {self.monitor.num_cpus}\n    "
-            f"CPU affinity: {self.monitor.cpu_handles}"
+            f"  CPUs: {hardware.num_cpus}\n    "
+            f"CPU affinity: {hardware.cpu_handles}"
         )
         print(cpu_info)
         mem_gpu_info = (
-            f"  Memory: {self.monitor.memory_limits['system']} GB\n  "
-            f"GPUs: {self.monitor.num_gpus}"
+            f"  Memory: {hardware.memory_limits.get('system', 0.0)} GB\n  "
+            f"GPUs: {hardware.num_gpus}"
         )
         print(mem_gpu_info)
-        if self.monitor.num_gpus:
-            print(f"    {self.monitor.gpu_name}, {self.monitor.gpu_memory} GB")
+        if hardware.num_gpus:
+            print(f"    {hardware.gpu_name}, {hardware.gpu_memory} GB")
 
     def show_cell_history(self) -> None:
         """Show an interactive table of executed cells.
@@ -176,6 +219,9 @@ class PerfmonitorService:
     def start_monitoring(
         self,
         interval: Optional[float] = None,
+        monitor_type: str = "default",
+        check_sanity: bool = False,
+        monitor: Optional[MonitorProtocol] = None,
     ) -> Optional[ExtensionErrorCode]:
         """Start performance monitoring.
 
@@ -187,6 +233,10 @@ class PerfmonitorService:
             interval: Sampling interval in seconds. If ``None``, the
                 value from ``settings.monitoring.default_interval`` is
                 used.
+            monitor_type: Monitor backend to use. ``"default"`` uses
+                the standard single-node :class:`PerformanceMonitor`.
+                ``"slurm_multinode"`` uses the multi-node SLURM
+                monitor that connects to all allocated nodes via SSH.
 
         Returns:
             Optional[ExtensionErrorCode]: An error code if monitoring
@@ -200,10 +250,20 @@ class PerfmonitorService:
             Start monitoring with a custom interval::
 
                 service.start_monitoring(interval=0.5)
+
+            Start multi-node SLURM monitoring::
+
+                service.start_monitoring(monitor_type="slurm_multinode")
         """
-        # If an imported (offline) session is currently attached, swap to a live monitor
-        if self.monitor.is_imported:
-            self.monitor = PerformanceMonitor()
+        # If an imported (offline) session is currently attached, or the
+        # monitor has not been started yet, install the requested monitor.
+        # A user-supplied instance takes precedence over the built-in
+        # factory so custom backends can be plugged in.
+        if not self.monitor.running:
+            if monitor is not None:
+                self.monitor = monitor
+            else:
+                self.monitor = self._create_monitor(monitor_type)
 
         if self.monitor.running:
             logger.warning(
@@ -215,6 +275,26 @@ class PerfmonitorService:
             interval = self.settings.monitoring.default_interval
         else:
             self.settings.monitoring.user_interval = interval
+
+        if check_sanity:
+            from jumper_extension.monitor.sanity import (
+                is_supported_monitor,
+                run_sanity_check,
+            )
+            if is_supported_monitor(self.monitor) and monitor is None:
+                # Use a throw-away instance so the real monitor starts
+                # with a clean state.
+                sanity_monitor = self._create_monitor(monitor_type)
+                run_sanity_check(sanity_monitor)
+            else:
+                msg = (
+                    f"[JUmPER] --check-sanity was tailored for the "
+                    f"'thread', 'subprocess_python' and 'native_c' monitors. "
+                    f"'{type(self.monitor).__name__}' is not supported by "
+                    f"the tailored check; skipping sanity check."
+                )
+                logger.warning(msg)
+                print(msg)
 
         self.monitor.start(interval)
         self.settings.monitoring.running = self.monitor.running
@@ -503,12 +583,12 @@ class PerfmonitorService:
             return {}
 
         if file:
-            self.monitor.data.export(
+            self.monitor.nodes.export(
                 file, level=level, cell_history=self.cell_history
             )
             return {}
         else:
-            df = self.monitor.data.view(
+            df = self.monitor.nodes.view(
                 level=level, cell_history=self.cell_history
             )
             var_name = name or self.settings.export_vars.perfdata
@@ -534,7 +614,7 @@ class PerfmonitorService:
             >>> frames = service.load_perfdata("performance.csv")
             >>> df = next(iter(frames.values()))
         """
-        df = self.monitor.data.load(file)
+        df = self.monitor.nodes.load(file)
         var_name = self.settings.loaded_vars.perfdata
         if df is not None:
             logger.info(
@@ -797,10 +877,9 @@ class PerfmonitorMagicAdapter:
 
     def perfmonitor_start(self, line: str):
         """Start performance monitoring with specified interval (default: 1 second)."""
-        interval = None
         if line:
             try:
-                interval = float(line)
+                tokens = shlex.split(line)
             except ValueError:
                 logger.warning(
                     EXTENSION_ERROR_MESSAGES[
@@ -808,7 +887,26 @@ class PerfmonitorMagicAdapter:
                     ].format(interval=line)
                 )
                 return
-        self.service.start_monitoring(interval)
+
+            if tokens and tokens[0] != "--monitor":
+                try:
+                    float(tokens[0])
+                except ValueError:
+                    logger.warning(
+                        EXTENSION_ERROR_MESSAGES[
+                            ExtensionErrorCode.INVALID_INTERVAL_VALUE
+                        ].format(interval=tokens[0])
+                    )
+                    return
+
+        args = parse_arguments(self.parsers.perfmonitor_start, line)
+        if args is None:
+            return
+        self.service.start_monitoring(
+            interval=args.interval,
+            monitor_type=args.monitor,
+            check_sanity=args.check_sanity,
+        )
 
     def perfmonitor_stop(self, line: str):
         """Stop the active performance monitoring session."""
@@ -930,7 +1028,7 @@ class PerfmonitorMagicAdapter:
             "perfmonitor_help -- show this comprehensive help",
             "perfmonitor_resources -- show available hardware resources",
             "show_cell_history -- show interactive table of cell execution history",
-            "perfmonitor_start [interval] -- start monitoring (default: 1 second)",
+            "perfmonitor_start [interval] [--monitor TYPE] -- start monitoring (default: 1s, monitor=default)",
             "perfmonitor_stop -- stop monitoring",
             "perfmonitor_perfreport [--cell RANGE] [--level LEVEL] -- show report",
             "perfmonitor_plot -- interactive plot with widgets for data exploration",
@@ -956,6 +1054,11 @@ class PerfmonitorMagicAdapter:
         available_levels = get_available_levels()
         if "slurm" in available_levels:
             print("  slurm   -- processes within current SLURM job (HPC environments)")
+
+        print("\nMonitor Types:")
+        print("  default           -- standard single-node monitoring (default)")
+        print("  slurm_multinode  -- multi-node SLURM monitoring via SSH")
+        print("                      (writes results to jumper_multinode.jsonl)")
 
         print("\nCell Range Formats:")
         print("  5       -- single cell (cell #5)")
@@ -1132,6 +1235,7 @@ def build_perfmonitor_magic_adapter(
     )
 
     parsers = ArgParsers(
+        perfmonitor_start=build_perfmonitor_start_parser(),
         perfreport=build_perfreport_parser(),
         auto_perfreports=build_auto_perfreports_parser(),
         perfmonitor_plot=build_perfmonitor_plot_parser(),

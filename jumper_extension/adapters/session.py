@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
+from jumper_extension.adapters.data import aggregate_node_info
 from jumper_extension.monitor.common import OfflinePerformanceMonitor
 from jumper_extension.core.messages import (
     ExtensionInfoCode,
@@ -83,13 +84,13 @@ class SessionExporter:
             "slurm": "perf_slurm.csv",
         }
 
-        for level, df in self.monitor.data.data.items():
+        for level in self.monitor.nodes.levels:
             try:
-                df_out = self.monitor.data.view(level=level, cell_history=self.cell_history)
+                df_out = self.monitor.nodes.view(level=level, cell_history=self.cell_history)
             except Exception:
-                df_out = df
-            schemas_perf[level] = list(df_out.columns)
+                df_out = pd.DataFrame()
             if not df_out.empty:
+                schemas_perf[level] = list(df_out.columns)
                 fname = level_filenames.get(level, f"perf_{level}.csv")
                 df_out.to_csv(os.path.join(export_dir, fname), index=False)
 
@@ -119,6 +120,7 @@ class SessionExporter:
         Returns:
             Manifest dictionary
         """
+        hardware = aggregate_node_info(self.monitor.nodes.hardware)
         return {
             "version": "1.0",
             "app": {"name": "JUmPER", "version": self._app_version()},
@@ -128,30 +130,28 @@ class SessionExporter:
                 "stop_time": getattr(self.monitor, "stop_time", None),
                 "wallclock_start_time": getattr(self.monitor, "wallclock_start_time", None),
                 "wallclock_stop_time": getattr(self.monitor, "wallclock_stop_time", None),
-                "num_cpus": getattr(self.monitor, "num_cpus", 0),
-                "num_system_cpus": getattr(self.monitor, "num_system_cpus", 0),
-                "num_gpus": getattr(self.monitor, "num_gpus", 0),
-                "gpu_memory": getattr(self.monitor, "gpu_memory", 0.0),
-                "gpu_name": getattr(self.monitor, "gpu_name", ""),
-                "memory_limits": getattr(self.monitor, "memory_limits", {}),
-                "cpu_handles": getattr(self.monitor, "cpu_handles", []),
+                "num_cpus": hardware.num_cpus,
+                "num_system_cpus": hardware.num_system_cpus,
+                "num_gpus": hardware.num_gpus,
+                "gpu_memory": hardware.gpu_memory,
+                "gpu_name": hardware.gpu_name,
+                "memory_limits": hardware.memory_limits,
+                "cpu_handles": hardware.cpu_handles,
                 "pid": getattr(self.monitor, "pid", None),
                 "uid": getattr(self.monitor, "uid", None),
                 "slurm_job": getattr(self.monitor, "slurm_job", None),
                 "os": os.name,
                 "python": sys.version.split(" ")[0],
             },
-            "levels": list(self.monitor.data.data.keys()),
+            "levels": self.monitor.nodes.levels,
             "schemas": {
                 "perf": schemas_perf,
                 "cell_history": list(ch_df.columns),
             },
             "visualizer": {
-                "default_metric_subsets": [
-                    "cpu",
-                    "mem",
-                    "io",
-                ] + (["gpu", "gpu_all"] if getattr(self.monitor, "num_gpus", 0) else []),
+                "default_metric_subsets": list(
+                    getattr(self.visualizer, "default_subsets", ("cpu", "mem", "io"))
+                ) + (["gpu", "gpu_all"] if hardware.num_gpus else []),
                 "figsize": list(getattr(self.visualizer, "figsize", (5, 3))),
                 "io_window": getattr(self.visualizer, "_io_window", None),
                 "last_state": {},
