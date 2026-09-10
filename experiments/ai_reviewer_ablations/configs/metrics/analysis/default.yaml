@@ -1,0 +1,24 @@
+# Analysis metrics: what the reviewer concluded about the bottleneck, judged
+# against the usecase's reference facts and against the sources it was given.
+#
+# Adding a metric is one item here plus one module in
+# jumper_ablations/metrics/analysis/.
+metrics:
+  - id: bottleneck_identification
+    enabled: true
+    parameters: {}
+  - id: factuality_groundedness
+    enabled: true
+    parameters: {}
+  - id: conditional_evidence_coverage
+    enabled: true
+    parameters: {}
+  - id: global_evidence_coverage
+    enabled: true
+    parameters: {}
+  - id: relevance_conciseness
+    enabled: true
+    parameters: {}
+  - id: analysis_to_suggestion_transfer
+    enabled: true
+    parameters: {}

@@ -1,0 +1,42 @@
+# How many times each cell of the (usecase x ablation) grid is measured, and
+# how the reviewer is asked to measure itself.
+
+# Independent reviewer generations per grid cell. The LLM is the noisiest part
+# of the pipeline, so this is the number that decides whether a difference
+# between two presets is visible at all.
+generations_per_target: 10
+
+# Kernel passes per grid cell. One pass executes the notebook prefix once and
+# then asks for `generations_per_target` reviews against the same state, which
+# is what makes ten generations affordable. Raise this only to put the prefix
+# itself under test.
+repetitions: 1
+
+# Resolve the payload cell once and pass it as --cells, so repeated reviews
+# inside one pass cannot drift onto a different cell as the history grows.
+# Turning this off restores the plain `%perfmonitor_ai_review` a user types.
+pin_target_cell: true
+
+# Monitoring level handed to the magic; also what the benchmark replays use.
+level: process
+
+benchmark:
+  enabled: true
+  # separate: `%perfmonitor_ai_review` for the analysis, then
+  #           `%perfmonitor_ai_review --resume <id> --benchmark` to measure.
+  #           The two-command shape, and the only one that records the
+  #           suggestions before the repair loop rewrites them.
+  # inline:   the notebook's own `--benchmark` review, exactly as written.
+  mode: separate
+  # 1 warm-up plus 6 measured: the reviewer's own median drops the first run.
+  runs: 7
+  fix_attempts: 3
+  # Replay modes to re-score the *stored* suggestions under, after the review
+  # cell's own mode. Suggestions are never regenerated for a mode.
+  extra_replay_modes: []
+
+kernel:
+  name: python3
+  startup_timeout: 180
+  # A single review with --benchmark replays the whole prefix many times.
+  cell_timeout: 14400

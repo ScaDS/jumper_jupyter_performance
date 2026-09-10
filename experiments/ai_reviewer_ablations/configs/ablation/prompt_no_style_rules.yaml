@@ -1,0 +1,14 @@
+defaults:
+  - base
+
+id: prompt_no_style_rules
+name: Full context, style rules dropped
+description: >-
+  Drops the rules asking the model to leave untouched code, comments and
+  formatting alone - the rules that keep a rewrite reviewable.
+family: prompt
+effect:
+  overrides:
+    preserve_comments: false
+    preserve_style: false
+    pep8_multiline: false

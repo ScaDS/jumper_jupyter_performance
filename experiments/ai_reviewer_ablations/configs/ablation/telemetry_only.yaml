@@ -1,0 +1,11 @@
+defaults:
+  - base
+
+id: telemetry_only
+name: Telemetry only
+description: >-
+  The complement of code_only: every measurement, no source. Says how much of
+  the analysis is carried by the numbers alone.
+effect:
+  context:
+    code: false

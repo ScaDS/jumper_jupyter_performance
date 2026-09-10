@@ -1,0 +1,12 @@
+# A different claim from the context suite, and kept apart for that reason:
+# these ablations change what the prompt asks for while every context source
+# stays on, so a difference here is about instructions, not about evidence.
+id: prompt_rules
+description: Toggle prompt items with the full context left intact.
+usecases:
+  - minian/cell_40
+ablations:
+  - base
+  - prompt_parallel_hint
+  - prompt_no_style_rules
+  - prompt_no_focused_rewrite

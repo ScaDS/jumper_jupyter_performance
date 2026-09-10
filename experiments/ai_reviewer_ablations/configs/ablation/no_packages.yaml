@@ -1,0 +1,11 @@
+defaults:
+  - base
+
+id: no_packages
+name: Base without the installed packages
+description: >-
+  Drops the preinstalled-library list, so a suggestion cannot be checked
+  against what is actually importable.
+effect:
+  context:
+    packages: false

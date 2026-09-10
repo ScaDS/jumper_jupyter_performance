@@ -1,0 +1,10 @@
+# The pilot the experiment plan asks for: enough runs to estimate the spread,
+# not enough to conclude anything. Size the real N from the bootstrap interval
+# widths this produces.
+defaults:
+  - default
+
+generations_per_target: 5
+
+benchmark:
+  runs: 3

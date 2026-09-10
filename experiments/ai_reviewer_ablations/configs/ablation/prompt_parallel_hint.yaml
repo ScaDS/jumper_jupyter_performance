@@ -1,0 +1,13 @@
+defaults:
+  - base
+
+id: prompt_parallel_hint
+name: Full context, parallelism prompted
+description: >-
+  Turns on the analysis hint about idle parallel hardware and the GPU-offload
+  rule. The evidence is unchanged; only what the prompt asks for changes.
+family: prompt
+effect:
+  overrides:
+    parallel_analysis_hint: true
+    gpu_offload: true

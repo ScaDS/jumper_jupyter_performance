@@ -1,0 +1,26 @@
+# The judged metrics are scored by an agent session, not by an API client:
+# the harness exports a self-contained task packet per unit and reads back a
+# verdict file. See JUDGE_PROTOCOL.md.
+
+# Hide which ablation a packet came from. Without this a judge can score the
+# label instead of the analysis, and the whole comparison collapses.
+blind: true
+
+# How many units one packet may carry. One keeps each judgement independent;
+# raising it trades that for fewer sessions.
+units_per_packet: 1
+
+# Units to export per (usecase, ablation) cell, or null for all of them. Manual
+# judging does not scale to every generation of a full sweep, so this is the
+# knob that decides how much of it gets judged.
+sample_per_cell: null
+
+# Which captured sources are copied into a packet. `analyze_messages` and
+# `suggest_messages` are the verbatim messages the reviewer sent, so a judge
+# reads exactly what the model read.
+sources:
+  - analyze_messages
+  - suggest_messages
+  - context_payload
+  - enabled_sources
+  - reference_facts

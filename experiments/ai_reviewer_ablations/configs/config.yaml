@@ -1,0 +1,46 @@
+# One run of the ablation experiment.
+#
+# The setup is declarative: a suite names the usecases and the ablations to
+# cross, and the protocol says how many times each cell of that grid is
+# measured. Hydra writes the fully composed config into
+# <run directory>/.hydra/config.yaml, so the setup that produced a result is
+# always readable next to the result.
+defaults:
+  - suite: smoke
+  - protocol: default
+  - judge: default
+  - metrics/analysis: default
+  - metrics/suggestions: default
+  - reporting: default
+  - _self_
+
+# Every artefact of one run lands under results/<run_id>/.
+run_id: ${now:%Y%m%d_%H%M%S}
+results_root: ${experiment_root:}/results
+
+# Where usecase notebooks are actually executed. A prefix downloads datasets
+# and writes intermediate stores worth gigabytes, and usecases in one family
+# share them on purpose - minian/cell_77 reads what the pipeline wrote. So this
+# sits outside the run directory: the artefacts are reused across runs, the
+# records are not.
+workspace_root: ${experiment_root:}/workspace
+
+# Where usecase directories are looked for. Pointing this elsewhere runs the
+# same suite against a private library of notebooks without copying them in.
+usecases_root: ${experiment_root:}/usecases
+
+# Which existing run the offline commands (export_judge, evaluate, report)
+# read. Null means the newest one under results_root. `run` ignores it: it
+# always writes a fresh directory.
+target_run: null
+
+hydra:
+  run:
+    dir: ${results_root}/${run_id}
+  sweep:
+    dir: ${results_root}/${run_id}
+    subdir: job_${hydra.job.num}
+  job:
+    # The runner resolves every path itself; moving the process out from under
+    # the caller would only make relative paths on the command line lie.
+    chdir: false

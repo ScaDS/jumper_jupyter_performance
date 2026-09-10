@@ -1,0 +1,12 @@
+# Aggregation and the two tables the experiment exists to fill in.
+
+# The preset every other one is compared against, paired on generation index.
+baseline_ablation: base
+
+bootstrap:
+  samples: 10000
+  confidence: 0.95
+  # Fixed so a rerun of the report reproduces the same intervals.
+  seed: 0
+
+figures: true

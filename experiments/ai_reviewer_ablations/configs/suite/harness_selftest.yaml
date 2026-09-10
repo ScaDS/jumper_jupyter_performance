@@ -1,0 +1,9 @@
+# Not a measurement: the smallest thing that proves the wiring works.
+# Points at a payload with no dataset and no dependencies, so a failure here
+# is the harness and not the usecase.
+id: harness_selftest
+description: One synthetic payload, one preset - a wiring check.
+usecases:
+  - synthetic/loop
+ablations:
+  - base

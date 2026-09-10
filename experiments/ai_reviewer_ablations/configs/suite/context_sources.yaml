@@ -1,0 +1,19 @@
+# The main experiment: how much does each context source contribute?
+#
+# Every ablation here removes exactly one source from `base`, plus the two
+# extremes that bound the range.
+id: context_sources
+description: Drop one context source at a time from the full-context preset.
+usecases:
+  - minian/cell_40
+  - minian/cell_77
+ablations:
+  - base
+  - no_timing
+  - no_tags
+  - no_perf
+  - no_raw_perf
+  - no_hardware
+  - no_packages
+  - code_only
+  - telemetry_only

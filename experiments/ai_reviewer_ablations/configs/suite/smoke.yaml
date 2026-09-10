@@ -1,0 +1,7 @@
+# The cheapest thing that still exercises the whole pipeline end to end.
+id: smoke
+description: One usecase, one ablation - a wiring check, not a measurement.
+usecases:
+  - minian/cell_40
+ablations:
+  - base

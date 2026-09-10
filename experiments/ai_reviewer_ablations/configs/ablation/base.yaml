@@ -1,0 +1,19 @@
+# The reference preset: every context source the reviewer knows about is on.
+#
+# This is deliberately not the shipped default - `raw_perf` is off there - so
+# that every ablation below is a removal from one common maximum and the
+# global evidence coverage of each preset has the same denominator.
+id: base
+name: All context sources
+description: Full context - every source the collector can build is enabled.
+family: context
+effect:
+  context:
+    code: true
+    timing: true
+    tags: true
+    perf: true
+    raw_perf: true
+    hardware: true
+    packages: true
+  overrides: {}

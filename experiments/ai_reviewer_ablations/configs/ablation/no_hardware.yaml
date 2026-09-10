@@ -1,0 +1,9 @@
+defaults:
+  - base
+
+id: no_hardware
+name: Base without the hardware description
+description: The model no longer knows what machine the numbers came from.
+effect:
+  context:
+    hardware: false

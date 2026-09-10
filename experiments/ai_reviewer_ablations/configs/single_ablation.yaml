@@ -1,0 +1,8 @@
+# Composition entry point used to resolve one ablation by id.
+#
+# The suite lists ablations by name; the runner composes each of them through
+# this config so that a delta file's `defaults: [base]` is honoured by Hydra
+# itself rather than by a second, home-grown merge.
+defaults:
+  - ablation: base
+  - _self_

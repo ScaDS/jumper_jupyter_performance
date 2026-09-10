@@ -1,0 +1,49 @@
+# Suggestion metrics: what the proposed rewrites were actually worth once run.
+#
+# Adding a metric is one item here plus one module in
+# jumper_ablations/metrics/suggestions/.
+metrics:
+  - id: best_speedup
+    enabled: true
+    parameters: {}
+  - id: mean_median_speedup
+    enabled: true
+    parameters: {}
+  - id: mean_median_correct_speedup
+    enabled: true
+    parameters: {}
+  - id: requested_vs_returned
+    enabled: true
+    # What the suggest prompt asks for. Nothing in the pipeline pins this, so
+    # the expectation lives here rather than being inferred from the answer.
+    parameters: {requested: 3}
+  - id: execution_success
+    enabled: true
+    parameters: {}
+  - id: correctness_rates
+    enabled: true
+    parameters: {}
+  - id: repairs
+    enabled: true
+    parameters: {}
+  - id: pass_at_k
+    enabled: true
+    parameters: {}
+  - id: correctness_conditioned_speedup
+    enabled: true
+    parameters: {}
+  - id: rank_quality
+    enabled: true
+    parameters: {}
+  - id: replay_mode_agreement
+    enabled: true
+    parameters: {}
+  - id: end_to_end_cost
+    enabled: true
+    parameters: {}
+  - id: suggestion_diversity
+    enabled: true
+    parameters: {}
+  - id: resource_effect_agreement
+    enabled: true
+    parameters: {}

@@ -1,0 +1,16 @@
+defaults:
+  - base
+
+id: code_only
+name: Code only
+description: >-
+  The lower bound: no telemetry at all, which is what a reviewer without JUmPER
+  would have. Everything the other presets add is measured against this.
+effect:
+  context:
+    timing: false
+    tags: false
+    perf: false
+    raw_perf: false
+    hardware: false
+    packages: false

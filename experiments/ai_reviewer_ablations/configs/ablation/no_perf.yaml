@@ -1,0 +1,9 @@
+defaults:
+  - base
+
+id: no_perf
+name: Base without the metric summary
+description: Drops the summarised CPU/GPU/memory numbers; raw arrays remain.
+effect:
+  context:
+    perf: false

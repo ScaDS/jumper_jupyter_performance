@@ -1,0 +1,9 @@
+defaults:
+  - base
+
+id: no_tags
+name: Base without performance tags
+description: Drops JUmPER's own classification of the workload.
+effect:
+  context:
+    tags: false

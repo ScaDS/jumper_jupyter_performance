@@ -1,0 +1,8 @@
+# Every run writes a timestamped directory here: records, judge packets,
+# verdicts, figures. The plots and tables are regenerated from the records.
+results/
+# Generated from configs/ablation/*.yaml by `python -m
+# jumper_ablations.cli.build_strategies`; never edited by hand.
+strategies/strategies.yaml
+# Usecase prefixes download datasets and write intermediate stores here.
+workspace/

@@ -1,0 +1,13 @@
+defaults:
+  - base
+
+id: prompt_no_focused_rewrite
+name: Full context, focus rules dropped
+description: >-
+  Drops the "one idea per option" and "rewrite exactly one cell" rules, so
+  suggestion diversity is no longer enforced by the prompt.
+family: prompt
+effect:
+  overrides:
+    focused_rewrite: false
+    single_cell_target: false

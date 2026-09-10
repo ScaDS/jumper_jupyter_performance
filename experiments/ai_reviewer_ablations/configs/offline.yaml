@@ -1,0 +1,13 @@
+# Entry point for the commands that read an existing run rather than
+# producing one: export_judge, evaluate, report.
+#
+# Same groups as `config`, so the metric selection and the judge settings are
+# overridable the same way - but Hydra's own output goes to a side directory
+# instead of into the run being scored.
+defaults:
+  - config
+  - _self_
+
+hydra:
+  run:
+    dir: ${results_root}/.hydra/${now:%Y%m%d_%H%M%S}

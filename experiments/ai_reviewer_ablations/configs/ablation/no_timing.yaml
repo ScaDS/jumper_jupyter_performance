@@ -1,0 +1,9 @@
+defaults:
+  - base
+
+id: no_timing
+name: Base without timing
+description: Drops the exact wall-clock durations; sampled metrics remain.
+effect:
+  context:
+    timing: false

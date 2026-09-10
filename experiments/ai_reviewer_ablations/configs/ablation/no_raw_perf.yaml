@@ -1,0 +1,11 @@
+defaults:
+  - base
+
+id: no_raw_perf
+name: Base without the raw metric arrays
+description: >-
+  Drops the per-timestep arrays behind the plots, leaving the summary. This is
+  what the shipped default already does, so it doubles as the tie to production.
+effect:
+  context:
+    raw_perf: false

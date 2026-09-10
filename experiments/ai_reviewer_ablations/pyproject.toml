@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jumper-ablations"
+version = "0.1.0"
+description = "Context-source ablation experiments for the JUmPER AI reviewer"
+readme = { file = "README.md", content-type = "text/markdown" }
+# The experiment installs separately from the extension on purpose: it drags in
+# hydra, a notebook client and a statistics stack that the extension itself has
+# no business depending on.
+requires-python = ">=3.10"
+dependencies = [
+    # The system under test. The [ai] extra is what makes the reviewer exist.
+    "jumper-extension[ai]>=0.4.1",
+    # Config composition, CLI overrides and the sweep over ablations.
+    "hydra-core>=1.3",
+    "omegaconf>=2.3",
+    # Running a usecase notebook in a real kernel, which is the only way to
+    # exercise the magic the way a user does.
+    "nbclient>=0.10",
+    "nbformat>=5.10",
+    "ipykernel>=6.29",
+    "pydantic>=2.0",
+    "pyyaml",
+    "pandas",
+    "numpy",
+    # Rank correlations for the rank-quality metric.
+    "scipy",
+    "plotly",
+    "kaleido==0.2.1",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["jumper_ablations*"]
+
+[tool.setuptools.package-data]
+"jumper_ablations.evaluation.judge.rubrics" = ["*/*.md", "*/*.yaml"]
