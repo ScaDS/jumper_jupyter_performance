@@ -1,0 +1,59 @@
+# One notebook, one experiment. The notebook holds the whole prefix the target
+# cell needs, the target cell itself, and the single review invocation the
+# harness rewrites per ablation.
+id: minian/cell_40
+title: Per-iteration smooth_sig filtering and HoloViews plot assembly
+payload_type: cpu_bound_python_loop
+description: >-
+  A sequential loop over ten noise frequencies. Each iteration builds two
+  filtered copies of the same six traces, forces both with .compute(), and
+  assembles a HoloViews HoloMap from them. Nothing between iterations is
+  shared, and nothing is parallel.
+
+benchmark:
+  # What the notebook's own review cell asks for, and the reference every other
+  # mode is compared against.
+  replay_mode: full
+  # Modes the stored suggestions are re-scored under afterwards, without asking
+  # the model for new ones. Empty until a pilot shows the prefix survives fork.
+  extra_replay_modes: []
+
+# Facts a correct analysis should contain, weighted by how much they matter,
+# each tagged with the context source it can only come from. `source` is what
+# separates conditional evidence coverage - was the fact reachable from the
+# sources this ablation actually had - from global coverage, which uses this
+# whole list as the denominator for every preset.
+reference_facts:
+  - id: sequential_loop
+    source: code
+    weight: 2
+    fact: >-
+      The dominant work is a sequential Python for loop over noise_freq_list;
+      the ten iterations are independent and nothing runs them concurrently.
+  - id: repeated_compute
+    source: code
+    weight: 2
+    fact: >-
+      Each iteration calls .compute() twice, so the dask graph is materialised
+      twenty times over the run instead of once.
+  - id: shared_input
+    source: code
+    weight: 1
+    fact: >-
+      example_trace does not change between iterations, so the work that
+      depends only on it is repeated identically ten times.
+  - id: plot_assembly
+    source: code
+    weight: 1
+    fact: >-
+      HoloViews HoloMap and Curve construction happens inside the timed loop
+      and is not part of the numerical work.
+
+# The facts below can only be written down from a measured run, and inventing
+# them would corrupt every coverage number that uses this file. Fill them in
+# from a `base` record - records/<id>.json carries `inputs.context_payload`
+# with timing_info, perf_summary and perf_tags - and then move them above.
+#
+# - {id: duration,  source: timing, weight: 1, tolerance: 0.5, fact: "..."}
+# - {id: cpu_bound, source: tags,   weight: 2, fact: "..."}
+# - {id: gpu_idle,  source: perf,   weight: 1, fact: "..."}

@@ -1,0 +1,41 @@
+id: minian/cell_77
+title: update_temporal deconvolution over a parameter grid
+payload_type: dask_parameter_sweep
+description: >-
+  A sequential loop over a four-point sparse-penalty grid. Each iteration runs
+  update_temporal on persisted dask arrays and then forces six separate
+  .compute() calls, five of which recompute values the iteration already has.
+
+# This usecase reads the intermediate zarr store the full minian pipeline
+# writes. It is not self-contained: ./minian_intermediate must already exist,
+# which means minian/cell_40 (or the upstream pipeline) has been run once.
+preconditions:
+  - The minian intermediate store exists at ./minian_intermediate
+
+benchmark:
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: sequential_grid
+    source: code
+    weight: 2
+    fact: >-
+      The parameter grid is walked sequentially by itertools.product; the four
+      sparse-penalty settings are independent and could be evaluated together.
+  - id: redundant_computes
+    source: code
+    weight: 2
+    fact: >-
+      Six .compute() calls per iteration force the same dask graph repeatedly;
+      YrA and A_sub in particular are recomputed every iteration although
+      neither depends on the loop variables.
+  - id: persisted_inputs
+    source: code
+    weight: 1
+    fact: >-
+      A_sub, C_sub and YrA are already persisted, so the cost is in forcing
+      results rather than in reading the store.
+
+# As in minian/cell_40: telemetry-derived facts must be transcribed from a
+# measured `base` record before they are used, never guessed.
