@@ -93,29 +93,39 @@ def workspace_for(
 
     private = Path(pass_directory) / "workspace"
     private.mkdir(parents=True, exist_ok=True)
-    for name in usecase.manifest.workspace.seed:
-        _seed_directory(shared / name, private / name)
+    for name, entries in usecase.manifest.workspace.seed.items():
+        _seed_directory(shared / name, private / name, entries)
     return private
 
 
-def _seed_directory(source: Path, destination: Path) -> None:
+def _seed_directory(
+    source: Path,
+    destination: Path,
+    entries: list[str],
+) -> None:
     """Rebuild *source* as a directory of links, ready to be written into.
 
-    Linking the directory itself would hand back the shared one; linking its
-    entries gives a private directory whose reads resolve to the shared data
-    and whose writes stay here.
+    Linking the directory itself would hand back the shared one; linking the
+    named entries gives a private directory whose reads resolve to the
+    shared data and whose writes stay here.
+
+    Only what the manifest names is linked. A payload that saves with
+    overwrite removes the old entry first, and a symbolic link cannot be
+    removed that way - so anything it writes must be absent rather than
+    linked.
     """
     destination.mkdir(parents=True, exist_ok=True)
-    if not source.is_dir():
-        logger.warning(
-            f"{source} is not there to seed {destination} from; the usecase "
-            "will run against an empty directory"
-        )
-        return
-    for entry in source.iterdir():
-        link = destination / entry.name
+    for entry in entries:
+        origin = source / entry
+        if not origin.exists():
+            logger.error(
+                f"{origin} is not there to seed {destination} from; the "
+                "usecase will run without it"
+            )
+            continue
+        link = destination / entry
         if not link.exists() and not link.is_symlink():
-            link.symlink_to(entry.resolve())
+            link.symlink_to(origin.resolve())
 
 
 def _kernel_environment(

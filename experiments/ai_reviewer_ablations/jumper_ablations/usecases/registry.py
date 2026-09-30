@@ -85,15 +85,20 @@ class UsecaseWorkspace(BaseModel):
     concurrently out of one directory, and the experiment exists to run
     presets concurrently.
 
-    ``seed`` names directories to reproduce inside the private workspace.
-    Each is created for real and every entry of the shared one is symlinked
-    into it, so reads cost nothing and writes land beside the links rather
-    than in the shared copy. Copying a multi-gigabyte store per pass would
-    work too, and would cost an hour a run to say the same thing.
+    ``seed`` maps a directory to the entries to link into the private copy
+    of it. The directory is created for real and each named entry becomes a
+    symlink, so reads resolve to the one copy on disk and writes land beside
+    the links. Copying a multi-gigabyte store per pass would work too, and
+    would cost an hour a run to say the same thing.
+
+    Name only what the payload **reads**. A linked entry that it overwrites
+    is worse than an absent one: minian saves with ``overwrite=True``, which
+    removes the old group first, and removing a symbolic link that way
+    fails. Everything the payload writes should simply not be there.
     """
 
     mode: Literal["shared", "per_pass"] = "shared"
-    seed: list[str] = Field(default_factory=list)
+    seed: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class UsecaseBenchmark(BaseModel):

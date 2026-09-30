@@ -187,7 +187,10 @@ def test_a_writing_usecase_gets_a_workspace_of_its_own(tmp_path):
     usecase = Usecase(
         manifest=UsecaseManifest(
             id="minian/cell_77",
-            workspace=UsecaseWorkspace(mode="per_pass", seed=["store"]),
+            workspace=UsecaseWorkspace(
+                mode="per_pass",
+                seed={"store": ["A.zarr", "C_chk.zarr"]},
+            ),
         )
     )
 

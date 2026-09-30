@@ -17,7 +17,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from jumper_ablations.files import write_atomically
+from jumper_ablations.files import create_atomically, write_atomically
 from jumper_ablations.paths import RESULTS_DIR, STRATEGIES_FILE
 
 META_NAME = "meta.json"
@@ -103,12 +103,8 @@ class RunDirectory:
         """
         destination = self.strategies_snapshot
         wanted = Path(source).read_text(encoding="utf-8")
-        try:
-            with open(destination, "x", encoding="utf-8") as handle:
-                handle.write(wanted)
+        if create_atomically(destination, wanted):
             return destination
-        except FileExistsError:
-            pass
         if destination.read_text(encoding="utf-8") != wanted:
             raise SystemExit(
                 f"{self.path.name} was measured with different strategy "
@@ -172,12 +168,9 @@ class RunDirectory:
         value is therefore the definition of record, never the caller's own.
         """
         payload = json.dumps(snapshot, indent=2, sort_keys=False) + "\n"
-        try:
-            with open(self.meta_path, "x", encoding="utf-8") as handle:
-                handle.write(payload)
+        if create_atomically(self.meta_path, payload):
             return dict(snapshot)
-        except FileExistsError:
-            return self.meta()
+        return self.meta()
 
     def pass_index(self, shard: str = "00-of-01") -> Path:
         """The index this shard appends to.

@@ -26,7 +26,17 @@ preconditions:
 # copy on disk, writes land beside the links.
 workspace:
   mode: per_pass
-  seed: [minian_intermediate]
+  # Only what the payload reads. update_temporal saves with overwrite=True,
+  # which removes the old entry before writing - and a symbolic link cannot
+  # be removed that way, so everything it writes must be absent here rather
+  # than linked.
+  seed:
+    minian_intermediate:
+      - A.zarr
+      - C_chk.zarr
+      - b.zarr
+      - f.zarr
+      - Y_fm_chk.zarr
 
 environment:
   MINIAN_INTERMEDIATE: ${workspace}/minian_intermediate
