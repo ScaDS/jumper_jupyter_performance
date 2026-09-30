@@ -71,6 +71,31 @@ class ReferenceFact(BaseModel):
     tolerance: float | None = None
 
 
+class UsecaseWorkspace(BaseModel):
+    """Whether passes of this usecase may share a working directory.
+
+    ``shared`` is the default and the reason the directory is per family
+    rather than per pass: minian/cell_77 reads the store minian/cell_40's
+    pipeline wrote, and separate directories would mean recomputing it.
+
+    ``per_pass`` is for a usecase that *writes* where it works. Payloads do:
+    minian's update_temporal saves its intermediates back into the store it
+    read from, so two passes running at once collide on a directory one of
+    them has not finished replacing. A usecase that writes cannot be run
+    concurrently out of one directory, and the experiment exists to run
+    presets concurrently.
+
+    ``seed`` names directories to reproduce inside the private workspace.
+    Each is created for real and every entry of the shared one is symlinked
+    into it, so reads cost nothing and writes land beside the links rather
+    than in the shared copy. Copying a multi-gigabyte store per pass would
+    work too, and would cost an hour a run to say the same thing.
+    """
+
+    mode: Literal["shared", "per_pass"] = "shared"
+    seed: list[str] = Field(default_factory=list)
+
+
 class UsecaseBenchmark(BaseModel):
     replay_mode: str = "full"
     extra_replay_modes: list[str] = Field(default_factory=list)
@@ -93,6 +118,7 @@ class UsecaseManifest(BaseModel):
     # ${workspace} expands to the directory the notebook is executed in.
     environment: dict = Field(default_factory=dict)
     benchmark: UsecaseBenchmark = Field(default_factory=UsecaseBenchmark)
+    workspace: UsecaseWorkspace = Field(default_factory=UsecaseWorkspace)
     reference_facts: list[ReferenceFact] = Field(default_factory=list)
 
     @model_validator(mode="after")

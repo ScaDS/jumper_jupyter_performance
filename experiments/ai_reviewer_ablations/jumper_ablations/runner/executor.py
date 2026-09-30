@@ -63,16 +63,59 @@ class PassOutcome:
         return dataclasses.asdict(self)
 
 
-def workspace_for(config: ExperimentConfig, usecase: Usecase) -> Path:
-    """Where this usecase's notebook is executed.
+def shared_workspace(config: ExperimentConfig, usecase: Usecase) -> Path:
+    """The directory a usecase family shares.
 
-    One directory per usecase family, because a family shares state on
-    purpose: minian/cell_77 reads the intermediate store minian/cell_40's
-    pipeline wrote, and giving them separate directories would mean
-    recomputing it.
+    Shared on purpose: minian/cell_77 reads the intermediate store the
+    pipeline wrote, and a directory per usecase would mean recomputing it.
     """
     family = usecase.id.split("/", 1)[0]
     return Path(config.workspace_root) / family
+
+
+def workspace_for(
+    config: ExperimentConfig,
+    usecase: Usecase,
+    pass_directory: Path | None = None,
+) -> Path:
+    """Where this pass's notebook is executed.
+
+    A usecase that writes where it works gets a directory of its own, seeded
+    with links to what it needs to read. Sharing one is right for a usecase
+    that only reads, and fatal for one that does not: minian's payload saves
+    its intermediates back into the store, so concurrent passes collide on a
+    directory one of them is still replacing.
+    """
+    shared = shared_workspace(config, usecase)
+    if usecase.manifest.workspace.mode != "per_pass" or pass_directory is None:
+        shared.mkdir(parents=True, exist_ok=True)
+        return shared
+
+    private = Path(pass_directory) / "workspace"
+    private.mkdir(parents=True, exist_ok=True)
+    for name in usecase.manifest.workspace.seed:
+        _seed_directory(shared / name, private / name)
+    return private
+
+
+def _seed_directory(source: Path, destination: Path) -> None:
+    """Rebuild *source* as a directory of links, ready to be written into.
+
+    Linking the directory itself would hand back the shared one; linking its
+    entries gives a private directory whose reads resolve to the shared data
+    and whose writes stay here.
+    """
+    destination.mkdir(parents=True, exist_ok=True)
+    if not source.is_dir():
+        logger.warning(
+            f"{source} is not there to seed {destination} from; the usecase "
+            "will run against an empty directory"
+        )
+        return
+    for entry in source.iterdir():
+        link = destination / entry.name
+        if not link.exists() and not link.is_symlink():
+            link.symlink_to(entry.resolve())
 
 
 def _kernel_environment(
@@ -161,7 +204,7 @@ def run_pass(
     payload_path = pass_directory / "payload.py"
     payload_path.write_text(payload_source, encoding="utf-8")
 
-    workspace = workspace_for(config, usecase)
+    workspace = workspace_for(config, usecase, pass_directory)
     session = KernelSession(
         kernel_name=protocol.kernel.name,
         cell_timeout=protocol.kernel.cell_timeout,

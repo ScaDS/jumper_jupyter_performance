@@ -147,3 +147,88 @@ def test_each_pass_gets_its_own_scratch(tmp_path):
     for variable in ("TMPDIR", "DASK_TEMPORARY_DIRECTORY"):
         assert first[variable] != second[variable]
         assert first[variable].endswith("tmp")
+
+
+def test_a_writing_usecase_gets_a_workspace_of_its_own(tmp_path):
+    # minian's payload saves its intermediates back into the store it read
+    # from, so passes that share a directory collide on a zarr group one of
+    # them is still replacing. Reads must still resolve to the one copy.
+    from jumper_ablations.config.schema import (
+        ExperimentConfig,
+        JudgeConfig,
+        MetricsConfig,
+        ProtocolConfig,
+        ReportingConfig,
+        SuiteConfig,
+    )
+    from jumper_ablations.runner.executor import workspace_for
+    from jumper_ablations.usecases.registry import (
+        Usecase,
+        UsecaseManifest,
+        UsecaseWorkspace,
+    )
+
+    shared = tmp_path / "workspace" / "minian" / "store"
+    shared.mkdir(parents=True)
+    (shared / "A.zarr").mkdir()
+    (shared / "C_chk.zarr").mkdir()
+
+    config = ExperimentConfig(
+        run_id="r1",
+        results_root=str(tmp_path),
+        workspace_root=str(tmp_path / "workspace"),
+        usecases_root=str(tmp_path),
+        suite=SuiteConfig(id="s", usecases=[], ablations=[]),
+        protocol=ProtocolConfig(),
+        judge=JudgeConfig(),
+        metrics=MetricsConfig(),
+        reporting=ReportingConfig(),
+    )
+    usecase = Usecase(
+        manifest=UsecaseManifest(
+            id="minian/cell_77",
+            workspace=UsecaseWorkspace(mode="per_pass", seed=["store"]),
+        )
+    )
+
+    first = workspace_for(config, usecase, tmp_path / "pass-a")
+    second = workspace_for(config, usecase, tmp_path / "pass-b")
+
+    assert first != second
+    # Reads resolve to the one copy; nothing was duplicated.
+    assert (first / "store" / "A.zarr").resolve() == (shared / "A.zarr")
+    assert (second / "store" / "A.zarr").resolve() == (shared / "A.zarr")
+    # A write lands here, not in the shared store.
+    (first / "store" / "C_new.zarr").mkdir()
+    assert not (shared / "C_new.zarr").exists()
+    assert not (second / "store" / "C_new.zarr").exists()
+
+
+def test_a_reading_usecase_keeps_sharing_the_family_directory(tmp_path):
+    from jumper_ablations.config.schema import (
+        ExperimentConfig,
+        JudgeConfig,
+        MetricsConfig,
+        ProtocolConfig,
+        ReportingConfig,
+        SuiteConfig,
+    )
+    from jumper_ablations.runner.executor import workspace_for
+    from jumper_ablations.usecases.registry import Usecase, UsecaseManifest
+
+    config = ExperimentConfig(
+        run_id="r1",
+        results_root=str(tmp_path),
+        workspace_root=str(tmp_path / "workspace"),
+        usecases_root=str(tmp_path),
+        suite=SuiteConfig(id="s", usecases=[], ablations=[]),
+        protocol=ProtocolConfig(),
+        judge=JudgeConfig(),
+        metrics=MetricsConfig(),
+        reporting=ReportingConfig(),
+    )
+    usecase = Usecase(manifest=UsecaseManifest(id="minian/cell_40"))
+
+    assert workspace_for(config, usecase, tmp_path / "a") == workspace_for(
+        config, usecase, tmp_path / "b"
+    )

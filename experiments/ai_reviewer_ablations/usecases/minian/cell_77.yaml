@@ -19,6 +19,15 @@ preconditions:
 # when the cell is measured. Pinning it here is what makes this usecase
 # benchmarkable at all; the notebook falls back to ./minian_intermediate when
 # the variable is unset, so it still runs by hand.
+# update_temporal saves its intermediates back into the store it read from,
+# so two passes sharing a working directory collide on a zarr group one of
+# them has not finished replacing. Each pass therefore gets its own
+# directory, seeded with links to the shared store: reads resolve to the one
+# copy on disk, writes land beside the links.
+workspace:
+  mode: per_pass
+  seed: [minian_intermediate]
+
 environment:
   MINIAN_INTERMEDIATE: ${workspace}/minian_intermediate
 
