@@ -138,6 +138,13 @@ class ProtocolConfig(BaseModel):
     generations_per_target: int = Field(default=10, ge=1)
     repetitions: int = Field(default=1, ge=1)
     pin_target_cell: bool = True
+    # The benchmark exports a session archive per measurement and never
+    # removes it. Nothing downstream reads them - the verdicts and timings
+    # are already in the record - and they are the largest thing a sweep
+    # produces by two orders of magnitude, so they go once the pass that
+    # made them is finished. Set this to keep them for debugging, and watch
+    # the disk.
+    keep_benchmark_workdirs: bool = False
     level: str = "process"
     benchmark: BenchmarkProtocol = Field(default_factory=BenchmarkProtocol)
     sampling: SamplingProtocol = Field(default_factory=SamplingProtocol)
@@ -201,6 +208,9 @@ class ExperimentConfig(BaseModel):
     """Everything one run of the experiment was told to do."""
 
     run_id: str
+    # The filesystem the run writes to; results_root and workspace_root are
+    # derived from it in the yaml.
+    storage_root: str = ""
     results_root: str
     workspace_root: str
     usecases_root: str

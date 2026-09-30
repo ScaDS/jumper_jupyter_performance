@@ -8,3 +8,5 @@ strategies/strategies.yaml
 workspace/
 # pytest
 .pytest_cache/
+# Slurm job logs from scripts/romeo.sbatch.
+slurm_logs/

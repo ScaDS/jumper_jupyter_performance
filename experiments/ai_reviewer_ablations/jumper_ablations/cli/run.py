@@ -24,7 +24,7 @@ from omegaconf import DictConfig, OmegaConf
 from jumper_ablations.config.schema import load_experiment_config
 from jumper_ablations.paths import CLI_CONFIG_PATH, register_resolvers
 from jumper_ablations.records.store import RecordStore
-from jumper_ablations.runner.executor import run_pass
+from jumper_ablations.runner.executor import prune_workdirs, run_pass
 from jumper_ablations.runner.run_directory import RunDirectory, machine
 from jumper_ablations.strategies import build_strategies_file, compose_ablation
 from jumper_ablations.usecases.registry import get_usecase
@@ -180,6 +180,14 @@ def main(raw_config: DictConfig) -> int:
                     ablation=ablation,
                     repetition=repetition,
                 )
+                if not config.protocol.keep_benchmark_workdirs:
+                    prune_workdirs(
+                        run_directory.pass_directory(
+                            usecase.id,
+                            ablation.id,
+                            repetition,
+                        )
+                    )
                 run_directory.append_pass(outcome.as_entry())
                 level = (
                     logging.INFO if outcome.status == "ok" else logging.ERROR

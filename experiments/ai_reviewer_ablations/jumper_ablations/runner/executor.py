@@ -17,6 +17,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import os
+import shutil
 from pathlib import Path
 
 from jumper_ablations.config.schema import AblationConfig, ExperimentConfig
@@ -248,6 +249,33 @@ def run_pass(
         )
 
     return outcome
+
+
+def prune_workdirs(pass_directory: Path) -> int:
+    """Remove what the measurements left behind, and say how much that was.
+
+    Every replay exports a session archive into the pass's temporary
+    directory and nothing removes it, so a usecase whose prefix reads a
+    multi-gigabyte store writes that store out once per measurement. Over a
+    sweep of the minian usecases that is hundreds of gigabytes, none of it
+    read again: the timings and the correctness verdicts are already in the
+    records. Kept only when the protocol asks, for debugging a measurement.
+    """
+    scratch = pass_directory / "tmp"
+    if not scratch.is_dir():
+        return 0
+    freed = sum(
+        path.stat().st_size
+        for path in scratch.rglob("*")
+        if path.is_file() and not path.is_symlink()
+    )
+    shutil.rmtree(scratch, ignore_errors=True)
+    if freed:
+        logger.info(
+            f"pruned {freed / 1e9:.1f} GB of benchmark scratch from "
+            f"{pass_directory.name}"
+        )
+    return freed
 
 
 def _expected_captures(protocol, usecase: Usecase, inline: bool) -> int:

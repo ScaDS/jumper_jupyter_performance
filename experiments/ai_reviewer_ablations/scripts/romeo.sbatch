@@ -20,7 +20,16 @@
 set -euo pipefail
 
 VENV=/data/horse/ws/albu670g-jumper/kernels/jumper-romeo
-EXPERIMENT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+# Slurm copies the batch script to its own spool directory before running it,
+# so the script's own location says nothing about where the experiment is.
+# The directory sbatch was called from does, and ABLATIONS_ROOT overrides it.
+EXPERIMENT="${ABLATIONS_ROOT:-${SLURM_SUBMIT_DIR:-$PWD}}"
+if [[ ! -d "${EXPERIMENT}/jumper_ablations" ]]; then
+    echo "no experiment at '${EXPERIMENT}'; submit from its directory or" \
+         "set ABLATIONS_ROOT" >&2
+    exit 1
+fi
 
 module load release/25.06 GCCcore/13.3.0 Python/3.12.3
 source "${VENV}/bin/activate"
@@ -41,10 +50,16 @@ if ! curl -sf -o /dev/null --max-time 20 \
     exit 1
 fi
 
-# Benchmark replays mkdtemp per measurement and do not clean up, so they are
-# pointed at the workspace filesystem rather than at the node's small /tmp.
-export TMPDIR="${EXPERIMENT}/workspace/tmp"
-mkdir -p "${TMPDIR}"
+# Results go to the project filesystem, never to the home directory. A full
+# replay exports a benchmark session per measurement, so one sweep over the
+# minian usecases runs to hundreds of gigabytes; home has a 50 GB quota. The
+# harness puts each pass's temporary files inside the run directory, so this
+# one variable moves the whole lot.
+DEFAULT_STORAGE=/data/horse/ws/albu670g-jumper/ablations
+export JUMPER_ABLATION_STORAGE="${JUMPER_ABLATION_STORAGE:-$DEFAULT_STORAGE}"
+mkdir -p "${JUMPER_ABLATION_STORAGE}"
+echo "storage: ${JUMPER_ABLATION_STORAGE}"
+df -h "${JUMPER_ABLATION_STORAGE}" | tail -1
 
 # minian's dask arrays are chunked for one machine; the default thread pool
 # would oversubscribe the allocation and add timing noise to every benchmark.

@@ -16,14 +16,24 @@ defaults:
 
 # Every artefact of one run lands under results/<run_id>/.
 run_id: ${now:%Y%m%d_%H%M%S}
-results_root: ${experiment_root:}/results
+
+# Where everything a run produces is written. This defaults to the experiment
+# folder, which is convenient and wrong for a real sweep: a full-replay
+# benchmark exports a session per measurement, so one context_sources run over
+# the minian usecases is hundreds of gigabytes, and a home directory with a
+# quota is not where that belongs. Point JUMPER_ABLATION_STORAGE at a scratch
+# or project filesystem - scripts/romeo.sbatch does exactly that - and both
+# directories below follow it.
+storage_root: ${oc.env:JUMPER_ABLATION_STORAGE,${experiment_root:}}
+
+results_root: ${storage_root}/results
 
 # Where usecase notebooks are actually executed. A prefix downloads datasets
 # and writes intermediate stores worth gigabytes, and usecases in one family
 # share them on purpose - minian/cell_77 reads what the pipeline wrote. So this
 # sits outside the run directory: the artefacts are reused across runs, the
 # records are not.
-workspace_root: ${experiment_root:}/workspace
+workspace_root: ${storage_root}/workspace
 
 # Where usecase directories are looked for. Pointing this elsewhere runs the
 # same suite against a private library of notebooks without copying them in.
