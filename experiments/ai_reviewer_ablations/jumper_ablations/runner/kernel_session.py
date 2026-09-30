@@ -16,6 +16,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -60,9 +61,16 @@ def _environment(overrides: dict) -> Iterator[None]:
 
     The kernel inherits the parent's environment, and this is where the
     reviewer is told which strategies file to read and where to log.
+
+    TMPDIR is among them, and ``tempfile`` reads it once and remembers the
+    answer for the life of the process. The harness runs pass after pass in
+    one process and removes each pass's scratch when it is done, so without
+    clearing that cache the second pass writes its kernel's connection file
+    into the first pass's deleted directory and dies before it starts.
     """
     previous = {key: os.environ.get(key) for key in overrides}
     os.environ.update({key: str(value) for key, value in overrides.items()})
+    tempfile.tempdir = None
     try:
         yield
     finally:
@@ -71,6 +79,7 @@ def _environment(overrides: dict) -> Iterator[None]:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+        tempfile.tempdir = None
 
 
 class KernelSession:

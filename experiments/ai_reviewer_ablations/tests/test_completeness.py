@@ -274,3 +274,25 @@ def test_rewriting_a_record_replaces_it(tmp_path):
 
     assert len(store.load()) == 1
     assert len(store.index_path.read_text().splitlines()) == 1
+
+
+def test_the_temporary_directory_cache_follows_the_pass(tmp_path):
+    # tempfile reads TMPDIR once and remembers it. The harness runs pass
+    # after pass in one process and deletes each pass's scratch when it is
+    # done, so a stale cache sends the next kernel's connection file into a
+    # directory that is no longer there.
+    import tempfile
+
+    from jumper_ablations.runner.kernel_session import _environment
+
+    first = tmp_path / "pass-a" / "tmp"
+    second = tmp_path / "pass-b" / "tmp"
+    for directory in (first, second):
+        directory.mkdir(parents=True)
+
+    with _environment({"TMPDIR": str(first)}):
+        assert tempfile.gettempdir() == str(first)
+    with _environment({"TMPDIR": str(second)}):
+        assert tempfile.gettempdir() == str(second)
+
+    tempfile.tempdir = None
