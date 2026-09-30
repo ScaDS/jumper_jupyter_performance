@@ -4,7 +4,24 @@
 defaults:
   - default
 
-generations_per_target: 5
+# Five independent draws, as separate passes rather than as generations
+# inside one kernel.
+#
+# The reviewer benchmarks the first review of a kernel and skips every one
+# after it: the replay rebuilds the target cell's prefix from the cell
+# history, and by the second review that history has grown past what it can
+# reconstruct. Generations two onwards therefore produce an analysis and no
+# measurement at all, which is the whole suggestion half of the experiment.
+#
+# A pass per draw costs the prefix again each time - a few minutes here -
+# and buys more than it costs: each draw starts from the same state instead
+# of from whatever the previous draw's benchmark left behind, including the
+# repaired suggestion code the benchmark writes back.
+#
+# Pairing and seeding key on (repetition, generation), so repetition 3 of
+# one preset still pairs with repetition 3 of another.
+repetitions: 5
+generations_per_target: 1
 
 benchmark:
   runs: 3
