@@ -11,7 +11,7 @@ still be the same idea, and can differ by one line and be different ideas.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from jumper_ablations.metrics.base import (
     CATEGORY_SUGGESTIONS,
@@ -29,6 +29,15 @@ class DiversityVerdict(BaseModel):
     # suggestions share a label exactly when they are the same idea.
     technique_labels: list[str] = Field(default_factory=list)
     notes: str = ""
+
+    @model_validator(mode="after")
+    def _one_label_per_suggestion(self) -> "DiversityVerdict":
+        if len(self.technique_labels) > self.suggestions_total:
+            raise ValueError(
+                f"{len(self.technique_labels)} labels for "
+                f"{self.suggestions_total} suggestions"
+            )
+        return self
 
     @property
     def distinct_techniques(self) -> int:

@@ -12,6 +12,8 @@ learned something false.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from jumper_ablations.metrics.base import (
@@ -39,11 +41,19 @@ _RESOURCE_KEYS = {
 _NOISE_BAND = 0.10
 
 
+# The rubric states these three, the measurement side understands these
+# three, and a verdict outside them cannot be scored. Declaring them here
+# means the packet's schema carries them too, so a judging session is told
+# the vocabulary rather than having to infer it from prose.
+Resource = Literal["cpu", "gpu", "memory"]
+Direction = Literal["up", "down", "none"]
+
+
 class ResourcePrediction(BaseModel):
-    suggestion_index: int
-    resource: str
-    # What the description promises: "down", "up" or "none".
-    direction: str
+    suggestion_index: int = Field(ge=1)
+    resource: Resource
+    # What the description promises.
+    direction: Direction
     quote: str = ""
 
 

@@ -13,7 +13,7 @@ to move exactly that number.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from jumper_ablations.metrics.base import (
     CATEGORY_ANALYSIS,
@@ -34,6 +34,13 @@ class RelevanceVerdict(BaseModel):
     # Code changes proposed in a step that was told not to propose any.
     premature_suggestions: int = Field(ge=0)
     notes: str = ""
+
+    @model_validator(mode="after")
+    def _parts_fit_the_whole(self) -> "RelevanceVerdict":
+        for name in ("relevant_claims", "irrelevant_observations"):
+            if getattr(self, name) > self.total_claims:
+                raise ValueError(f"{name} exceeds total_claims")
+        return self
 
 
 class RelevanceConciseness(JudgeMetric):

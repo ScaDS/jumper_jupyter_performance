@@ -13,7 +13,7 @@ guessed well.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from jumper_ablations.metrics.base import (
     CATEGORY_ANALYSIS,
@@ -33,6 +33,21 @@ class FactualityVerdict(BaseModel):
     # Claims about things that are not in the sources at all.
     hallucinations: int = Field(ge=0)
     examples: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _parts_fit_the_whole(self) -> "FactualityVerdict":
+        # Every claim is supported, contradicted or unfounded, so the three
+        # counts partition the total. Without this a verdict that parses can
+        # still produce a precision above one.
+        counted = (
+            self.supported_claims + self.contradictions + self.hallucinations
+        )
+        if counted > self.total_claims:
+            raise ValueError(
+                f"{counted} classified claims exceed "
+                f"{self.total_claims} total_claims"
+            )
+        return self
 
 
 class FactualityGroundedness(JudgeMetric):

@@ -16,10 +16,11 @@ coverage, which is the honest outcome rather than a zero.
 from __future__ import annotations
 
 import dataclasses
+from typing import Literal
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from jumper_ablations.paths import USECASES_DIR
 from jumper_ablations.usecases.notebook import (
@@ -38,6 +39,21 @@ MANIFEST_SUFFIX = ".yaml"
 _IGNORED_PARTS = (".ipynb_checkpoints",)
 
 
+# The seven ids the reviewer's collector actually gates. A fact attributed to
+# anything else is unreachable by construction: it can never be in the
+# enabled set, so conditional coverage would count it as lost from every
+# preset including the full-context one.
+SourceId = Literal[
+    "code",
+    "timing",
+    "tags",
+    "perf",
+    "raw_perf",
+    "hardware",
+    "packages",
+]
+
+
 class ReferenceFact(BaseModel):
     """One fact a correct analysis is expected to contain.
 
@@ -47,9 +63,11 @@ class ReferenceFact(BaseModel):
     """
 
     id: str
-    source: str
+    source: SourceId
     fact: str
-    weight: float = 1.0
+    # A weightless fact contributes nothing to either coverage number, which
+    # is a way of writing a fact down and not measuring it.
+    weight: float = Field(default=1.0, gt=0.0)
     tolerance: float | None = None
 
 
@@ -76,6 +94,18 @@ class UsecaseManifest(BaseModel):
     environment: dict = Field(default_factory=dict)
     benchmark: UsecaseBenchmark = Field(default_factory=UsecaseBenchmark)
     reference_facts: list[ReferenceFact] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _fact_ids_are_unique(self) -> "UsecaseManifest":
+        # Coverage is a weighted recall keyed by fact id. A repeated id makes
+        # one fact shadow another: the denominator counts both, the numerator
+        # can only ever credit one.
+        seen = set()
+        for fact in self.reference_facts:
+            if fact.id in seen:
+                raise ValueError(f"duplicate reference fact id {fact.id!r}")
+            seen.add(fact.id)
+        return self
 
     def facts_by_source(self) -> dict[str, list[ReferenceFact]]:
         grouped: dict[str, list[ReferenceFact]] = {}

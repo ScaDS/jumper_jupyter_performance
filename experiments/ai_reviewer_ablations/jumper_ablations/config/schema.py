@@ -78,8 +78,10 @@ class BenchmarkProtocol(BaseModel):
 
     enabled: bool = True
     mode: Literal["separate", "inline"] = "separate"
-    runs: int = 7
-    fix_attempts: int = 3
+    # The reviewer's median drops the first run, so one measured repetition
+    # needs two.
+    runs: int = Field(default=7, ge=2)
+    fix_attempts: int = Field(default=3, ge=0)
     extra_replay_modes: list[str] = Field(default_factory=list)
 
 
@@ -133,8 +135,8 @@ class KernelProtocol(BaseModel):
 
 
 class ProtocolConfig(BaseModel):
-    generations_per_target: int = 10
-    repetitions: int = 1
+    generations_per_target: int = Field(default=10, ge=1)
+    repetitions: int = Field(default=1, ge=1)
     pin_target_cell: bool = True
     level: str = "process"
     benchmark: BenchmarkProtocol = Field(default_factory=BenchmarkProtocol)
@@ -181,8 +183,11 @@ class JudgeConfig(BaseModel):
 
 
 class BootstrapConfig(BaseModel):
-    samples: int = 10000
-    confidence: float = 0.95
+    # A resample count of zero yields no interval, and a confidence outside
+    # (0, 1) indexes a percentile that does not exist - both silently, in
+    # the middle of a sweep that has already been paid for.
+    samples: int = Field(default=10000, ge=100)
+    confidence: float = Field(default=0.95, gt=0.0, lt=1.0)
     seed: int = 0
 
 
