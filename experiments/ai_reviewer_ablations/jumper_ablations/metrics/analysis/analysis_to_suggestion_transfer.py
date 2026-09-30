@@ -12,7 +12,7 @@ identical", "the GPU is unavailable", whatever the analysis committed to.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from jumper_ablations.metrics.base import (
     CATEGORY_ANALYSIS,
@@ -29,9 +29,29 @@ class TransferVerdict(BaseModel):
     bottleneck_aligned: int = Field(ge=0)
     # Constraints the analysis stated, and how many suggestions kept them.
     constraints_stated: int = Field(ge=0)
+    # Suggestions that keep *every* constraint the analysis stated. This is
+    # the number the metric reports: counting (suggestion, constraint) pairs
+    # instead says 50% when every suggestion breaks one of two constraints
+    # and none of them is usable.
+    suggestions_preserving_all: int = Field(ge=0)
+    # The pair counts are kept as a secondary, finer-grained view.
     constraint_observations: int = Field(ge=0)
     constraints_preserved: int = Field(ge=0)
     notes: str = ""
+
+    @model_validator(mode="after")
+    def _counts_are_consistent(self) -> "TransferVerdict":
+        if self.bottleneck_aligned > self.suggestions_total:
+            raise ValueError("bottleneck_aligned exceeds suggestions_total")
+        if self.suggestions_preserving_all > self.suggestions_total:
+            raise ValueError(
+                "suggestions_preserving_all exceeds suggestions_total"
+            )
+        if self.constraints_preserved > self.constraint_observations:
+            raise ValueError(
+                "constraints_preserved exceeds constraint_observations"
+            )
+        return self
 
 
 class AnalysisToSuggestionTransfer(JudgeMetric):
@@ -42,6 +62,7 @@ class AnalysisToSuggestionTransfer(JudgeMetric):
         scope=SCOPE_RUN,
         reported_values=(
             "bottleneck_aligned_rate",
+            "fully_constrained_suggestion_rate",
             "preserved_constraint_rate",
             "constraints_stated",
             "suggestions_total",
@@ -58,6 +79,13 @@ class AnalysisToSuggestionTransfer(JudgeMetric):
         return {
             "bottleneck_aligned_rate": rate(
                 verdict.bottleneck_aligned,
+                verdict.suggestions_total,
+            ),
+            # The headline: a suggestion that breaks one stated constraint
+            # has not preserved the constraints, whatever it did with the
+            # others.
+            "fully_constrained_suggestion_rate": rate(
+                verdict.suggestions_preserving_all,
                 verdict.suggestions_total,
             ),
             "preserved_constraint_rate": rate(
