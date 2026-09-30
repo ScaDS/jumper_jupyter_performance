@@ -34,6 +34,39 @@ logger = logging.getLogger("jumper_ablations")
 register_resolvers()
 
 
+# What a resume has to agree with the stored records about. The machine and
+# the timestamp are deliberately absent: continuing a sweep on another node
+# is a normal thing to do and is recorded rather than refused.
+_RESUME_INVARIANTS = ("suite", "protocol", "usecases", "ablations")
+
+
+def _refuse_incompatible_resume(
+    existing: dict,
+    snapshot: dict,
+    run_directory: RunDirectory,
+) -> None:
+    """Stop a resume that would mix two different experiments in one run.
+
+    Reusing a run id picks up the records already there. If the suite, the
+    protocol, a usecase manifest or an ablation has changed since, the result
+    is one directory holding measurements of two different things, with
+    metadata describing only the later one - and nothing in the records says
+    which half is which. Refusing costs a new run id.
+    """
+    changed = [
+        field
+        for field in _RESUME_INVARIANTS
+        if existing.get(field) != snapshot.get(field)
+    ]
+    if not changed:
+        return
+    raise SystemExit(
+        f"{run_directory.path.name} already holds records produced under a "
+        f"different {', '.join(changed)}. Resuming would mix two experiments "
+        "in one run directory. Use a new run_id, or delete this one."
+    )
+
+
 def _already_recorded(run_directory: RunDirectory) -> set:
     """Passes this run directory already holds, as (usecase, ablation, rep).
 
@@ -79,29 +112,32 @@ def main(raw_config: DictConfig) -> int:
     # Regenerated every run: a preset edited since the last one must not be
     # measured under its old meaning.
     build_strategies_file()
-    run_directory.snapshot_strategies()
 
     usecases = [
         get_usecase(one, config.usecases_root) for one in config.suite.usecases
     ]
     ablations = [compose_ablation(one) for one in config.suite.ablations]
 
-    run_directory.write_meta(
-        {
-            "run_id": config.run_id,
-            "suite": config.suite.model_dump(),
-            "protocol": config.protocol.model_dump(),
-            "usecases": {
-                usecase.id: usecase.manifest.model_dump()
-                for usecase in usecases
-            },
-            "ablations": {
-                ablation.id: ablation.model_dump() for ablation in ablations
-            },
-            "machine": machine(),
-            "config": OmegaConf.to_container(raw_config, resolve=True),
-        }
-    )
+    snapshot = {
+        "run_id": config.run_id,
+        "suite": config.suite.model_dump(),
+        "protocol": config.protocol.model_dump(),
+        "usecases": {
+            usecase.id: usecase.manifest.model_dump() for usecase in usecases
+        },
+        "ablations": {
+            ablation.id: ablation.model_dump() for ablation in ablations
+        },
+        "machine": machine(),
+        "config": OmegaConf.to_container(raw_config, resolve=True),
+    }
+    existing = run_directory.meta()
+    if existing:
+        _refuse_incompatible_resume(existing, snapshot, run_directory)
+        run_directory.record_invocation(machine())
+    else:
+        run_directory.write_meta(snapshot)
+    run_directory.snapshot_strategies()
 
     total = len(usecases) * len(ablations) * config.protocol.repetitions
     protocol = config.protocol

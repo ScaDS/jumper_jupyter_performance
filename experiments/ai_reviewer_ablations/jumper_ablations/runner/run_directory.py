@@ -80,14 +80,22 @@ class RunDirectory:
         (directory / "tmp").mkdir(parents=True, exist_ok=True)
         return directory
 
+    @property
+    def strategies_snapshot(self) -> Path:
+        return self.path / "strategies.yaml"
+
     def snapshot_strategies(self, source: Path = STRATEGIES_FILE) -> Path:
         """Copy the presets in beside the records they produced.
 
         The file in the experiment folder is regenerated on every run; this
         copy is the one that says what `--strategy base` meant on that day.
+        Written once: on a resume the existing copy is what the stored
+        records were produced under, and replacing it would leave the run
+        describing presets that half of it never saw.
         """
-        destination = self.path / "strategies.yaml"
-        shutil.copyfile(source, destination)
+        destination = self.strategies_snapshot
+        if not destination.is_file():
+            shutil.copyfile(source, destination)
         return destination
 
     def write_meta(self, meta: dict) -> Path:
@@ -96,6 +104,24 @@ class RunDirectory:
             encoding="utf-8",
         )
         return self.meta_path
+
+    def record_invocation(self, entry: dict) -> None:
+        """Note another invocation against an existing run.
+
+        The first invocation's snapshot stays as it is - it describes what
+        the stored records were produced under. A resume appends rather than
+        overwrites, so the provenance does not quietly become a description
+        of whichever run touched the directory last.
+        """
+        meta = self.meta()
+        meta.setdefault("invocations", []).append(entry)
+        self.write_meta(meta)
+
+    def meta(self) -> dict:
+        """What this run recorded about itself, or {} before it wrote any."""
+        if not self.meta_path.is_file():
+            return {}
+        return json.loads(self.meta_path.read_text(encoding="utf-8"))
 
     def append_pass(self, entry: dict) -> None:
         with self.passes_index.open("a", encoding="utf-8") as index:

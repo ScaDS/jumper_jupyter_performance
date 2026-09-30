@@ -1,0 +1,161 @@
+"""A finished run describes itself, and keeps describing itself.
+
+Scoring reads the manifests the run recorded, not the ones on disk now, and
+a resume refuses to mix a second experiment into the same directory.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from jumper_ablations.cli.common import snapshot_usecases
+from jumper_ablations.cli.run import _refuse_incompatible_resume
+from jumper_ablations.config.schema import (
+    ExperimentConfig,
+    JudgeConfig,
+    MetricsConfig,
+    ProtocolConfig,
+    ReportingConfig,
+    SuiteConfig,
+)
+from jumper_ablations.runner.run_directory import RunDirectory
+
+MANIFEST = {
+    "id": "synthetic/loop",
+    "title": "Pure-python accumulation loop",
+    "payload_type": "cpu_bound_python_loop",
+    "reference_facts": [
+        {
+            "id": "sequential_loop",
+            "source": "code",
+            "weight": 2,
+            "fact": "The work is a sequential loop.",
+        }
+    ],
+}
+
+SNAPSHOT = {
+    "run_id": "r1",
+    "suite": {"id": "smoke"},
+    "protocol": {"generations_per_target": 5},
+    "usecases": {"synthetic/loop": MANIFEST},
+    "ablations": {"base": {"id": "base"}},
+}
+
+
+def _config(tmp_path) -> ExperimentConfig:
+    return ExperimentConfig(
+        run_id="r1",
+        results_root=str(tmp_path),
+        workspace_root=str(tmp_path / "workspace"),
+        usecases_root=str(tmp_path / "usecases"),
+        suite=SuiteConfig(id="smoke", usecases=[], ablations=[]),
+        protocol=ProtocolConfig(),
+        judge=JudgeConfig(),
+        metrics=MetricsConfig(),
+        reporting=ReportingConfig(),
+    )
+
+
+def _run(tmp_path, meta: dict | None) -> RunDirectory:
+    directory = RunDirectory.create(tmp_path / "r1")
+    if meta is not None:
+        directory.write_meta(meta)
+    return directory
+
+
+def test_scoring_reads_the_manifest_the_run_recorded(tmp_path):
+    # The live directory is empty - the usecase has been renamed away, which
+    # is what happened in practice. Scoring must still work, because the run
+    # carries its own copy.
+    run = _run(tmp_path, SNAPSHOT)
+
+    usecases = snapshot_usecases(_config(tmp_path), run)
+
+    assert set(usecases) == {"synthetic/loop"}
+    facts = usecases["synthetic/loop"].manifest.reference_facts
+    assert [fact.id for fact in facts] == ["sequential_loop"]
+
+
+def test_a_renamed_usecase_cannot_change_a_finished_score(tmp_path):
+    run = _run(tmp_path, SNAPSHOT)
+    before = snapshot_usecases(_config(tmp_path), run)
+
+    # Someone adds a fact to the manifest on disk after the run.
+    live = tmp_path / "usecases" / "synthetic"
+    live.mkdir(parents=True)
+    (live / "loop.yaml").write_text(
+        json.dumps({**MANIFEST, "reference_facts": []}), encoding="utf-8"
+    )
+
+    after = snapshot_usecases(_config(tmp_path), run)
+
+    assert len(before["synthetic/loop"].manifest.reference_facts) == 1
+    assert len(after["synthetic/loop"].manifest.reference_facts) == 1
+
+
+def test_a_run_without_a_snapshot_says_so(tmp_path, caplog):
+    run = _run(tmp_path, {"run_id": "r1"})
+    (tmp_path / "usecases").mkdir()
+
+    with caplog.at_level("WARNING"):
+        snapshot_usecases(_config(tmp_path), run)
+
+    assert "no usecase snapshot" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("suite", {"id": "robotics"}),
+        ("protocol", {"generations_per_target": 10}),
+        ("usecases", {"minian/cell_77": MANIFEST}),
+        ("ablations", {"base": {"id": "base"}, "no_perf": {"id": "no_perf"}}),
+    ],
+)
+def test_a_changed_experiment_cannot_resume_into_the_same_run(
+    tmp_path, field, value
+):
+    run = _run(tmp_path, SNAPSHOT)
+
+    with pytest.raises(SystemExit, match=field):
+        _refuse_incompatible_resume(SNAPSHOT, {**SNAPSHOT, field: value}, run)
+
+
+def test_the_same_experiment_resumes(tmp_path):
+    run = _run(tmp_path, SNAPSHOT)
+
+    # A different machine is a normal way to continue a sweep, not a reason
+    # to refuse one.
+    _refuse_incompatible_resume(
+        SNAPSHOT, {**SNAPSHOT, "machine": {"node": "elsewhere"}}, run
+    )
+
+
+def test_resuming_appends_to_the_provenance_instead_of_replacing_it(tmp_path):
+    run = _run(tmp_path, SNAPSHOT)
+
+    run.record_invocation({"node": "second-node"})
+    run.record_invocation({"node": "third-node"})
+    meta = run.meta()
+
+    assert meta["suite"] == SNAPSHOT["suite"]
+    assert meta["usecases"] == SNAPSHOT["usecases"]
+    assert [entry["node"] for entry in meta["invocations"]] == [
+        "second-node",
+        "third-node",
+    ]
+
+
+def test_the_strategies_snapshot_is_written_once(tmp_path):
+    run = _run(tmp_path, SNAPSHOT)
+    source = tmp_path / "strategies.yaml"
+    source.write_text("strategies: [{id: base}]\n", encoding="utf-8")
+
+    run.snapshot_strategies(source)
+    source.write_text("strategies: [{id: base, changed: true}]\n", "utf-8")
+    run.snapshot_strategies(source)
+
+    assert "changed" not in run.strategies_snapshot.read_text()

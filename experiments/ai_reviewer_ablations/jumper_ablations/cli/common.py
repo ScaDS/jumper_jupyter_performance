@@ -17,7 +17,7 @@ from jumper_ablations.metrics.context import (
 )
 from jumper_ablations.records.store import load_records
 from jumper_ablations.runner.run_directory import RunDirectory
-from jumper_ablations.usecases.registry import discover_usecases
+from jumper_ablations.usecases.registry import Usecase, discover_usecases
 
 logger = logging.getLogger("jumper_ablations")
 
@@ -54,12 +54,39 @@ def load_contexts(config: ExperimentConfig, run: RunDirectory):
     if not records:
         raise FileNotFoundError(f"{run.path} holds no records")
 
-    usecases = discover_usecases(Path(config.usecases_root))
+    usecases = snapshot_usecases(config, run)
     return (
         records,
         build_run_contexts(records, usecases),
         build_cell_contexts(records, usecases),
     )
+
+
+def snapshot_usecases(config: ExperimentConfig, run: RunDirectory) -> dict:
+    """The usecases as this run recorded them, not as they are now.
+
+    Scoring has to describe the run that happened. The manifests on disk go
+    on changing - facts get added, a usecase gets renamed - and reading them
+    silently re-scores a finished run against a definition it never used. It
+    is not hypothetical: a usecase renamed after a run left every record
+    unresolvable, so the exported packets carried an empty fact sheet and
+    evidence coverage, which is a recall, had nothing in its denominator.
+
+    Only a run written before meta.json snapshotted its usecases falls back
+    to the live directory, and it says so.
+    """
+    snapshot = (run.meta() or {}).get("usecases") or {}
+    if snapshot:
+        return {
+            usecase_id: Usecase.from_snapshot(manifest)
+            for usecase_id, manifest in snapshot.items()
+        }
+
+    logger.warning(
+        f"{run.path.name} has no usecase snapshot in meta.json; falling back "
+        "to the manifests on disk, which may have changed since the run"
+    )
+    return discover_usecases(Path(config.usecases_root))
 
 
 def configure_logging() -> None:

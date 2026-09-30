@@ -99,9 +99,17 @@ class Usecase:
     """A notebook, where the target sits inside it, and what it is about."""
 
     manifest: UsecaseManifest
-    notebook_path: Path
-    layout: NotebookLayout
+    # Absent on a usecase rebuilt from a run snapshot: scoring needs the
+    # manifest and never the notebook, and a run must stay scoreable after
+    # its notebook has been edited, moved or deleted.
+    notebook_path: Path | None = None
+    layout: NotebookLayout | None = None
     manifest_path: Path | None = None
+
+    @classmethod
+    def from_snapshot(cls, manifest: dict) -> "Usecase":
+        """A usecase as a finished run recorded it."""
+        return cls(manifest=UsecaseManifest.model_validate(manifest))
 
     @property
     def id(self) -> str:
