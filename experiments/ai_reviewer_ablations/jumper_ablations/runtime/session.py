@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 from jumper_ablations.records.schema import (
+    EMPTY_CONTEXT_MARKER,
     PHASE_REVIEW,
     BenchmarkRecord,
     LLMCall,
@@ -304,7 +305,7 @@ def _resolve_run_id(window: _Window, pending: dict) -> str | None:
 
 
 EMPTY_CONTEXT_WARNING = (
-    "[JUmPER ablations]: the reviewer collected no context at all - the "
+    f"{EMPTY_CONTEXT_MARKER} context at all - the "
     "analysis was produced from an empty message and is evidence of nothing. "
     "This happens when the target cell has no performance data (too short, or "
     "the monitor was not running): the reviewer logs a warning and calls the "

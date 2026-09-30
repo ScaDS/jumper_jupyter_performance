@@ -61,21 +61,22 @@ class ReplayModeAgreement(DeterministicMetric):
                 "fallback_rate": fallback_rate,
             }
 
-        # One row per (generation, mode): the same suggestions, timed twice.
-        per_generation: dict[int, dict[str, object]] = {}
+        # One row per (unit, mode): the same suggestions, timed twice. The
+        # unit is the pass and the generation in it, because a second
+        # repetition starts counting generations again and would otherwise
+        # overwrite the first repetition's modes.
+        per_unit: dict[tuple[int, int], dict[str, object]] = {}
         for record in benchmarks:
             mode = record.environment.actual_replay_mode
             if not mode:
                 continue
-            per_generation.setdefault(record.identity.generation, {})[
-                mode
-            ] = record
+            per_unit.setdefault(record.identity.unit_key, {})[mode] = record
 
         agreements = []
         dispersions = []
         correlations = []
 
-        for by_mode in per_generation.values():
+        for by_mode in per_unit.values():
             for left_mode, right_mode in combinations(sorted(by_mode), 2):
                 left = verdicts_by_index(by_mode[left_mode])
                 right = verdicts_by_index(by_mode[right_mode])

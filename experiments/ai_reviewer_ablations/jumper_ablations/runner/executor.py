@@ -44,8 +44,19 @@ class PassOutcome:
     status: str
     generations: int = 0
     captures: int = 0
+    # What the protocol asked this pass to record. A pass short of it has
+    # measured a different experiment from the one the report will describe,
+    # and the difference has to be visible without re-reading the records.
+    expected_captures: int = 0
+    empty_context: int = 0
     target_cell_index: int | None = None
     error: str = ""
+
+    @property
+    def complete(self) -> bool:
+        return (
+            self.captures >= self.expected_captures and not self.empty_context
+        )
 
     def as_entry(self) -> dict:
         return dataclasses.asdict(self)
@@ -165,7 +176,7 @@ def run_pass(
                 repetition=repetition,
                 suite=config.suite.id,
                 run_id=config.run_id,
-                sampling=protocol.sampling.as_applied(0),
+                sampling=protocol.sampling.as_applied(0, repetition),
             )
         )
         if not result.ok:
@@ -198,22 +209,58 @@ def run_pass(
         )
         logger.info(f"{usecase.id} | {ablation.id} | {line}")
 
+        expected = _expected_captures(protocol, usecase, inline)
         for generation in range(1, protocol.generations_per_target + 1):
-            captured = _one_generation(
+            captured, empty = _one_generation(
                 session=session,
                 protocol=protocol,
                 usecase=usecase,
                 generation=generation,
+                repetition=repetition,
                 review_command=line,
                 replay_mode=replay_mode,
                 inline_benchmark=inline,
             )
             outcome.generations += 1
             outcome.captures += captured
+            outcome.expected_captures += expected
+            outcome.empty_context += empty
             if captured == 0:
                 outcome.status = "capture_failed"
 
+    if outcome.status == "ok" and not outcome.complete:
+        # Not a failure of the harness, but not a pass either: the records
+        # that are here would be scored as though the missing ones had never
+        # been asked for, and every rate would quietly be a rate over the
+        # generations that happened to work.
+        outcome.status = "incomplete"
+        outcome.error = (
+            f"{outcome.captures}/{outcome.expected_captures} record(s)"
+            + (
+                f", {outcome.empty_context} with no context"
+                if outcome.empty_context
+                else ""
+            )
+        )
+        logger.error(
+            f"{usecase.id} | {ablation.id} | r{repetition} | incomplete: "
+            f"{outcome.error}"
+        )
+
     return outcome
+
+
+def _expected_captures(protocol, usecase: Usecase, inline: bool) -> int:
+    """Records one generation owes: the review, and each measurement."""
+    if not protocol.benchmark.enabled:
+        return 1
+    modes = {
+        *usecase.manifest.benchmark.extra_replay_modes,
+        *protocol.benchmark.extra_replay_modes,
+    }
+    if not inline:
+        modes.add(usecase.manifest.benchmark.replay_mode)
+    return 1 + len(modes)
 
 
 def _one_generation(
@@ -221,10 +268,11 @@ def _one_generation(
     protocol,
     usecase: Usecase,
     generation: int,
+    repetition: int,
     review_command: str,
     replay_mode: str,
     inline_benchmark: bool,
-) -> int:
+) -> tuple[int, int]:
     """One review, then a measurement of it under each applicable mode.
 
     With the two-command shape the review is captured on its own first, so the
@@ -234,6 +282,7 @@ def _one_generation(
     unless another replay mode was asked for.
     """
     captures = 0
+    empty = 0
     session.run(
         cell_plan.begin_cell(
             generation=generation,
@@ -241,7 +290,7 @@ def _one_generation(
             replay_mode=replay_mode if inline_benchmark else "",
             # Generation N of every preset draws under the same seed, so two
             # presets differ in their context and not in their sampling.
-            sampling=protocol.sampling.as_applied(generation),
+            sampling=protocol.sampling.as_applied(generation, repetition),
         )
     )
     review = session.run(review_command)
@@ -256,7 +305,7 @@ def _one_generation(
             f"{usecase.id} generation {generation}: nothing was captured "
             f"({result.error or 'no marker in output'})"
         )
-        return captures
+        return captures, empty
     captures += 1
 
     if not summaries[-1].get("populated_sources"):
@@ -264,6 +313,7 @@ def _one_generation(
         # cell has no performance data, warns, and then asks the model anyway
         # - which answers, plausibly and about nothing. Saying so here is the
         # difference between an experiment and a pile of confabulations.
+        empty = 1
         logger.error(
             f"{usecase.id} generation {generation}: the reviewer received an "
             "empty context; check that the payload runs long enough to be "
@@ -272,7 +322,7 @@ def _one_generation(
 
     reviewer_run_id = summaries[-1].get("reviewer_run_id") or ""
     if not reviewer_run_id or not protocol.benchmark.enabled:
-        return captures
+        return captures, empty
 
     # The usecase knows which fast modes its prefix survives; the protocol
     # knows which ones this sweep is asking about. A mode named in either is
@@ -300,7 +350,7 @@ def _one_generation(
                 phase=PHASE_REBENCHMARK,
                 replay_mode=mode,
                 reviewer_run_id=reviewer_run_id,
-                sampling=protocol.sampling.as_applied(generation),
+                sampling=protocol.sampling.as_applied(generation, repetition),
             )
         )
         session.run(
@@ -313,4 +363,4 @@ def _one_generation(
         again = session.run(cell_plan.capture_cell())
         if again.markers(CAPTURE_MARKER):
             captures += 1
-    return captures
+    return captures, empty

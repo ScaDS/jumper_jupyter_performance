@@ -60,13 +60,16 @@ class Repairs(DeterministicMetric):
         changed = 0
         compared = 0
 
+        # Keyed by the whole unit: with more than one repetition the
+        # generation number repeats, and a benchmark would be compared
+        # against another pass's suggestions.
         originals = {
-            record.identity.generation: suggestion_codes(record)
+            record.identity.unit_key: suggestion_codes(record)
             for record in context.reviews()
         }
 
         for record in context.primary_benchmarks():
-            before = originals.get(record.identity.generation, {})
+            before = originals.get(record.identity.unit_key, {})
             after = suggestion_codes(record)
             for index, verdict in enumerate(ordered_verdicts(record), 1):
                 total += 1

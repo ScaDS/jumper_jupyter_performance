@@ -69,12 +69,22 @@ class LLMCall(BaseModel):
     model: str = ""
 
 
+# Prefix of the warning the harness records when the reviewer collected
+# no context at all. Kept here rather than beside the in-kernel code so
+# that offline scoring can recognise the record without importing the
+# runtime module the kernel loads.
+EMPTY_CONTEXT_MARKER = "[JUmPER ablations]: the reviewer collected no"
+
+
 class RunIdentity(BaseModel):
     """Which cell of the experiment grid this record belongs to.
 
-    ``generation`` is the paired index: generation 3 of `no_timing` and
-    generation 3 of `base` were asked for under the same conditions, which is
-    what lets the report compare presets pairwise instead of in bulk.
+    ``(repetition, generation)`` is the paired index: that unit of
+    `no_timing` and the same unit of `base` were asked for under the same
+    conditions, which is what lets the report compare presets pairwise
+    instead of in bulk. Use ``unit_key`` rather than ``generation`` alone
+    wherever records are matched up - a second repetition restarts the
+    generation numbering, so the generation on its own is not unique.
     """
 
     record_id: str
@@ -91,6 +101,11 @@ class RunIdentity(BaseModel):
     created_at: str = ""
     suite: str = ""
     run_id: str = ""
+
+    @property
+    def unit_key(self) -> tuple[int, int]:
+        """What makes two records comparable across presets."""
+        return (self.repetition, self.generation)
 
 
 class RunInputs(BaseModel):
@@ -155,6 +170,15 @@ class RunEnvironment(BaseModel):
     actual_replay_mode: str = ""
     degraded: bool = False
     warnings: list[str] = Field(default_factory=list)
+
+    @property
+    def context_was_empty(self) -> bool:
+        """The reviewer was asked to analyse nothing."""
+        return any(
+            warning.startswith(EMPTY_CONTEXT_MARKER)
+            for warning in self.warnings
+        )
+
     package_versions: dict = Field(default_factory=dict)
 
 

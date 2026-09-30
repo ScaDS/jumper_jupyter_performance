@@ -266,12 +266,21 @@ def paired_deltas(
     baseline: str = "base",
     mode: str = "light",
 ):
-    """Each preset's distance from the baseline, with its interval.
+    """Each preset's distance from the baseline, with the interval of that
+    distance.
 
-    Paired by generation, so the comparison is between runs asked for under
-    the same conditions rather than between two piles of numbers. A dot whose
+    Paired by unit, so the comparison is between runs asked for under the
+    same conditions rather than between two piles of numbers. A dot whose
     interval crosses zero is not a finding, and the zero line is drawn so
     that is visible without arithmetic.
+
+    The bar is the interval of the *difference*, resampled from the paired
+    differences themselves. A preset's own interval must never be drawn here
+    however tempting its availability: it describes the scatter of one
+    preset's values, carries nothing about the baseline's, and reading it as
+    a difference invents and hides effects in equal measure. Where the
+    difference has no interval - nothing paired, or a single pair - the dot
+    is drawn bare, which is the honest rendering of "not enough to say".
     """
     import plotly.graph_objects as graph_objects
 
@@ -294,17 +303,26 @@ def paired_deltas(
         )
         for row in frame.itertuples()
     ]
+    paired = [
+        pd.notna(row.paired_delta)
+        and pd.notna(row.paired_delta_ci_low)
+        and pd.notna(row.paired_delta_ci_high)
+        for row in frame.itertuples()
+    ]
     colours = [
         palette["worse"] if (delta or 0) < 0 else palette["better"]
         for delta in deltas
     ]
     spread = [
         (
-            (row.estimate - row.ci_low, row.ci_high - row.estimate)
-            if pd.notna(row.ci_low) and pd.notna(row.ci_high)
+            (
+                row.paired_delta - row.paired_delta_ci_low,
+                row.paired_delta_ci_high - row.paired_delta,
+            )
+            if is_paired
             else (0.0, 0.0)
         )
-        for row in frame.itertuples()
+        for row, is_paired in zip(frame.itertuples(), paired)
     ]
 
     trace = graph_objects.Scatter(

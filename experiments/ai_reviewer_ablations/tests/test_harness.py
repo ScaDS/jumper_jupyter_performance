@@ -30,7 +30,11 @@ def test_review_line_keeps_the_notebook_and_appends_the_preset():
     )
 
     # The notebook's own flags survive; the managed ones are re-stated.
-    assert "--level user" in line
+    # The level is managed: the protocol declares it, the run records it and
+    # the report describes it, so a notebook asking for another one would
+    # leave the config describing measurements it did not produce.
+    assert "--level process" in line
+    assert "--level user" not in line
     assert "--strategy no_timing" in line
     assert "--cells 7" in line
     assert "--replay-mode fork" in line
@@ -50,7 +54,21 @@ def test_review_line_drops_the_benchmark_for_the_two_command_shape():
 
     assert "--benchmark" not in line
     assert "--replay-mode" not in line
-    assert line == "%perfmonitor_ai_review --strategy base --cells 1"
+    assert line == (
+        "%perfmonitor_ai_review --strategy base --level process --cells 1"
+    )
+
+
+def test_the_protocol_decides_the_monitoring_level():
+    line = review_line(
+        base_line=NOTEBOOK_LINE,
+        ablation_id="base",
+        replay_mode="full",
+        protocol=ProtocolConfig(level="system"),
+        with_benchmark=False,
+    )
+
+    assert "--level system" in line
 
 
 def test_review_line_rejects_a_cell_that_is_not_a_review():

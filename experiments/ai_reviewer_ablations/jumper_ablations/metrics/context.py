@@ -10,6 +10,7 @@ preset.
 from __future__ import annotations
 
 import dataclasses
+import logging
 
 from jumper_ablations.records.schema import (
     PHASE_REBENCHMARK,
@@ -17,6 +18,8 @@ from jumper_ablations.records.schema import (
     RunRecord,
 )
 from jumper_ablations.usecases.registry import Usecase
+
+logger = logging.getLogger("jumper_ablations")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -140,6 +143,66 @@ class CellContext:
             if record.identity.generation == index
         )
 
+    def unit_keys(self) -> tuple[tuple[int, int], ...]:
+        """The experimental units in this cell, in order.
+
+        A unit is ``(repetition, generation)``. Resampling and pairing key on
+        this rather than on the generation alone, because a second repetition
+        numbers its generations from one again.
+        """
+        return tuple(
+            sorted(
+                {
+                    record.identity.unit_key
+                    for record in self.records
+                    if record.identity.generation
+                }
+            )
+        )
+
+    def unit(self, key: tuple[int, int]) -> tuple[RunRecord, ...]:
+        return tuple(
+            record
+            for record in self.records
+            if record.identity.unit_key == key
+        )
+
+
+def drop_empty_context(records: list[RunRecord]) -> list[RunRecord]:
+    """Remove the generations the reviewer answered without any context.
+
+    When the collector returns nothing the reviewer warns and calls the model
+    anyway, and the model writes a confident analysis of a cell it was never
+    shown. Those answers are not a weak measurement, they are not a
+    measurement: leaving them in silently averages confabulation into every
+    metric that reads the record.
+
+    The benchmark of such a generation goes with it. It timed real code, but
+    the suggestions it timed came out of an empty prompt, so counting them
+    would put the same confabulation into the speedup and pass@k numbers by
+    another route.
+    """
+    empty_runs = {
+        record.identity.reviewer_run_id
+        for record in records
+        if record.identity.phase == PHASE_REVIEW
+        and record.environment.context_was_empty
+    }
+    if not empty_runs:
+        return list(records)
+
+    kept = [
+        record
+        for record in records
+        if record.identity.reviewer_run_id not in empty_runs
+    ]
+    logger.warning(
+        f"excluded {len(records) - len(kept)} record(s) from "
+        f"{len(empty_runs)} generation(s) whose reviewer received no "
+        "context; they are reported as missing, never as zero"
+    )
+    return kept
+
 
 def build_cell_contexts(
     records: list[RunRecord],
@@ -147,7 +210,7 @@ def build_cell_contexts(
 ) -> list[CellContext]:
     """Group records into grid cells, in a stable order."""
     grouped: dict[tuple[str, str], list[RunRecord]] = {}
-    for record in records:
+    for record in drop_empty_context(records):
         grouped.setdefault(record.cell_key, []).append(record)
 
     contexts = []
@@ -181,6 +244,7 @@ def build_run_contexts(
     suggestions as written, and judging a benchmark record as well would ask
     a session to score the same analysis twice.
     """
+    records = drop_empty_context(records)
     measurements = _measurements_by_review(records)
     contexts = []
     for record in records:

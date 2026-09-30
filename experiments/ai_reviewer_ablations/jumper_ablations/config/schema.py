@@ -7,7 +7,7 @@ rather than four minutes into a benchmark with an AttributeError.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 from omegaconf import DictConfig, OmegaConf
 from pydantic import BaseModel, Field
@@ -105,16 +105,24 @@ class SamplingProtocol(BaseModel):
     top_p: float | None = None
     seed_base: int | None = 1000
 
-    def seed_for(self, generation: int) -> int | None:
+    # Room for every generation of one repetition before the next repetition
+    # starts. Seeding on the generation alone gave repetition 1 the same
+    # seeds as repetition 0, so the repetitions that exist to measure spread
+    # were asked to redraw the same samples.
+    REPETITION_STRIDE: ClassVar[int] = 1000
+
+    def seed_for(self, generation: int, repetition: int = 0) -> int | None:
         if self.seed_base is None:
             return None
-        return self.seed_base + generation
+        return (
+            self.seed_base + repetition * self.REPETITION_STRIDE + generation
+        )
 
-    def as_applied(self, generation: int) -> dict:
+    def as_applied(self, generation: int, repetition: int = 0) -> dict:
         return {
             "temperature": self.temperature,
             "top_p": self.top_p,
-            "seed": self.seed_for(generation),
+            "seed": self.seed_for(generation, repetition),
         }
 
 
