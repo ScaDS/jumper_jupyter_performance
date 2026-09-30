@@ -1,10 +1,10 @@
 llm:
   base_url: https://llm.scads.ai/v1
-  model: MiniMaxAI/MiniMax-M3-MXFP8
+  model: MiniMaxAI/MiniMax-M3
   max_tokens: 16000
   timeout: 520.0
   max_retries: 2
-  streaming: true
+  streaming: false
   temperature: null
   top_p: null
   seed: null
@@ -55,6 +55,12 @@ benchmark:
 
 context:
   strategy: faster
+
+  # An extra strategies file merged over the built-in ones: it can add presets
+  # and replace a built-in by reusing its id. Everything downstream follows,
+  # including the --strategy choices. The environment variable
+  # JUMPER_AI_STRATEGIES_PATH wins over this value.
+  strategies_path: null
 
   known_packages:
     # arrays / numerics
