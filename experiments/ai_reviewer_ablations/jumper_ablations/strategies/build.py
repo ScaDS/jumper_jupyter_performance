@@ -8,6 +8,7 @@ does not reimplement any of it. It writes the presets in the reviewer's own
 indistinguishable from a shipped strategy, which is the point: the experiment
 measures the real code path, not a copy of it.
 """
+
 from __future__ import annotations
 
 import logging
@@ -96,7 +97,9 @@ def build_strategies_file(
     stable across runs, so ``--strategy`` completion and a hand inspection of
     the presets do not depend on which suite ran last.
     """
-    ids = ablation_ids if ablation_ids is not None else available_ablation_ids()
+    ids = (
+        ablation_ids if ablation_ids is not None else available_ablation_ids()
+    )
     entries = [as_strategy_entry(compose_ablation(one)) for one in ids]
 
     destination.parent.mkdir(parents=True, exist_ok=True)

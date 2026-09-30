@@ -6,6 +6,7 @@ metric is writing prose, not code. The template is handed the unit it is about
 that had to be read alongside a separate file would be one more thing a
 session could skip.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

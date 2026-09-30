@@ -5,6 +5,7 @@ often looks like a fast one; `unverified` is not an answer at all, and it is
 never counted as correct here. Reporting the three side by side is what keeps
 a preset that got fast by computing something else from reading as a winner.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (
@@ -54,7 +55,9 @@ class CorrectnessRates(DeterministicMetric):
                 if not ran(verdict):
                     failed += 1
                     continue
-                counts[verdict.correctness] = counts.get(verdict.correctness, 0) + 1
+                counts[verdict.correctness] = (
+                    counts.get(verdict.correctness, 0) + 1
+                )
 
         return {
             "verified_rate": rate(counts.get(VERIFIED, 0), total),

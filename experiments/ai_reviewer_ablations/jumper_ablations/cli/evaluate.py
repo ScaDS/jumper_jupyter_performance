@@ -9,6 +9,7 @@ wrote and never runs the reviewer, so adding a metric costs a second rather
 than a sweep. Judged metrics are read from the verdict files an agent session
 produced; ones nobody has judged are reported as gaps, never as zeros.
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,7 +50,9 @@ def _parameters(config) -> dict:
     return parameters
 
 
-@hydra.main(version_base=None, config_path=CLI_CONFIG_PATH, config_name="offline")
+@hydra.main(
+    version_base=None, config_path=CLI_CONFIG_PATH, config_name="offline"
+)
 def main(raw_config: DictConfig) -> int:
     configure_logging()
     config = load_experiment_config(raw_config)

@@ -6,6 +6,7 @@ through a file. Values that cannot be represented are turned into their repr
 rather than dropped: a metric reading a record should be able to tell "this
 source was empty" from "this source held something we could not store".
 """
+
 from __future__ import annotations
 
 import math
@@ -53,7 +54,9 @@ def messages_as_dicts(messages: list) -> list[dict]:
         serialised.append(
             {
                 "role": type(message).__name__,
-                "content": content if isinstance(content, str) else jsonable(content),
+                "content": (
+                    content if isinstance(content, str) else jsonable(content)
+                ),
             }
         )
     return serialised

@@ -1,6 +1,7 @@
-# The cheapest thing that still exercises the whole pipeline end to end.
+# One real usecase, one preset: the cheapest thing that is still a
+# measurement rather than a wiring check. Use harness_selftest for the latter.
 id: smoke
-description: One usecase, one ablation - a wiring check, not a measurement.
+description: One real payload, the full-context preset.
 usecases:
   - minian/cell_40
 ablations:

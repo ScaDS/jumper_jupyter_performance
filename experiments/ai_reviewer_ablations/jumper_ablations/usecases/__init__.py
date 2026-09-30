@@ -1,4 +1,5 @@
 from jumper_ablations.usecases.notebook import (
+    SETUP_SOURCE,
     NotebookLayout,
     read_layout,
     read_notebook,
@@ -14,6 +15,7 @@ from jumper_ablations.usecases.registry import (
 __all__ = [
     "NotebookLayout",
     "ReferenceFact",
+    "SETUP_SOURCE",
     "Usecase",
     "UsecaseManifest",
     "discover_usecases",

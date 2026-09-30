@@ -13,6 +13,7 @@ and it is only available because the review and the benchmark are separate
 invocations, so the suggestions are recorded as the model wrote them before
 the repair loop overwrites them.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (
@@ -44,9 +45,10 @@ class Repairs(DeterministicMetric):
             "idea_change_rate",
         ),
         description=(
-            "Repair rounds spent per suggestion, the share of suggestions that "
-            "needed one, how often repairing produced something that ran, and "
-            "how often the repaired code differs from what the model wrote."
+            "Repair rounds spent per suggestion, the share that needed "
+            "one at all, how often repairing produced something that ran, "
+            "and how often the repaired code differs from what the model "
+            "wrote."
         ),
     )
 
@@ -74,9 +76,9 @@ class Repairs(DeterministicMetric):
                     repaired_ok += ran(verdict)
                     if index in before and index in after:
                         compared += 1
-                        changed += normalised_code(before[index]) != normalised_code(
-                            after[index]
-                        )
+                        changed += normalised_code(
+                            before[index]
+                        ) != normalised_code(after[index])
 
         return {
             "attempts_per_suggestion": mean(attempts),

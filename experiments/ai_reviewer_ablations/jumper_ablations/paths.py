@@ -4,6 +4,7 @@ An experiment is run from wherever the caller happens to be standing, and
 Hydra deliberately does not change that, so every path in the harness is
 anchored here instead.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

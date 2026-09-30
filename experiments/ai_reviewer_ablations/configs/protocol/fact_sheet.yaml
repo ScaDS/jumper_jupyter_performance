@@ -1,0 +1,13 @@
+# Collect context, nothing else.
+#
+# Writing a usecase's reference facts needs a measured `base` record - the
+# telemetry the reviewer actually saw - and nothing more. The benchmark is
+# what makes a run expensive, and none of it is needed here: the payload runs
+# once, the reviewer collects its context once, and the record is written.
+defaults:
+  - default
+
+generations_per_target: 1
+
+benchmark:
+  enabled: false

@@ -17,6 +17,7 @@ preset was asked for generation 1, generation 2 and so on under the same
 conditions, so the difference of the paired values has far less variance than
 the difference of the two means.
 """
+
 from __future__ import annotations
 
 import logging
@@ -94,7 +95,12 @@ def summarise(
     for key, values in estimates.items():
         usecase, ablation, metric_id, reported_value = key
         metric = metrics_by_id[metric_id]
-        baseline_key = (usecase, reporting.baseline_ablation, metric_id, reported_value)
+        baseline_key = (
+            usecase,
+            reporting.baseline_ablation,
+            metric_id,
+            reported_value,
+        )
         baseline = estimates.get(baseline_key, {})
         summary.append(
             {
@@ -226,7 +232,9 @@ def _cell_interval(
     draws = min(reporting.bootstrap.samples, 400)
     estimates = []
     for _ in range(draws):
-        chosen = generator.choice(generations, size=len(generations), replace=True)
+        chosen = generator.choice(
+            generations, size=len(generations), replace=True
+        )
         resampled = CellContext(
             usecase_id=context.usecase_id,
             ablation_id=context.ablation_id,
@@ -269,4 +277,6 @@ def _paired_delta(values: dict | None, baseline: dict | None) -> float | None:
     shared = sorted(set(values) & set(baseline))
     if not shared:
         return None
-    return mean([values[generation] - baseline[generation] for generation in shared])
+    return mean(
+        [values[generation] - baseline[generation] for generation in shared]
+    )

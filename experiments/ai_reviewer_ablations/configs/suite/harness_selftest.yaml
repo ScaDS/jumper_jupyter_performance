@@ -1,9 +1,12 @@
-# Not a measurement: the smallest thing that proves the wiring works.
-# Points at a payload with no dataset and no dependencies, so a failure here
-# is the harness and not the usecase.
+# Not a measurement: the smallest thing that proves the wiring works, end to
+# end, against a payload with no dataset and no dependencies. Run it after
+# changing the harness, before spending a real sweep.
+#
+#   python -m jumper_ablations.cli.run suite=harness_selftest \
+#       protocol.generations_per_target=1 protocol.benchmark.runs=2
 id: harness_selftest
 description: One synthetic payload, one preset - a wiring check.
 usecases:
-  - synthetic/loop
+  - harness/selftest
 ablations:
   - base

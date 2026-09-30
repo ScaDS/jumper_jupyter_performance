@@ -5,6 +5,7 @@ rather than what its winner is worth. A preset that produces one excellent
 suggestion and four useless ones reads very differently here than it does in
 `best_speedup`, and the difference is the point.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (
@@ -14,7 +15,10 @@ from jumper_ablations.metrics.base import (
     DeterministicMetric,
     MetricSpec,
 )
-from jumper_ablations.metrics.verdicts import correct_speedups, measured_speedups
+from jumper_ablations.metrics.verdicts import (
+    correct_speedups,
+    measured_speedups,
+)
 from jumper_ablations.statistics import geometric_mean, mean, median
 
 

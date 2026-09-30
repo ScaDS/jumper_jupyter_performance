@@ -6,6 +6,7 @@ that survived. So coverage is reported as a first-class value beside it, never
 as a footnote. A preset at 3.0x over 10% coverage and one at 1.8x over 90% are
 not close, and the table has to show why.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (
@@ -15,7 +16,10 @@ from jumper_ablations.metrics.base import (
     DeterministicMetric,
     MetricSpec,
 )
-from jumper_ablations.metrics.verdicts import correct_speedups, ordered_verdicts
+from jumper_ablations.metrics.verdicts import (
+    correct_speedups,
+    ordered_verdicts,
+)
 from jumper_ablations.statistics import geometric_mean, median, rate
 
 

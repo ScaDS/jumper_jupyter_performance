@@ -6,6 +6,7 @@ that had to be edited for each new metric would be exactly the coupling this
 experiment is supposed to avoid, and the YAML item that switches a metric on
 is meant to be the only edit besides the module itself.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -46,7 +47,8 @@ def _discover() -> dict[str, Metric]:
                 metric = member()
                 if metric.spec.category != category:
                     raise ValueError(
-                        f"{metric.id} is declared '{metric.spec.category}' but "
+                        f"{metric.id} is declared "
+                        f"'{metric.spec.category}' but "
                         f"lives under {package_name}"
                     )
                 if metric.id in found:
@@ -79,7 +81,10 @@ def metrics_for(
     for metric in all_metrics().values():
         if category and metric.spec.category != category:
             continue
-        if evaluation_method and metric.spec.evaluation_method != evaluation_method:
+        if (
+            evaluation_method
+            and metric.spec.evaluation_method != evaluation_method
+        ):
             continue
         selected.append(metric)
     return sorted(selected, key=lambda metric: metric.id)

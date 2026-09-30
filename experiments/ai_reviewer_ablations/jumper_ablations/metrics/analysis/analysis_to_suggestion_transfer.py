@@ -9,6 +9,7 @@ Two questions. Do the suggestions address the bottleneck the analysis named,
 and do they respect the constraints it stated - "the results must stay
 identical", "the GPU is unavailable", whatever the analysis committed to.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field

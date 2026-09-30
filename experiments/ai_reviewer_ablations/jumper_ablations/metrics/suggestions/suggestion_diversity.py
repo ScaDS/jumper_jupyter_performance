@@ -8,6 +8,7 @@ built on one idea sampled three times.
 Judged rather than computed: two rewrites can share almost no source text and
 still be the same idea, and can differ by one line and be different ideas.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -31,7 +32,13 @@ class DiversityVerdict(BaseModel):
 
     @property
     def distinct_techniques(self) -> int:
-        return len({label.strip().lower() for label in self.technique_labels if label.strip()})
+        return len(
+            {
+                label.strip().lower()
+                for label in self.technique_labels
+                if label.strip()
+            }
+        )
 
 
 class SuggestionDiversity(JudgeMetric):

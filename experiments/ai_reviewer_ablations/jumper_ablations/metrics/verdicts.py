@@ -7,6 +7,7 @@ results could not be compared is not a win either - it is an unknown. Every
 metric that says "correct" means the definition in :func:`is_correct`, and it
 means it in one place so that no metric can quietly relax it.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.records.schema import BenchmarkRecord, RunRecord

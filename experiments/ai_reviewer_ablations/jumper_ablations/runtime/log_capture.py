@@ -5,6 +5,7 @@ than failing, so "which mode actually ran" is stated once, in a log line, and
 nowhere in the state the experiment can read afterwards. Without capturing it,
 a report could show two replay modes of which one is secretly the other.
 """
+
 from __future__ import annotations
 
 import logging

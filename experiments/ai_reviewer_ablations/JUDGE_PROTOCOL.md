@@ -40,8 +40,8 @@ Adjust the volume before starting, not after:
   cell instead of every generation. Units are taken earliest-first, so the
   sample stays paired across presets: generation 1 of every preset, then
   generation 2.
-- `judge.blind=false` turns off blinding. Do not, except when debugging the
-  harness itself; see §3.
+- `judge.blind=false` turns off blinding, restoring the real unit id as the
+  packet name. Do not, except when debugging the harness itself; see §3.
 
 ## 2. What a packet contains
 
@@ -76,11 +76,19 @@ the model had. If you find yourself wanting to reconstruct what the model
 knowledge of the library, not from another packet. A claim that is true of
 dask and unsupported by `sources/` is unsupported.
 
-**Do not unblind.** A packet does not name the ablation that produced it. The
-whole comparison between presets rests on the judge not scoring a label, and a
-folder name is enough to bias a score. `judge/index.csv` holds the mapping and
-is rejoined automatically at ingest - there is never a reason to open it while
-judging.
+**Do not unblind.** A packet is addressed by a surrogate id
+(`unit-2489b7c3ce13`), and neither its folder nor `TASK.md` names the ablation
+that produced it. The whole comparison between presets rests on the judge not
+scoring a label, and a folder name is enough to bias a score.
+`judge/index.csv` holds the mapping and is rejoined automatically at ingest -
+there is never a reason to open it while judging.
+
+Be exact about what this does and does not hide. It hides the preset's
+**name**. It does not hide which context sources the reviewer was given: the
+messages in `sources/` are verbatim, and a message built without the timing
+payload simply has no timing in it. You will be able to see that something was
+withheld. Judge what was done with what was there, and do not reason from the
+gap to how this unit is expected to score.
 
 **Withheld sources are the experiment, not a defect.** `enabled_sources.json`
 will often show sources switched off. That is what is being measured. Which
@@ -109,11 +117,16 @@ One JSON file per unit, at the path `TASK.md` names:
 judge/verdicts/<rubric>/<unit id>.json
 ```
 
+where `<unit id>` is the surrogate id `TASK.md` shows.
+
 It must validate against the packet's `verdict.schema.json`:
+
+`unit_id` is the surrogate id from `TASK.md`, copied verbatim - not anything
+you worked out about the run:
 
 ```json
 {
-  "unit_id": "minian-cell_40__base__r00__g01__review__none",
+  "unit_id": "unit-2489b7c3ce13",
   "rubric": "evidence_coverage",
   "judged_by": "claude-opus-5",
   "judged_at": "2026-09-10T15:04:00+02:00",

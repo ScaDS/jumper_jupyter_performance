@@ -1,0 +1,22 @@
+# The affordable minian contrast.
+#
+#   python -m jumper_ablations.cli.run suite=minian_cell_77 protocol=pilot
+#
+# cell_40 is the same experiment on a payload whose prefix is the whole
+# pipeline: under the full replay each measurement re-runs roughly four
+# minutes of it, which puts a single benchmark at hours and the planned
+# protocol at weeks. cell_77's prefix is three cells - imports, open_minian,
+# two persists - so it carries the same question at a tractable price.
+#
+# Four ablations rather than nine, chosen to bound the range rather than to
+# sweep it: the full-context reference, the no-telemetry floor, and the two
+# single removals most likely to matter for a dask parameter sweep.
+id: minian_cell_77
+description: One minian payload against the four most informative presets.
+usecases:
+  - minian/cell_77
+ablations:
+  - base
+  - code_only
+  - no_timing
+  - no_perf

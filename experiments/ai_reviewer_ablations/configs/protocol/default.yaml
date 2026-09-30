@@ -40,3 +40,15 @@ kernel:
   startup_timeout: 180
   # A single review with --benchmark replays the whole prefix many times.
   cell_timeout: 14400
+
+sampling:
+  # Pinned, because the shipped reviewer config leaves temperature and seed
+  # unset and lets the endpoint decide. Ten generations drawn under an unknown
+  # temperature are not ten independent samples of anything nameable.
+  temperature: 0.7
+  top_p: null
+  # Generation N of every preset is asked for under seed_base + N. Two presets
+  # at the same generation then differ in their context and in nothing else,
+  # which is what the report's paired delta assumes. Null leaves the seed
+  # unset - correct only if the endpoint ignores it.
+  seed_base: 1000

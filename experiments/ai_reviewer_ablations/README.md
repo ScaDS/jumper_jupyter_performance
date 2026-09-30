@@ -26,6 +26,13 @@ pip install -e experiments/ai_reviewer_ablations
 export JUMPER_AI_API_KEY=...    # the reviewer's own key; the harness only passes it through
 ```
 
+The report's figures are interactive and need nothing extra. Exporting them as
+PNG does, and it cannot be done in the same environment as the extension: the
+extension pins `kaleido==0.2.1` for its own plotly 5 charts, and plotly 6+
+needs `kaleido>=1`. `pip install -e 'experiments/ai_reviewer_ablations[figures]'`
+if you want the PNGs and can live with that; otherwise the export step prints
+why it skipped and everything else is unaffected.
+
 ## Running one
 
 The setup is declarative. A **suite** names the usecases to cross with the
@@ -43,12 +50,31 @@ ablations: [base, no_timing, no_tags, no_perf, no_raw_perf,
 # the whole grid
 python -m jumper_ablations.cli.run suite=context_sources
 
-# a pilot first - the plan sizes the real N from these interval widths
+# a pilot first - size the real N from these interval widths
 python -m jumper_ablations.cli.run suite=context_sources protocol=pilot
 
-# the smallest thing that proves the wiring works
-python -m jumper_ablations.cli.run suite=smoke protocol.generations_per_target=1
+# the wiring check: one synthetic payload, no dataset, a few minutes
+python -m jumper_ablations.cli.run suite=harness_selftest \
+    protocol.generations_per_target=1 protocol.benchmark.runs=2
 ```
+
+Suites that ship: `context_sources` (the minian pair against every context
+ablation), `robotics` (the six robotics payloads), `prompt_rules` (prompt
+items, full context), `fact_sheet` (see below), `harness_selftest`, and
+`smoke`.
+
+Before the first real sweep, collect the material for the reference facts:
+
+```bash
+python -m jumper_ablations.cli.run suite=fact_sheet protocol=fact_sheet
+```
+
+That runs each payload once with the benchmark off, which is the cheap part of
+a run. Every usecase currently ships code-derived facts only, and until each
+has facts sourced from `timing`, `tags` or `perf`, conditional and global
+evidence coverage return the same number for every preset that keeps `code`
+on - so the pair cannot show what removing telemetry costs. The suite's own
+comments say where to read the telemetry from and how to phrase it.
 
 Everything lands in `results/<run id>/`, and Hydra's own record of the fully
 composed config is written to `results/<run id>/.hydra/config.yaml` - a result
@@ -74,7 +100,7 @@ metric costs a second, not a sweep.
 | `configs/` | the entire setup, composed by Hydra. Nothing is configured in code. |
 | `configs/ablation/` | one file per ablation. `base.yaml` has every source on; the rest are deltas from it. |
 | `configs/suite/` | which usecases cross which ablations. |
-| `usecases/` | one directory per experiment: a notebook and its manifest. |
+| `usecases/` | one notebook per experiment, with an optional manifest beside it. |
 | `strategies/strategies.yaml` | generated; what the reviewer reads. Never edited. |
 | `jumper_ablations/runner/` | drives a kernel cell by cell. No scoring. |
 | `jumper_ablations/runtime/` | runs *inside* the kernel: watches the magic, writes the record. |
@@ -90,7 +116,7 @@ The whole point of the layout is that each of these is one small edit:
 | To add | Do |
 |---|---|
 | an ablation | one YAML file in `configs/ablation/` |
-| a usecase | a directory in `usecases/` with `notebook.ipynb` and `usecase.yaml` |
+| a usecase | a notebook in `usecases/<family>/<name>.ipynb` (see below) |
 | an experiment | one file in `configs/suite/` naming usecases and ablations |
 | a metric | one module in `metrics/analysis/` or `metrics/suggestions/`, plus one item in the matching `configs/metrics/*/default.yaml` |
 | a judged metric | the same, plus a rubric folder and a verdict model (see `JUDGE_PROTOCOL.md` §7) |
@@ -99,6 +125,62 @@ The whole point of the layout is that each of these is one small edit:
 Metrics are discovered by scanning their package, so no `__init__` needs
 editing. Usecases are discovered by scanning `usecases/`. Ablations are
 composed by Hydra from the group directory.
+
+## Usecases
+
+A usecase is one notebook under `usecases/`, and its path is its id:
+`usecases/minian/cell_40.ipynb` is `minian/cell_40`. One notebook is one
+experiment - one payload cell, one review.
+
+**A usecase notebook has to run on its own.** Open it, run it top to bottom,
+and it loads the extension, starts the monitor and asks for the review. The
+harness runs the same sequence and only appends `--strategy` and `--cells` to
+the review line the notebook already carries. That is the point: what the
+experiment measured and what the notebook does are the same thing, and either
+can be checked against the other by hand.
+
+So a notebook needs two cells of its own - after the title:
+
+```python
+%load_ext jumper_extension
+%perfmonitor_fast_setup
+```
+
+and at the end, after the payload cell:
+
+```python
+%perfmonitor_ai_review --benchmark --replay-mode full
+```
+
+`python -m jumper_ablations.cli.usecases` lists what is there and what is
+missing; `--prepare` writes those two cells into any notebook that lacks them.
+
+Beside the notebook, `usecases/<family>/<name>.yaml` is **optional**. Without
+it the title and payload type are read from the notebook's own header and the
+benchmark falls back to the protocol. What it adds is the one thing a notebook
+cannot state - the reference facts a correct analysis is scored against:
+
+```yaml
+payload_type: cpu_bound_python_loop
+benchmark: {replay_mode: full, extra_replay_modes: []}
+reference_facts:
+  - id: sequential_loop
+    source: code      # the only context source this fact can be read from
+    weight: 2
+    fact: >-
+      The dominant work is a sequential Python for loop; the iterations are
+      independent and nothing runs them concurrently.
+```
+
+`source` is what separates conditional coverage from global coverage, and the
+weights are what stop "missed the bottleneck" and "missed a detail" counting
+the same. A usecase with no facts still measures everything on the suggestions
+side; its evidence-coverage metrics abstain rather than score zero.
+
+Telemetry-derived facts - a duration, a tag, a utilisation - must be
+transcribed from a measured `base` record (`records/<id>.json` carries
+`inputs.context_payload`), never guessed. A fabricated fact silently corrupts
+every coverage number computed against it.
 
 ## How a run works
 
@@ -149,6 +231,26 @@ results/<run id>/
 └── analysis_metrics.md, suggestions_metrics.md
 ```
 
+Nothing is written outside that directory except the workspace the notebooks
+execute in. `run_id` defaults to a timestamp; pass `run_id=<name>` to choose
+it, and re-running with the same one **resumes** - passes already recorded as
+`ok` in `passes.jsonl` are skipped rather than paid for twice.
+
+Four ways to look at a finished run, cheapest first:
+
+| Want | Do |
+|---|---|
+| Did it run at all | `cat results/<run>/passes.jsonl` |
+| One row per invocation | `results/<run>/runs.csv` - speedup, tokens, replay mode, degraded |
+| The tables | `results/<run>/analysis_metrics.md`, `suggestions_metrics.md` |
+| Figures, and the numbers behind them | `jupyter lab report.ipynb` - opens the newest run, or the one `JUMPER_ABLATION_RESULTS` names |
+
+Everything below `records/` is the raw material: one JSON per reviewer
+invocation holding the verbatim messages, the collected context, the
+suggestions, the benchmark verdicts and the sampling that was applied. The
+tables are regenerable from it at any time with `cli.evaluate` and
+`cli.report`, so a new metric never costs another sweep.
+
 `passes.jsonl` is the first file to open. A pass with `prefix_failed` never
 got to the reviewer; `capture_failed` means the magic ran and nothing came
 back.
@@ -169,6 +271,14 @@ In the tables, three numbers are read together and never apart:
   the context was not enough.
 - any judged metric next to `judge/missing.csv`. A metric averaged over the
   third of units that happened to be judged is not a measurement.
+
+Judging is manual and its isolation is instructional, not enforced: the packet
+is self-contained and blind, and `JUDGE_PROTOCOL.md` tells the session to judge
+from it alone, but nothing stops a session from reading more. Blinding hides
+the preset's name behind a surrogate id; it cannot hide which context sources
+the reviewer had, because the messages in the packet are verbatim. The
+practical control is the overlap re-judge in `JUDGE_PROTOCOL.md` §6, which
+measures how stable the judging actually was.
 
 ## Cost
 

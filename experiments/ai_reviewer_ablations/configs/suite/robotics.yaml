@@ -1,0 +1,25 @@
+# The robotics payloads, which between them cover the shapes minian does not:
+# GPU training, CPU/GPU handover, simulation, rendering and disk I/O.
+#
+# None of them has a reference fact sheet yet, so the evidence-coverage
+# metrics will abstain for this suite until `usecases/robotics/<name>.yaml`
+# files exist. Everything measured on the suggestions works regardless.
+id: robotics
+description: Six robotics payloads against the context-source ablations.
+usecases:
+  - robotics/q_learning_training_and_evaluation
+  - robotics/vae_model_training
+  - robotics/perception_dqn_training
+  - robotics/perception_scene_dataset_generation
+  - robotics/feedforward_training_with_checkpointing
+  - robotics/sampling_based_mpc_simulation
+ablations:
+  - base
+  - no_timing
+  - no_tags
+  - no_perf
+  - no_raw_perf
+  - no_hardware
+  - no_packages
+  - code_only
+  - telemetry_only

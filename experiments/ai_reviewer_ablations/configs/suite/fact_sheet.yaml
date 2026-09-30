@@ -1,0 +1,35 @@
+# One `base` record per usecase, to write reference facts from.
+#
+#   python -m jumper_ablations.cli.run suite=fact_sheet protocol=fact_sheet
+#
+# Every usecase currently has code-derived facts only, which makes conditional
+# and global evidence coverage the same number for every preset that keeps
+# `code` on - that is, for all of them but one. Until each usecase has facts
+# whose source is `timing`, `tags` or `perf`, the coverage pair cannot show
+# what removing telemetry costs, and that is the finding the pair exists for.
+#
+# This suite produces the material to fix that. Pair it with
+# `protocol=fact_sheet`, which turns the benchmark off and asks for one
+# generation: the expensive part is running each payload once, not the model.
+# A suite cannot pin its own protocol - the two are separate groups on
+# purpose, so any suite can be run under any protocol.
+#
+# Afterwards, read results/<run>/records/<id>.json -> inputs.context_payload
+# and transcribe timing_info, perf_tags and perf_summary into the marked
+# blocks in usecases/**/<name>.yaml. Write thresholds and tolerances, not
+# exact numbers, so the facts survive a different machine.
+id: fact_sheet
+description: One full-context record per usecase, for writing reference facts.
+usecases:
+  # Cheapest first: a failure here is the harness, not a wasted GPU hour.
+  - harness/selftest
+  - minian/cell_40
+  - minian/cell_77
+  - robotics/q_learning_training_and_evaluation
+  - robotics/vae_model_training
+  - robotics/feedforward_training_with_checkpointing
+  - robotics/perception_scene_dataset_generation
+  - robotics/perception_dqn_training
+  - robotics/sampling_based_mpc_simulation
+ablations:
+  - base

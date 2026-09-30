@@ -5,6 +5,7 @@ nesting that into a CSV would destroy it. Beside them, a `runs.jsonl` index and
 a flat `runs.csv` - the index is what the later phases walk, the CSV is what a
 person opens first.
 """
+
 from __future__ import annotations
 
 import json

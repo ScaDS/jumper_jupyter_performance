@@ -10,6 +10,7 @@ Every pass gets its own kernel. A usecase prefix builds a dask cluster and
 gigabytes of intermediate state; carrying that between ablations would make
 the second one a measurement of the first one's leftovers.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -47,7 +48,7 @@ class CellResult:
         for line in self.stdout.splitlines():
             if line.startswith(marker):
                 try:
-                    found.append(json.loads(line[len(marker):]))
+                    found.append(json.loads(line[len(marker) :]))
                 except json.JSONDecodeError:
                     continue
         return found

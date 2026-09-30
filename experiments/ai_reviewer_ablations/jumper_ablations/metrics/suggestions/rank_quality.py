@@ -7,6 +7,7 @@ first option is just a random one and `pass@1` is luck.
 Two views: how often the option ranked first was the fastest correct one, and
 how well the whole proposed order correlates with the measured one.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (
@@ -68,7 +69,9 @@ class RankQuality(DeterministicMetric):
                     correlations.append(correlation)
 
         return {
-            "first_is_fastest_rate": rate(first_is_fastest, ranked_generations),
+            "first_is_fastest_rate": rate(
+                first_is_fastest, ranked_generations
+            ),
             "mean_rank_correlation": mean(correlations),
             "comparable_generations": len(correlations),
         }

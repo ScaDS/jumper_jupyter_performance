@@ -10,6 +10,7 @@ reviewer degrades a mode it cannot serve to the full replay with a warning
 rather than failing, so a mode's results can silently be another mode's. Only
 records whose *actual* mode is the requested one are compared.
 """
+
 from __future__ import annotations
 
 from itertools import combinations
@@ -48,7 +49,9 @@ class ReplayModeAgreement(DeterministicMetric):
 
     def compute(self, context, parameters: dict) -> dict:
         benchmarks = context.benchmarks()
-        fallbacks = sum(1 for record in benchmarks if record.environment.degraded)
+        fallbacks = sum(
+            1 for record in benchmarks if record.environment.degraded
+        )
         fallback_rate = rate(fallbacks, len(benchmarks))
 
         modes = context.measured_modes()
@@ -64,7 +67,9 @@ class ReplayModeAgreement(DeterministicMetric):
             mode = record.environment.actual_replay_mode
             if not mode:
                 continue
-            per_generation.setdefault(record.identity.generation, {})[mode] = record
+            per_generation.setdefault(record.identity.generation, {})[
+                mode
+            ] = record
 
         agreements = []
         dispersions = []

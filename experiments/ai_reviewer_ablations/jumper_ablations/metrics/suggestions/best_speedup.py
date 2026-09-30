@@ -5,6 +5,7 @@ and it is rarely the mediocre one. Reported over correct suggestions as well
 as over all measured ones, since a preset whose best option is fast and wrong
 has not helped anybody.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (
@@ -14,7 +15,10 @@ from jumper_ablations.metrics.base import (
     DeterministicMetric,
     MetricSpec,
 )
-from jumper_ablations.metrics.verdicts import correct_speedups, measured_speedups
+from jumper_ablations.metrics.verdicts import (
+    correct_speedups,
+    measured_speedups,
+)
 from jumper_ablations.statistics import mean, median
 
 
@@ -32,9 +36,9 @@ class BestSpeedup(DeterministicMetric):
             "generations_with_a_measurement",
         ),
         description=(
-            "Mean and median, over generations, of the fastest suggestion each "
-            "generation produced - once over everything that ran, once over "
-            "what also produced matching results."
+            "Mean and median, over generations, of the fastest "
+            "suggestion each generation produced - once over everything "
+            "that ran, once over what also produced matching results."
         ),
     )
 

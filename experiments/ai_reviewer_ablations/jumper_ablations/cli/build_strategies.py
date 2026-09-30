@@ -3,6 +3,7 @@
 Run this after adding an ablation, or let `cli.run` do it - it regenerates the
 file at the start of every run so a stale preset can never be measured.
 """
+
 from __future__ import annotations
 
 import argparse

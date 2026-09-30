@@ -10,6 +10,7 @@ The one flag the harness insists on is ``--cells``. Left off, the magic picks
 sitting right after the payload - whether one of them is short enough to be
 skipped is a timing accident, not a design.
 """
+
 from __future__ import annotations
 
 import pprint
@@ -125,6 +126,7 @@ def bootstrap_cell(
     repetition: int,
     suite: str,
     run_id: str,
+    sampling: dict | None = None,
 ) -> str:
     arguments = _python_literal(
         {
@@ -135,6 +137,7 @@ def bootstrap_cell(
             "repetition": repetition,
             "suite": suite,
             "run_id": run_id,
+            "sampling": dict(sampling or {}),
         }
     )
     return (
@@ -155,6 +158,7 @@ def begin_cell(
     phase: str,
     replay_mode: str,
     reviewer_run_id: str | None = None,
+    sampling: dict | None = None,
 ) -> str:
     arguments = _python_literal(
         {
@@ -162,6 +166,7 @@ def begin_cell(
             "phase": phase,
             "requested_replay_mode": replay_mode,
             "reviewer_run_id": reviewer_run_id,
+            "sampling": dict(sampling) if sampling is not None else None,
         }
     )
     return (

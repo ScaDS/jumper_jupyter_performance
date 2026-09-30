@@ -10,11 +10,14 @@ Two properties of the packet do the work:
 list the reviewer sent, recorded by calling the same functions the graph
 called. Not a summary of it, not a re-render.
 
-**The packet is blind by default.** It does not name the ablation. A judge
-who can see "no_timing" on the folder is scoring a label, and the whole
-comparison between presets rests on that not happening. The mapping from unit
-to preset lives in judge/index.csv and is rejoined at ingest.
+**The packet is blind by default.** Under blinding the packet is addressed
+by a surrogate id, so neither the folder nor the instruction sheet names the
+preset; the mapping back lives only in judge/index.csv and is rejoined at
+ingest. What blinding does not hide is which context sources the reviewer had
+- that is visible in the verbatim messages themselves. See `blinding.py` for
+why that limit is real rather than an oversight.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -25,6 +28,7 @@ from pathlib import Path
 import yaml
 
 from jumper_ablations.config.schema import JudgeConfig
+from jumper_ablations.evaluation.judge.blinding import packet_id_for
 from jumper_ablations.evaluation.judge.layout import (
     index_path,
     packet_directory,
@@ -48,6 +52,9 @@ _SOURCE_FILES = {
 class ExportedPacket:
     rubric: str
     unit_id: str
+    # How the packet is addressed on disk and in the verdict file. Equal to
+    # unit_id when the run was exported in the clear.
+    packet_id: str
     metrics: tuple[str, ...]
     directory: Path
     usecase: str
@@ -58,6 +65,26 @@ def _write_json(path: Path, payload) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def _manifest_of(context):
+    """The manifest behind a record, or a refusal to export without it.
+
+    A record names its usecase by id, and the registry resolves that id
+    against the notebooks on disk - which drift: a usecase gets renamed and
+    every record written before the rename becomes unresolvable. The empty
+    fact sheet that used to result was the worst possible answer, because
+    evidence coverage is a recall and an empty denominator scores every
+    analysis alike. Stopping here costs a re-export; shipping the packet
+    costs a column of the report that looks measured and is not.
+    """
+    if context.usecase is None:
+        raise ValueError(
+            f"record names usecase '{context.usecase_id}', which is not in "
+            "the registry - it was probably renamed after the run. Judge "
+            "packets cannot be exported without its reference facts."
+        )
+    return context.usecase.manifest
+
+
 def _sources_for(context, config: JudgeConfig) -> dict:
     record = context.record
     available = {
@@ -66,16 +93,11 @@ def _sources_for(context, config: JudgeConfig) -> dict:
         "context_payload": record.inputs.context_payload,
         "enabled_sources": record.inputs.enabled_sources,
         "reference_facts": [
-            fact.model_dump()
-            for fact in (
-                context.usecase.manifest.reference_facts if context.usecase else []
-            )
+            fact.model_dump() for fact in _manifest_of(context).reference_facts
         ],
     }
     return {
-        name: available[name]
-        for name in config.sources
-        if name in available
+        name: available[name] for name in config.sources if name in available
     }
 
 
@@ -83,16 +105,25 @@ def _outputs_for(context) -> dict:
     record = context.record
     return {
         "analysis.md": record.outputs.analysis,
-        "analysis_reasoning.md": record.outputs.analysis_reasoning,
+        # Only when the model actually returned its reasoning. A zero-byte
+        # file reads as "the reasoning was empty" rather than "this model
+        # does not expose reasoning", and a judge has to spend a step
+        # working out which.
+        **(
+            {"analysis_reasoning.md": record.outputs.analysis_reasoning}
+            if record.outputs.analysis_reasoning.strip()
+            else {}
+        ),
         "suggestions.json": [
-            suggestion.model_dump() for suggestion in record.outputs.suggestions
+            suggestion.model_dump()
+            for suggestion in record.outputs.suggestions
         ],
     }
 
 
 def _task_text(
     rubric: str,
-    unit_id: str,
+    packet_id: str,
     metrics: tuple[str, ...],
     verdict_file: Path,
     blind: bool,
@@ -101,7 +132,7 @@ def _task_text(
     lines = [
         f"# Judging task: {rubric}",
         "",
-        f"Unit: `{unit_id}`",
+        f"Unit: `{packet_id}`",
         f"Feeds metric(s): {', '.join(metrics)}",
         "",
         "## What this is",
@@ -115,9 +146,15 @@ def _task_text(
     ]
     if blind:
         lines += [
-            "The preset that produced this is deliberately not named. Do not",
-            "try to infer it; scoring a label instead of an answer is the one",
-            "failure this whole experiment cannot survive.",
+            "The preset that produced this is deliberately not named, and",
+            "the unit id above is a surrogate. Do not try to work out which",
+            "experimental condition this is; scoring a label instead of an",
+            "answer is the one failure this whole experiment cannot survive.",
+            "",
+            "You will be able to see that some context sources were withheld",
+            "from the reviewer - that is unavoidable, the messages are",
+            "verbatim. Judge what was done with what was there; do not infer",
+            "from it how this unit is supposed to score.",
             "",
         ]
     lines += [
@@ -217,7 +254,8 @@ def _write_packet(
     context,
     config: JudgeConfig,
 ) -> ExportedPacket:
-    directory = packet_directory(run_directory, rubric, context.unit_id)
+    packet_id = packet_id_for(context.unit_id, config.blind)
+    directory = packet_directory(run_directory, rubric, packet_id)
     (directory / "sources").mkdir(parents=True, exist_ok=True)
     (directory / "output").mkdir(parents=True, exist_ok=True)
 
@@ -250,9 +288,9 @@ def _write_packet(
     (directory / "TASK.md").write_text(
         _task_text(
             rubric=rubric,
-            unit_id=context.unit_id,
+            packet_id=packet_id,
             metrics=tuple(metric.id for metric in metrics),
-            verdict_file=verdict_path(run_directory, rubric, context.unit_id),
+            verdict_file=verdict_path(run_directory, rubric, packet_id),
             blind=config.blind,
         ),
         encoding="utf-8",
@@ -261,6 +299,7 @@ def _write_packet(
     return ExportedPacket(
         rubric=rubric,
         unit_id=context.unit_id,
+        packet_id=packet_id,
         metrics=tuple(metric.id for metric in metrics),
         directory=directory,
         usecase=context.usecase_id,
@@ -273,7 +312,17 @@ def _schema_for(rubric: str, metric: JudgeMetric) -> dict:
     from jumper_ablations.evaluation.judge.schemas import VerdictEnvelope
 
     envelope = VerdictEnvelope.model_json_schema()
-    envelope["properties"]["verdict"] = metric.verdict_model.model_json_schema()
+    payload = metric.verdict_model.model_json_schema()
+    # A verdict model with a nested model puts that model in a `$defs` of its
+    # own and refers to it as `#/$defs/<name>` - a pointer from the document
+    # root. Inlining the payload under `properties.verdict` moves the
+    # definitions but not the pointers, so every `$ref` dangles and a
+    # validator rejects the packet's own example. The definitions belong at
+    # the root the pointers already name.
+    definitions = payload.pop("$defs", {})
+    if definitions:
+        envelope.setdefault("$defs", {}).update(definitions)
+    envelope["properties"]["verdict"] = payload
     envelope["properties"]["rubric"]["const"] = rubric
     envelope["required"] = ["unit_id", "rubric", "verdict"]
     return envelope
@@ -290,6 +339,7 @@ def _write_index(run_directory: Path, exported: list[ExportedPacket]) -> Path:
             {
                 "rubric": packet.rubric,
                 "unit_id": packet.unit_id,
+                "packet_id": packet.packet_id,
                 "metrics": " ".join(packet.metrics),
                 "usecase": packet.usecase,
                 "ablation": packet.ablation,
@@ -300,6 +350,7 @@ def _write_index(run_directory: Path, exported: list[ExportedPacket]) -> Path:
         columns=[
             "rubric",
             "unit_id",
+            "packet_id",
             "metrics",
             "usecase",
             "ablation",

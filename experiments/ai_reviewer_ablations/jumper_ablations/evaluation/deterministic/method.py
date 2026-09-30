@@ -7,6 +7,7 @@ produced, which is the reason generating and scoring are separate commands.
 A metric that raises is reported as a gap rather than taking the run down: one
 broken metric should not cost the other nineteen.
 """
+
 from __future__ import annotations
 
 import logging

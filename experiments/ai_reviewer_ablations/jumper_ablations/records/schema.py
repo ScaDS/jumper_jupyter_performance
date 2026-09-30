@@ -12,6 +12,7 @@ Nothing here is derived. Speedups, correctness verdicts and repair counts are
 copied out of the reviewer's own `BenchmarkResult`; the messages are the
 verbatim ones the model received. Interpretation belongs to the metrics.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -146,6 +147,10 @@ class RunEnvironment(BaseModel):
     """
 
     llm_config: dict = Field(default_factory=dict)
+    # What the harness actually applied to the model for this generation, as
+    # opposed to what the config file declares. The two differ whenever the
+    # protocol pins sampling, which it does by default.
+    sampling: dict = Field(default_factory=dict)
     hardware: dict = Field(default_factory=dict)
     actual_replay_mode: str = ""
     degraded: bool = False

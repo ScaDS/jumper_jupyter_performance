@@ -29,11 +29,15 @@ dependencies = [
     # Rank correlations for the rank-quality metric.
     "scipy",
     "plotly",
-    "kaleido==0.2.1",
 ]
 
 [project.optional-dependencies]
 test = ["pytest"]
+# PNG export of the report figures. Deliberately optional and deliberately
+# unpinned to the extension's version: the extension pins kaleido==0.2.1 for
+# its own plotly 5 charts, plotly 6+ needs kaleido>=1, and one environment
+# cannot satisfy both. The interactive figures need neither.
+figures = ["kaleido>=1"]
 
 [tool.setuptools.packages.find]
 where = ["."]

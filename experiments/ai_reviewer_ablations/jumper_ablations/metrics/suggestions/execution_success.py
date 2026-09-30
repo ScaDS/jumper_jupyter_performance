@@ -8,6 +8,7 @@ repair loop, and reporting only the post-repair rate would hide that.
 code versions a suggestion needed, so a suggestion that succeeded on its first
 version is one that needed no repair.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (
@@ -55,6 +56,8 @@ class ExecutionSuccess(DeterministicMetric):
         return {
             "pre_repair_success_rate": pre,
             "post_repair_success_rate": post,
-            "repair_uplift": None if pre is None or post is None else post - pre,
+            "repair_uplift": (
+                None if pre is None or post is None else post - pre
+            ),
             "suggestions": total,
         }

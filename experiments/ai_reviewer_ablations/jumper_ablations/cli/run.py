@@ -7,10 +7,13 @@ produced it stay together.
 
     python -m jumper_ablations.cli.run suite=context_sources
     python -m jumper_ablations.cli.run suite=smoke protocol=pilot
-    python -m jumper_ablations.cli.run suite=smoke protocol.generations_per_target=1
+    python -m jumper_ablations.cli.run suite=smoke \
+        protocol.generations_per_target=1
 """
+
 from __future__ import annotations
 
+import json
 import logging
 import sys
 
@@ -31,7 +34,40 @@ logger = logging.getLogger("jumper_ablations")
 register_resolvers()
 
 
-@hydra.main(version_base=None, config_path=CLI_CONFIG_PATH, config_name="config")
+def _already_recorded(run_directory: RunDirectory) -> set:
+    """Passes this run directory already holds, as (usecase, ablation, rep).
+
+    A sweep is hours to days of machine time and a kernel can die for reasons
+    that have nothing to do with the experiment. Re-running with the same
+    run_id then continues where it stopped instead of paying for the finished
+    passes again. Only successful passes count: a failed one is worth another
+    try, and its records were never written.
+    """
+    if not run_directory.passes_index.is_file():
+        return set()
+
+    done = set()
+    for line in run_directory.passes_index.read_text("utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if entry.get("status") == "ok":
+            done.add(
+                (
+                    entry.get("usecase"),
+                    entry.get("ablation"),
+                    entry.get("repetition"),
+                )
+            )
+    return done
+
+
+@hydra.main(
+    version_base=None, config_path=CLI_CONFIG_PATH, config_name="config"
+)
 def main(raw_config: DictConfig) -> int:
     logging.basicConfig(
         level=logging.INFO,
@@ -56,7 +92,8 @@ def main(raw_config: DictConfig) -> int:
             "suite": config.suite.model_dump(),
             "protocol": config.protocol.model_dump(),
             "usecases": {
-                usecase.id: usecase.manifest.model_dump() for usecase in usecases
+                usecase.id: usecase.manifest.model_dump()
+                for usecase in usecases
             },
             "ablations": {
                 ablation.id: ablation.model_dump() for ablation in ablations
@@ -67,16 +104,39 @@ def main(raw_config: DictConfig) -> int:
     )
 
     total = len(usecases) * len(ablations) * config.protocol.repetitions
+    protocol = config.protocol
     logger.info(
         f"suite '{config.suite.id}': {len(usecases)} usecase(s) x "
-        f"{len(ablations)} ablation(s) x {config.protocol.repetitions} "
+        f"{len(ablations)} ablation(s) x {protocol.repetitions} "
         f"repetition(s) = {total} kernel pass(es) into {run_directory.path}"
     )
+    # Stated before anything runs, because the difference between a
+    # context-collection pass and a full sweep is two config tokens and about
+    # three orders of magnitude of machine time.
+    logger.info(
+        f"protocol: {protocol.generations_per_target} generation(s) per pass; "
+        + (
+            f"benchmark on, {protocol.benchmark.runs} run(s) per suggestion, "
+            f"mode={protocol.benchmark.mode}"
+            if protocol.benchmark.enabled
+            else "benchmark OFF - no suggestion will be measured"
+        )
+    )
+
+    done = _already_recorded(run_directory)
+    if done:
+        logger.info(f"resuming: {len(done)} pass(es) already recorded")
 
     failures = 0
     for usecase in usecases:
         for ablation in ablations:
             for repetition in range(config.protocol.repetitions):
+                if (usecase.id, ablation.id, repetition) in done:
+                    logger.info(
+                        f"{usecase.id} | {ablation.id} | r{repetition} | "
+                        "already recorded, skipping"
+                    )
+                    continue
                 outcome = run_pass(
                     config=config,
                     run_directory=run_directory,
@@ -85,7 +145,9 @@ def main(raw_config: DictConfig) -> int:
                     repetition=repetition,
                 )
                 run_directory.append_pass(outcome.as_entry())
-                level = logging.INFO if outcome.status == "ok" else logging.ERROR
+                level = (
+                    logging.INFO if outcome.status == "ok" else logging.ERROR
+                )
                 logger.log(
                     level,
                     f"{outcome.usecase} | {outcome.ablation} | "

@@ -10,6 +10,7 @@ Premature suggestions are counted separately because they are an instruction
 failure rather than a relevance failure, and the prompt ablations are expected
 to move exactly that number.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field

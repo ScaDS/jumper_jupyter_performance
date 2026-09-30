@@ -9,6 +9,7 @@ the reviewer's model actually received, what it answered, the rubric, and the
 schema of the answer - and it does not say which preset produced it. See
 JUDGE_PROTOCOL.md for what to do with them.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,7 +39,9 @@ logger = logging.getLogger("jumper_ablations")
 register_resolvers()
 
 
-@hydra.main(version_base=None, config_path=CLI_CONFIG_PATH, config_name="offline")
+@hydra.main(
+    version_base=None, config_path=CLI_CONFIG_PATH, config_name="offline"
+)
 def main(raw_config: DictConfig) -> int:
     configure_logging()
     config = load_experiment_config(raw_config)

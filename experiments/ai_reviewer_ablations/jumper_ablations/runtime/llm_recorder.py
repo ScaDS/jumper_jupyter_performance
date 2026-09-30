@@ -1,14 +1,21 @@
-"""Reading cost off the reviewer's model calls.
+"""Watching, and steering, the reviewer's model client.
 
-The reviewer keeps no account of what it spends - no latency, no tokens - and
-the experiment has to report both. Rather than change the reviewer, this wraps
-the factory it builds its client with and attaches a callback to the model.
+Two jobs, both done by wrapping the factory the reviewer builds its client
+with, because both need a handle on the live model.
 
-Model-level callbacks are used deliberately over a context-scoped hook: the
-repair loop makes its calls from a thread pool, and a ContextVar does not
-follow a `ThreadPoolExecutor.submit`, so half the calls of a benchmark would go
+**Reading cost.** The reviewer keeps no account of what it spends - no
+latency, no tokens - and the experiment has to report both. A callback is
+attached to the model rather than to a context: the repair loop makes its
+calls from a thread pool, and a ContextVar does not follow a
+`ThreadPoolExecutor.submit`, so half the calls of a benchmark would go
 unrecorded.
+
+**Pinning sampling.** Temperature and seed are set on the built model between
+generations. They cannot be set through the config: the reviewer caches its
+graph, and with it its client, on first use - so by the time generation two is
+asked for, re-reading the config would change nothing.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -23,10 +30,13 @@ _NODE_STEPS = {
     "refine_suggestion": "refine",
 }
 
-# When the node is unknown - the repair calls, which happen off the graph - the
-# position in the current window says what it is. A review is always analyze,
-# then suggest, then any number of repairs.
-_POSITIONAL_STEPS = ("analyze", "suggest")
+# When the node is unknown the position in the current window says what the
+# call is, but only if the window has a known shape. A fresh review is always
+# analyze, then suggest, then any number of repairs; a `--resume --benchmark`
+# window is repairs from the first call. The caller states which, because
+# guessing it here mislabels every repair of a benchmark as an analysis.
+REVIEW_STEPS = ("analyze", "suggest")
+BENCHMARK_STEPS: tuple[str, ...] = ()
 _FALLBACK_STEP = "fix"
 
 
@@ -52,12 +62,15 @@ class CallRecorder:
         self._started: dict[str, float] = {}
         self._nodes: dict[str, str] = {}
         self._records: list[CallRecord] = []
+        self._positional: tuple[str, ...] = REVIEW_STEPS
 
-    def reset(self) -> None:
+    def reset(self, positional_steps: tuple[str, ...] = REVIEW_STEPS) -> None:
+        """Open a window, saying what its first calls are expected to be."""
         with self._lock:
             self._started.clear()
             self._nodes.clear()
             self._records.clear()
+            self._positional = tuple(positional_steps)
 
     def drain(self) -> list[CallRecord]:
         with self._lock:
@@ -76,7 +89,10 @@ class CallRecorder:
             started = self._started.pop(run_key, None)
             node = self._nodes.pop(run_key, None)
             position = len(self._records)
-            step = _NODE_STEPS.get(node or "") or _positional_step(position)
+            step = _NODE_STEPS.get(node or "") or _positional_step(
+                position,
+                self._positional,
+            )
             self._records.append(
                 CallRecord(
                     step=step,
@@ -93,9 +109,9 @@ class CallRecorder:
             )
 
 
-def _positional_step(position: int) -> str:
-    if position < len(_POSITIONAL_STEPS):
-        return _POSITIONAL_STEPS[position]
+def _positional_step(position: int, positional: tuple[str, ...]) -> str:
+    if position < len(positional):
+        return positional[position]
     return _FALLBACK_STEP
 
 
@@ -161,8 +177,36 @@ def _build_handler(recorder: CallRecorder):
     return _Handler()
 
 
+# Every client the reviewer has built in this kernel. The reviewer builds one
+# per graph and caches it, so this stays at two or three entries.
+_BUILT: list = []
+
+# Applied to each model as it is built, so a client created later in the run
+# starts out with the same sampling as the ones before it.
+_SAMPLING: dict = {}
+
+
+def _apply(model, sampling: dict) -> None:
+    for name, value in sampling.items():
+        if value is not None:
+            setattr(model, name, value)
+
+
+def apply_sampling(sampling: dict) -> dict:
+    """Pin temperature, top_p and seed on every model built so far.
+
+    Returns what was applied, so the record states what the generation
+    actually ran under rather than what the config file says.
+    """
+    global _SAMPLING
+    _SAMPLING = {name: value for name, value in sampling.items()}
+    for model in _BUILT:
+        _apply(model, _SAMPLING)
+    return dict(_SAMPLING)
+
+
 def install(recorder: CallRecorder) -> bool:
-    """Attach *recorder* to every model the reviewer builds from now on.
+    """Wrap the reviewer's client factory for this kernel.
 
     Returns False when the optional AI dependencies are absent, in which case
     the experiment has bigger problems than missing token counts.
@@ -182,6 +226,8 @@ def install(recorder: CallRecorder) -> bool:
         model = original(config)
         existing = list(getattr(model, "callbacks", None) or [])
         model.callbacks = existing + [handler]
+        _apply(model, _SAMPLING)
+        _BUILT.append(model)
         return model
 
     build_llm_with_recorder._ablation_wrapped = True

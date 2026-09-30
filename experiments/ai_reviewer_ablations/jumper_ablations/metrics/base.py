@@ -12,6 +12,7 @@ the analysis, or the suggestions. ``evaluation_method`` says how - by
 computation over the records, or by an agent reading the same sources the
 model read. A metric picks one of each.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -80,7 +81,12 @@ class MetricRow:
 
 
 class Metric:
-    """Base for every metric. Subclasses set ``spec`` and implement one half."""
+    """Base for every metric.
+
+    A subclass sets ``spec`` and implements the half its evaluation method
+    calls: ``compute`` for the computed path, ``from_verdict`` for the judged
+    one.
+    """
 
     spec: MetricSpec
 

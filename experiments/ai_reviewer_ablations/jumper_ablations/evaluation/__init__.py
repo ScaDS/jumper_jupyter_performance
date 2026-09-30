@@ -11,6 +11,7 @@ Adding a third path - a second judge, a static analyser, a human panel - is a
 subpackage with an `EvaluationMethod` and a new value for
 `MetricSpec.evaluation_method`.
 """
+
 from jumper_ablations.evaluation.base import EvaluationMethod, EvaluationResult
 
 __all__ = ["EvaluationMethod", "EvaluationResult"]

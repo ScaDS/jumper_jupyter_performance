@@ -8,6 +8,7 @@ and the generation-paired difference from the baseline preset - plus
 analysis_metrics.md and suggestions_metrics.md in the shape of
 agents/reviewer/ablation_metrics_table_variants.md.
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,19 +42,19 @@ def _rows_from(frame: pd.DataFrame) -> list[MetricRow]:
     fields = MetricRow.__dataclass_fields__
     rows = []
     for record in frame.to_dict("records"):
-        payload = {
-            name: record.get(name)
-            for name in fields
-            if name in record
-        }
+        payload = {name: record.get(name) for name in fields if name in record}
         value = payload.get("value")
         payload["value"] = None if pd.isna(value) else float(value)
-        payload["note"] = "" if pd.isna(payload.get("note")) else payload.get("note")
+        payload["note"] = (
+            "" if pd.isna(payload.get("note")) else payload.get("note")
+        )
         rows.append(MetricRow(**payload))
     return rows
 
 
-@hydra.main(version_base=None, config_path=CLI_CONFIG_PATH, config_name="offline")
+@hydra.main(
+    version_base=None, config_path=CLI_CONFIG_PATH, config_name="offline"
+)
 def main(raw_config: DictConfig) -> int:
     configure_logging()
     config = load_experiment_config(raw_config)

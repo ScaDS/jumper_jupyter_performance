@@ -11,6 +11,7 @@ Intervals are bootstrapped rather than assumed normal, because the samples are
 small, bounded and visibly skewed - and because the experiment plan sizes its
 own N from the width of these intervals.
 """
+
 from __future__ import annotations
 
 import math
@@ -56,7 +57,9 @@ def geometric_mean(values) -> float | None:
     positive = [value for value in clean(values) if value > 0]
     if not positive:
         return None
-    return float(math.exp(_statistics.fmean(math.log(value) for value in positive)))
+    return float(
+        math.exp(_statistics.fmean(math.log(value) for value in positive))
+    )
 
 
 def rate(count: Number, total: Number) -> float | None:

@@ -6,3 +6,5 @@ results/
 strategies/strategies.yaml
 # Usecase prefixes download datasets and write intermediate stores here.
 workspace/
+# pytest
+.pytest_cache/

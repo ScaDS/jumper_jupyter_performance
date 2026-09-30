@@ -5,6 +5,7 @@ the fully composed setup that produced everything else in it. A result and the
 configuration that caused it are therefore never separated, which is the whole
 reason the suite is declared in YAML rather than assembled on a command line.
 """
+
 from __future__ import annotations
 
 import dataclasses

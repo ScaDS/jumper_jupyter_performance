@@ -9,6 +9,7 @@ exactly as a user's would, and this only reads the state it left behind.
 learns the reviewer's run id and can build the ``--resume`` invocation that
 re-scores the same suggestions under another replay mode.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -30,7 +31,7 @@ from jumper_ablations.records.schema import (
     SuggestionRecord,
 )
 from jumper_ablations.records.store import RecordStore
-from jumper_ablations.runtime import log_capture, llm_recorder
+from jumper_ablations.runtime import llm_recorder, log_capture
 from jumper_ablations.runtime.serialize import jsonable, messages_as_dicts
 
 # The runner greps stdout for this. Kept boring on purpose: it has to survive
@@ -130,6 +131,7 @@ class _Window:
     reviewer_run_id: str | None
     known_run_ids: frozenset
     started_at: float
+    sampling: dict
 
 
 class AblationSession:
@@ -144,8 +146,12 @@ class AblationSession:
         repetition: int,
         suite: str,
         run_id: str,
+        sampling: dict | None = None,
     ):
         self.store = RecordStore(Path(run_directory))
+        # What the protocol wants pinned on the model; the seed in it is
+        # replaced per generation.
+        self.sampling = dict(sampling or {})
         self.usecase = usecase
         self.ablation = ablation
         self.ablation_family = ablation_family
@@ -167,10 +173,21 @@ class AblationSession:
         phase: str = PHASE_REVIEW,
         requested_replay_mode: str = "",
         reviewer_run_id: str | None = None,
+        sampling: dict | None = None,
     ) -> None:
         reviewer = _reviewer()
         known = frozenset(getattr(reviewer, "_pending_reviews", {}) or {})
-        self.recorder.reset()
+        applied = llm_recorder.apply_sampling(
+            sampling if sampling is not None else self.sampling
+        )
+        # A fresh review opens with analyze then suggest; a resumed benchmark
+        # only ever makes repair calls, and those come from a thread pool
+        # where the graph metadata does not follow.
+        self.recorder.reset(
+            llm_recorder.REVIEW_STEPS
+            if phase == PHASE_REVIEW
+            else llm_recorder.BENCHMARK_STEPS
+        )
         self.warnings.reset()
         self.window = _Window(
             generation=generation,
@@ -179,6 +196,7 @@ class AblationSession:
             reviewer_run_id=reviewer_run_id,
             known_run_ids=known,
             started_at=time.perf_counter(),
+            sampling=applied,
         )
 
     def capture(self) -> dict:
@@ -229,6 +247,7 @@ class AblationSession:
         messages = self.warnings.drain()
         environment = RunEnvironment(
             llm_config=_llm_config(),
+            sampling=dict(window.sampling),
             hardware=jsonable((state or {}).get("hardware_info", {})),
             actual_replay_mode=log_capture.actual_replay_mode(
                 window.requested_replay_mode,
@@ -385,6 +404,7 @@ def bootstrap(
     repetition: int = 0,
     suite: str = "",
     run_id: str = "",
+    sampling: dict | None = None,
 ) -> None:
     """Open the kernel's session and install the observers."""
     global _SESSION
@@ -396,6 +416,7 @@ def bootstrap(
         repetition=repetition,
         suite=suite,
         run_id=run_id,
+        sampling=sampling,
     )
     _SESSION.install()
 
@@ -411,12 +432,14 @@ def begin(
     phase: str = PHASE_REVIEW,
     requested_replay_mode: str = "",
     reviewer_run_id: str | None = None,
+    sampling: dict | None = None,
 ) -> None:
     current_session().begin(
         generation=generation,
         phase=phase,
         requested_replay_mode=requested_replay_mode,
         reviewer_run_id=reviewer_run_id,
+        sampling=sampling,
     )
 
 

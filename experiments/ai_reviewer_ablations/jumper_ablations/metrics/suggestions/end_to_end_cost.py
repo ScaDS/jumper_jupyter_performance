@@ -9,6 +9,7 @@ The token counts come from the callback the harness attaches to the reviewer's
 model client; the reviewer keeps no account of its own. When the endpoint does
 not return usage, these are None rather than zero.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (

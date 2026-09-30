@@ -4,6 +4,7 @@ A preset that answers with one option when three were requested has not just
 been less useful - it has also made every per-suggestion rate below rest on a
 smaller sample, so this is read before them, not after.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (
@@ -50,6 +51,8 @@ class RequestedVersusReturned(DeterministicMetric):
         return {
             "requested": requested,
             "mean_returned": mean(counts),
-            "mean_shortfall": mean([max(requested - count, 0) for count in counts]),
+            "mean_shortfall": mean(
+                [max(requested - count, 0) for count in counts]
+            ),
             "compliance_rate": rate(compliant, len(counts)),
         }

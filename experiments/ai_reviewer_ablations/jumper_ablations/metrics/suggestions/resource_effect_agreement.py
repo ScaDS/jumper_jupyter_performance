@@ -9,6 +9,7 @@ A suggestion whose speedup is real but whose stated mechanism did not happen
 is a suggestion that worked by accident, and a user reading the description
 learned something false.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -93,7 +94,7 @@ class ResourceEffectAgreement(JudgeMetric):
     verdict_model = ResourceEffectVerdict
 
     def from_verdict(self, verdict: ResourceEffectVerdict, context) -> dict:
-        benchmarks = context.record.outputs.benchmarks
+        benchmarks = context.benchmarks()
         baseline = benchmarks.get(BASELINE_LABEL)
         if baseline is None:
             return {

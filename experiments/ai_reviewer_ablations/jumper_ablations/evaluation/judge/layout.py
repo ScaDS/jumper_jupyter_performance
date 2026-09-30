@@ -3,6 +3,7 @@
 One place, so `export`, `ingest` and JUDGE_PROTOCOL.md cannot drift apart
 about which file an agent session is supposed to write.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

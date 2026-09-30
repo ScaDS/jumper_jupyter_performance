@@ -4,14 +4,17 @@ Resolving which run to read, loading its records, and rebuilding the contexts
 the metrics see. Shared so `export_judge`, `evaluate` and `report` cannot
 disagree about which run they are talking about.
 """
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
 
 from jumper_ablations.config.schema import ExperimentConfig
-from jumper_ablations.metrics.context import build_cell_contexts, build_run_contexts
-from jumper_ablations.records.schema import PHASE_REVIEW
+from jumper_ablations.metrics.context import (
+    build_cell_contexts,
+    build_run_contexts,
+)
 from jumper_ablations.records.store import load_records
 from jumper_ablations.runner.run_directory import RunDirectory
 from jumper_ablations.usecases.registry import discover_usecases
@@ -43,22 +46,18 @@ def resolve_run(config: ExperimentConfig) -> RunDirectory:
 def load_contexts(config: ExperimentConfig, run: RunDirectory):
     """Records, plus the two views the metrics are handed.
 
-    Judged metrics are scored per reviewer invocation and only the review
-    records carry an analysis, so the run-scope view is restricted to those:
-    exporting a packet for a benchmark record would ask a session to judge the
-    same analysis twice.
+    The run-scope view holds one context per review, each with the benchmark
+    that measured it attached, so a metric can judge the suggestions and then
+    check them against what was measured without going back to storage.
     """
     records = list(load_records(run.path))
     if not records:
         raise FileNotFoundError(f"{run.path} holds no records")
 
     usecases = discover_usecases(Path(config.usecases_root))
-    reviews = [
-        record for record in records if record.identity.phase == PHASE_REVIEW
-    ]
     return (
         records,
-        build_run_contexts(reviews, usecases),
+        build_run_contexts(records, usecases),
         build_cell_contexts(records, usecases),
     )
 

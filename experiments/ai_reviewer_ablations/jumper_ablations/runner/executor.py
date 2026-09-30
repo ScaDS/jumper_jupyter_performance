@@ -11,6 +11,7 @@ Ablations are crossed with usecases in the outer loops, generations paired by
 index, so `base` generation 3 and `no_timing` generation 3 differ in the
 preset and in nothing the harness controls.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -62,7 +63,11 @@ def workspace_for(config: ExperimentConfig, usecase: Usecase) -> Path:
     return Path(config.workspace_root) / family
 
 
-def _kernel_environment(pass_directory: Path) -> dict:
+def _kernel_environment(
+    pass_directory: Path,
+    usecase: Usecase | None = None,
+    workspace: Path | None = None,
+) -> dict:
     """What the kernel is told before it starts.
 
     The strategies path is how an ablation reaches the reviewer at all: the
@@ -82,13 +87,20 @@ def _kernel_environment(pass_directory: Path) -> dict:
     api_key = os.environ.get(API_KEY_ENV)
     if api_key:
         environment[API_KEY_ENV] = api_key
+    if usecase is not None and workspace is not None:
+        environment.update(usecase.manifest.resolved_environment(workspace))
     return environment
 
 
 def _code_cells_up_to_payload(usecase: Usecase) -> list[str]:
-    """The notebook's own cells, verbatim, up to and including the target."""
+    """The notebook's own cells, verbatim, up to and including the target.
+
+    Nothing is added. A usecase notebook loads the extension and starts the
+    monitor itself - that is what makes it runnable by hand - so the harness
+    executing it is the same sequence a person would step through.
+    """
     notebook = read_notebook(usecase.notebook_path)
-    sources = []
+    sources: list[str] = []
     for index in usecase.layout.executable_indices:
         cell = notebook.cells[index]
         if cell.get("cell_type") != "code":
@@ -121,16 +133,19 @@ def run_pass(
     )
 
     notebook = read_notebook(usecase.notebook_path)
-    payload_source = notebook.cells[usecase.layout.payload_index].get("source", "")
+    payload_source = notebook.cells[usecase.layout.payload_index].get(
+        "source", ""
+    )
     payload_path = pass_directory / "payload.py"
     payload_path.write_text(payload_source, encoding="utf-8")
 
+    workspace = workspace_for(config, usecase)
     session = KernelSession(
         kernel_name=protocol.kernel.name,
         cell_timeout=protocol.kernel.cell_timeout,
         startup_timeout=protocol.kernel.startup_timeout,
-        working_directory=workspace_for(config, usecase),
-        environment=_kernel_environment(pass_directory),
+        working_directory=workspace,
+        environment=_kernel_environment(pass_directory, usecase, workspace),
     )
 
     with session:
@@ -150,6 +165,7 @@ def run_pass(
                 repetition=repetition,
                 suite=config.suite.id,
                 run_id=config.run_id,
+                sampling=protocol.sampling.as_applied(0),
             )
         )
         if not result.ok:
@@ -159,7 +175,9 @@ def run_pass(
 
         target_index = None
         if protocol.pin_target_cell:
-            result = session.run(cell_plan.resolve_target_cell(str(payload_path)))
+            result = session.run(
+                cell_plan.resolve_target_cell(str(payload_path))
+            )
             markers = result.markers(TARGET_MARKER)
             if not result.ok or not markers:
                 outcome.status = "target_unresolved"
@@ -221,6 +239,9 @@ def _one_generation(
             generation=generation,
             phase=PHASE_REVIEW,
             replay_mode=replay_mode if inline_benchmark else "",
+            # Generation N of every preset draws under the same seed, so two
+            # presets differ in their context and not in their sampling.
+            sampling=protocol.sampling.as_applied(generation),
         )
     )
     review = session.run(review_command)
@@ -233,7 +254,7 @@ def _one_generation(
     if not summaries:
         logger.error(
             f"{usecase.id} generation {generation}: nothing was captured "
-            f"{'(' + result.error + ')' if result.error else '(no marker in output)'}"
+            f"({result.error or 'no marker in output'})"
         )
         return captures
     captures += 1
@@ -253,7 +274,20 @@ def _one_generation(
     if not reviewer_run_id or not protocol.benchmark.enabled:
         return captures
 
-    modes = list(protocol.benchmark.extra_replay_modes)
+    # The usecase knows which fast modes its prefix survives; the protocol
+    # knows which ones this sweep is asking about. A mode named in either is
+    # measured, and neither silently overrules the other - a manifest whose
+    # extra modes were ignored would make replay_mode_agreement report the
+    # single-mode nulls while the yaml says two modes were compared.
+    modes = [
+        mode
+        for mode in (
+            *usecase.manifest.benchmark.extra_replay_modes,
+            *protocol.benchmark.extra_replay_modes,
+        )
+        if mode != replay_mode
+    ]
+    modes = list(dict.fromkeys(modes))
     if not inline_benchmark:
         # The mode the usecase asked for is measured here rather than on the
         # review line, so it leads the list.
@@ -266,6 +300,7 @@ def _one_generation(
                 phase=PHASE_REBENCHMARK,
                 replay_mode=mode,
                 reviewer_run_id=reviewer_run_id,
+                sampling=protocol.sampling.as_applied(generation),
             )
         )
         session.run(

@@ -10,6 +10,7 @@ true of the world but unsupported by the sources is unsupported here - the
 question is whether the model reasoned from its evidence, not whether it
 guessed well.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field

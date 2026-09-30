@@ -17,6 +17,7 @@ not enough.
 Weights come from the usecase manifest, so "missed the dominant bottleneck"
 and "missed a detail" are not the same miss.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -84,7 +85,9 @@ def _all_facts(context):
 def _reachable_facts(context):
     """Facts whose source this ablation still had switched on."""
     enabled = context.record.inputs.enabled_sources
-    return [fact for fact in _all_facts(context) if enabled.get(fact.source, False)]
+    return [
+        fact for fact in _all_facts(context) if enabled.get(fact.source, False)
+    ]
 
 
 class ConditionalEvidenceCoverage(JudgeMetric):

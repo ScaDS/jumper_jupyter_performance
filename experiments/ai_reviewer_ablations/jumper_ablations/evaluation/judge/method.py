@@ -13,6 +13,7 @@ Three outcomes, and they are not the same:
 
 None of the three ever becomes a zero.
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,7 +25,11 @@ from jumper_ablations.evaluation.base import (
     contexts_for,
     empty_rows,
 )
-from jumper_ablations.evaluation.judge.ingest import VerdictProblem, load_verdict
+from jumper_ablations.evaluation.judge.blinding import load_packet_ids
+from jumper_ablations.evaluation.judge.ingest import (
+    VerdictProblem,
+    load_verdict,
+)
 from jumper_ablations.metrics.base import METHOD_JUDGE, JudgeMetric
 
 logger = logging.getLogger("jumper_ablations")
@@ -35,6 +40,9 @@ class JudgeEvaluation(EvaluationMethod):
 
     def __init__(self, run_directory: Path):
         self.run_directory = Path(run_directory)
+        # Written by the export. Empty when nothing was exported yet, in which
+        # case a unit is its own packet id and every lookup simply misses.
+        self.packet_ids = load_packet_ids(self.run_directory)
 
     def evaluate(
         self,
@@ -51,11 +59,12 @@ class JudgeEvaluation(EvaluationMethod):
         return result
 
     def _one(self, result, metric, rubric, context) -> None:
+        packet_id = self.packet_ids.get(context.unit_id, context.unit_id)
         try:
             payload, envelope = load_verdict(
                 self.run_directory,
                 rubric,
-                context.unit_id,
+                packet_id,
                 metric.verdict_model,
             )
         except VerdictProblem as failure:
@@ -66,7 +75,9 @@ class JudgeEvaluation(EvaluationMethod):
             self._gap(result, metric, rubric, context, "missing", "")
             return
         if payload is None:
-            self._gap(result, metric, rubric, context, "abstained", envelope.reason)
+            self._gap(
+                result, metric, rubric, context, "abstained", envelope.reason
+            )
             return
 
         try:
@@ -77,7 +88,9 @@ class JudgeEvaluation(EvaluationMethod):
             return
 
         result.rows.extend(
-            metric.rows(context, values, note=f"judged_by={envelope.judged_by}")
+            metric.rows(
+                context, values, note=f"judged_by={envelope.judged_by}"
+            )
         )
 
     def _gap(self, result, metric, rubric, context, reason, detail) -> None:

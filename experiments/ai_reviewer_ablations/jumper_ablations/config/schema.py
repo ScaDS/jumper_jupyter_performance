@@ -4,6 +4,7 @@ Hydra composes and records; these models are what the rest of the harness
 actually reads, so a typo in a YAML file fails at startup with a field name
 rather than four minutes into a benchmark with an AttributeError.
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -82,6 +83,41 @@ class BenchmarkProtocol(BaseModel):
     extra_replay_modes: list[str] = Field(default_factory=list)
 
 
+class SamplingProtocol(BaseModel):
+    """What the reviewer's model is allowed to vary between generations.
+
+    Left to the server, sampling is undefined: the shipped config has
+    ``temperature`` and ``seed`` unset, so ten "independent generations" are
+    ten draws from whatever the endpoint defaulted to that day, and the spread
+    between them is not a property of the experiment.
+
+    Pinning the temperature fixes how much the model is allowed to wander.
+    ``seed_base`` then makes the wandering reproducible *and* paired: every
+    preset's generation N is asked for under seed ``seed_base + N``, so two
+    presets at the same generation differ in the context and in nothing else.
+    That pairing is what the report's paired delta rests on.
+
+    ``seed_base: null`` leaves the seed unset, which is the right choice only
+    if the endpoint ignores it.
+    """
+
+    temperature: float | None = 0.7
+    top_p: float | None = None
+    seed_base: int | None = 1000
+
+    def seed_for(self, generation: int) -> int | None:
+        if self.seed_base is None:
+            return None
+        return self.seed_base + generation
+
+    def as_applied(self, generation: int) -> dict:
+        return {
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+            "seed": self.seed_for(generation),
+        }
+
+
 class KernelProtocol(BaseModel):
     name: str = "python3"
     startup_timeout: int = 180
@@ -94,6 +130,7 @@ class ProtocolConfig(BaseModel):
     pin_target_cell: bool = True
     level: str = "process"
     benchmark: BenchmarkProtocol = Field(default_factory=BenchmarkProtocol)
+    sampling: SamplingProtocol = Field(default_factory=SamplingProtocol)
     kernel: KernelProtocol = Field(default_factory=KernelProtocol)
 
 

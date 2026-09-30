@@ -8,6 +8,7 @@ suggestion that is fast and wrong passes neither.
 `k` is not a constant here. It is however many options the response actually
 contained, which is why `requested_vs_returned` is reported next to this.
 """
+
 from __future__ import annotations
 
 from jumper_ablations.metrics.base import (

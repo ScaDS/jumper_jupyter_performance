@@ -6,6 +6,7 @@ reviewer invocation; a cell context is every invocation that shares a
 the reference facts a judge scores against belong to the payload, not to the
 preset.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -20,10 +21,19 @@ from jumper_ablations.usecases.registry import Usecase
 
 @dataclasses.dataclass(frozen=True)
 class RunContext:
-    """One reviewer invocation."""
+    """One reviewer invocation, and what measuring it produced.
+
+    The review and the benchmark are two invocations by default - that is how
+    the two commands are meant to be used, and it is what puts the
+    suggestions on record as the model wrote them. So a metric that judges
+    the suggestions and then checks them against measurements needs both
+    halves, and ``measurement`` is the benchmark record that re-opened this
+    review. It is None when the suggestions were never measured.
+    """
 
     record: RunRecord
     usecase: Usecase | None = None
+    measurement: RunRecord | None = None
 
     @property
     def usecase_id(self) -> str:
@@ -40,6 +50,14 @@ class RunContext:
     @property
     def sample_size(self) -> int:
         return 1
+
+    def benchmarks(self) -> dict:
+        """The benchmark verdicts for this invocation's suggestions."""
+        if self.record.outputs.benchmarks:
+            return self.record.outputs.benchmarks
+        if self.measurement is not None:
+            return self.measurement.outputs.benchmarks
+        return {}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -60,14 +78,16 @@ class CellContext:
         return len(self.reviews())
 
     def reviews(self) -> tuple[RunRecord, ...]:
-        """The records that carry an analysis and the suggestions as written."""
+        """Records carrying an analysis and the suggestions as written."""
         return tuple(
             record
             for record in self.records
             if record.identity.phase == PHASE_REVIEW
         )
 
-    def benchmarks(self, replay_mode: str | None = None) -> tuple[RunRecord, ...]:
+    def benchmarks(
+        self, replay_mode: str | None = None
+    ) -> tuple[RunRecord, ...]:
         """The records that carry measurements, optionally for one mode.
 
         A benchmark record is where the numbers live. Which mode produced them
@@ -78,8 +98,7 @@ class CellContext:
             record
             for record in self.records
             if record.outputs.benchmarks
-            and record.identity.phase
-            in (PHASE_REBENCHMARK, PHASE_REVIEW)
+            and record.identity.phase in (PHASE_REBENCHMARK, PHASE_REVIEW)
         ]
         if replay_mode is not None:
             selected = [
@@ -156,7 +175,49 @@ def build_run_contexts(
     records: list[RunRecord],
     usecases: dict | None = None,
 ) -> list[RunContext]:
-    return [
-        RunContext(record=record, usecase=(usecases or {}).get(record.identity.usecase))
-        for record in records
-    ]
+    """One context per review, with its measurement attached.
+
+    Only reviews get a context: they are what carries an analysis and the
+    suggestions as written, and judging a benchmark record as well would ask
+    a session to score the same analysis twice.
+    """
+    measurements = _measurements_by_review(records)
+    contexts = []
+    for record in records:
+        if record.identity.phase != PHASE_REVIEW:
+            continue
+        key = (record.identity.usecase, record.identity.reviewer_run_id)
+        contexts.append(
+            RunContext(
+                record=record,
+                usecase=(usecases or {}).get(record.identity.usecase),
+                measurement=measurements.get(key),
+            )
+        )
+    return contexts
+
+
+def _measurements_by_review(records: list[RunRecord]) -> dict:
+    """The benchmark record per review, preferring the requested mode.
+
+    A review can be measured under several replay modes; the one that answers
+    "what were these suggestions worth" is the mode the usecase asked for,
+    not whichever happened to be recorded last.
+    """
+    found: dict[tuple[str, str], RunRecord] = {}
+    for record in records:
+        if record.identity.phase != PHASE_REBENCHMARK:
+            continue
+        if not record.outputs.benchmarks:
+            continue
+        key = (record.identity.usecase, record.identity.reviewer_run_id)
+        if key not in found or _is_requested_mode(record):
+            found[key] = record
+    return found
+
+
+def _is_requested_mode(record: RunRecord) -> bool:
+    return (
+        record.environment.actual_replay_mode
+        == record.identity.requested_replay_mode
+    )

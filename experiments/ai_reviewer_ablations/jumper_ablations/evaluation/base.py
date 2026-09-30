@@ -1,4 +1,5 @@
 """What every evaluation method has to look like from outside."""
+
 from __future__ import annotations
 
 import dataclasses
