@@ -119,6 +119,10 @@ class AILLMConfig(BaseModel):
 class AIContextConfig(BaseModel):
     """Context-gathering parameters: default strategy and known packages."""
     strategy: str = "faster"
+    # An extra strategies file merged over the built-in ones, so a preset can
+    # be added without editing the package. Overridden by the environment
+    # variable JUMPER_AI_STRATEGIES_PATH.
+    strategies_path: str | None = None
     known_packages: list[str] = Field(default_factory=list)
 
 
