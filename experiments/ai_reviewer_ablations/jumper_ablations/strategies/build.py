@@ -21,6 +21,7 @@ from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
 
 from jumper_ablations.config.schema import AblationConfig, load_ablation_config
+from jumper_ablations.files import write_atomically
 from jumper_ablations.paths import CONFIGS_DIR, STRATEGIES_FILE
 
 logger = logging.getLogger("jumper_ablations")
@@ -102,13 +103,15 @@ def build_strategies_file(
     )
     entries = [as_strategy_entry(compose_ablation(one)) for one in ids]
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
     body = yaml.safe_dump(
         {"strategies": entries},
         sort_keys=False,
         default_flow_style=False,
         allow_unicode=True,
     )
-    destination.write_text(_GENERATED_HEADER + "\n" + body, encoding="utf-8")
+    # Atomically: every shard of a run regenerates this file on startup and
+    # then compares the run's snapshot against it, so a reader must never be
+    # able to see half of it.
+    write_atomically(destination, _GENERATED_HEADER + "\n" + body)
     logger.info(f"wrote {len(entries)} strategies to {destination}")
     return destination

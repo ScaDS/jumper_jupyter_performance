@@ -132,3 +132,18 @@ def test_an_empty_context_generation_never_reaches_a_metric():
     assert all(
         context.record.identity.phase == PHASE_REVIEW for context in contexts
     )
+
+
+def test_each_pass_gets_its_own_scratch(tmp_path):
+    # The working directory is shared by every pass of a usecase family on
+    # purpose - cell_77 reads the store cell_40's pipeline wrote - so the
+    # scratch that dask and the benchmark write must not be shared with it.
+    # Two passes at once otherwise build their clusters on top of each other.
+    from jumper_ablations.runner.executor import _kernel_environment
+
+    first = _kernel_environment(tmp_path / "usecase" / "base" / "r0")
+    second = _kernel_environment(tmp_path / "usecase" / "no_perf" / "r0")
+
+    for variable in ("TMPDIR", "DASK_TEMPORARY_DIRECTORY"):
+        assert first[variable] != second[variable]
+        assert first[variable].endswith("tmp")

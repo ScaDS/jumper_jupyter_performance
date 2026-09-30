@@ -98,6 +98,13 @@ def _kernel_environment(
         # The benchmark mkdtemps a session export per measurement and never
         # cleans up; keeping them here keeps them findable and prunable.
         "TMPDIR": str(pass_directory / "tmp"),
+        # Dask puts its worker scratch in the working directory when nothing
+        # says otherwise, and the working directory is shared by every pass
+        # of a usecase family on purpose - that is how cell_77 reads what the
+        # pipeline wrote. Two passes running at once then build their
+        # clusters on top of each other, and the prefix dies deserialising
+        # its own task graph. Shared data, private scratch.
+        "DASK_TEMPORARY_DIRECTORY": str(pass_directory / "tmp"),
     }
     api_key = os.environ.get(API_KEY_ENV)
     if api_key:

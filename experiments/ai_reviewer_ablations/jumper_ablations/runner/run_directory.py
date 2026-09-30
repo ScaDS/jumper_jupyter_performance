@@ -17,32 +17,12 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+from jumper_ablations.files import write_atomically
 from jumper_ablations.paths import RESULTS_DIR, STRATEGIES_FILE
 
 META_NAME = "meta.json"
 PASSES_NAME = "passes.jsonl"
 STRATEGIES_NAME = "strategies.yaml"
-
-
-def _write_atomically(path: Path, payload: str) -> Path:
-    """Write through a neighbouring temporary file and rename over.
-
-    A reader on another node must see either the old file or the new one,
-    never a prefix of the new one. The rename is atomic as long as the
-    temporary file is on the same filesystem, hence the same directory.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        delete=False,
-    )
-    with handle:
-        handle.write(payload)
-    os.replace(handle.name, path)
-    return path
 
 
 @dataclasses.dataclass(frozen=True)
@@ -140,7 +120,7 @@ class RunDirectory:
     def write_meta(self, meta: dict) -> Path:
         # Through a neighbouring temporary file, so a reader never sees a
         # half-written definition: os.replace is atomic within a filesystem.
-        _write_atomically(
+        write_atomically(
             self.meta_path,
             json.dumps(meta, indent=2, sort_keys=False) + "\n",
         )
@@ -162,7 +142,7 @@ class RunDirectory:
         """
         self.invocations.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
-        _write_atomically(
+        write_atomically(
             self.invocations / f"{shard}-{stamp}.json",
             json.dumps(entry, indent=2) + "\n",
         )
