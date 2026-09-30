@@ -29,6 +29,7 @@ _MANAGED_WITH_VALUE = (
     "--fix-attempts",
     "--replay-mode",
     "--resume",
+    "--level",
 )
 _MANAGED_BOOLEAN = ("--benchmark",)
 
@@ -66,6 +67,12 @@ def review_line(
 
     rebuilt = [REVIEW_MAGIC, *_strip_managed(tokens[1:])]
     rebuilt += ["--strategy", ablation_id]
+    # Stated rather than left to the extension's default. The protocol
+    # declares the monitoring level and the benchmark replays inherit it, so
+    # a run whose config says one thing and whose measurements were taken at
+    # another is not a run anyone can interpret.
+    if protocol.level:
+        rebuilt += ["--level", protocol.level]
     if target_cell_index is not None:
         rebuilt += ["--cells", str(target_cell_index)]
     if with_benchmark and protocol.benchmark.enabled:
