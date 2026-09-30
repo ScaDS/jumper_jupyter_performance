@@ -165,6 +165,12 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
 tr.finding { background: color-mix(in srgb, var(--ok) 12%, transparent); }
 tr.gap td { color: var(--muted); }
 
+/* The `hidden` attribute is a UA rule of display:none, and any author rule
+   that sets display beats it. Without this the dialog is on screen from the
+   first paint, empty, and its close button appears not to work - it does set
+   the attribute, which this stylesheet then ignores. */
+.overlay[hidden] { display: none; }
+
 .overlay {
   position: fixed;
   inset: 0;
