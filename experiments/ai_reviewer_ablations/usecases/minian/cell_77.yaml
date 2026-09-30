@@ -50,5 +50,38 @@ reference_facts:
       A_sub, C_sub and YrA are already persisted, so the cost is in forcing
       results rather than in reading the store.
 
-# As in minian/cell_40: telemetry-derived facts must be transcribed from a
-# measured `base` record before they are used, never guessed.
+  # Transcribed from a measured `base` record (run cell77_facts, one romeo
+  # node, 16 cores). Written as thresholds rather than as the numbers that
+  # were observed, so that another allocation does not falsify them: the
+  # utilisation figures are shares of whatever node the run had.
+  #
+  # Each states only what its own source shows. "The machine is idle" belongs
+  # to `perf`; "the loop is sequential" belongs to `code`, and writing the
+  # second into a perf fact would hand every code-only preset credit for
+  # telemetry it never saw - which is precisely the difference conditional
+  # and global coverage exist to measure.
+  - id: duration
+    source: timing
+    weight: 1
+    tolerance: 0.5
+    fact: >-
+      The cell runs for roughly a minute and a half (about 72 s measured),
+      so it is long enough to measure and too long to ignore.
+  - id: cpu_underused
+    source: perf
+    weight: 2
+    fact: >-
+      CPU utilisation averages a few percent of the node and peaks at roughly
+      a quarter of it, so most of the machine is idle for most of the cell.
+  - id: small_resident_set
+    source: perf
+    weight: 1
+    fact: >-
+      Peak resident memory stays under about one gigabyte, far below what the
+      node offers.
+
+# There is deliberately no `tags`-sourced fact here. The measured run tagged
+# this payload `normal`, which is the collector saying it found nothing
+# remarkable - inventing a tag fact to give `no_tags` something to lose would
+# make the coverage difference an artefact of this file rather than a
+# measurement.
