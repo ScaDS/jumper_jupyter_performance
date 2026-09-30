@@ -43,7 +43,7 @@ ablations; a **protocol** says how hard each cell of that grid is hit:
 id: context_sources
 usecases: [minian/cell_40, minian/cell_77]
 ablations: [base, no_timing, no_tags, no_perf, no_raw_perf,
-            no_hardware, no_packages, code_only, telemetry_only]
+            no_hardware, no_packages, code_only, no_code]
 ```
 
 ```bash

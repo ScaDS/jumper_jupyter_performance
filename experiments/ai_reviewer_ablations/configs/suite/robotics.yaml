@@ -22,4 +22,4 @@ ablations:
   - no_hardware
   - no_packages
   - code_only
-  - telemetry_only
+  - no_code

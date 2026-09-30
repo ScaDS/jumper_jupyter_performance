@@ -176,7 +176,6 @@ class MetricsConfig(BaseModel):
 
 class JudgeConfig(BaseModel):
     blind: bool = True
-    units_per_packet: int = 1
     sample_per_cell: int | None = None
     sources: list[str] = Field(default_factory=list)
 

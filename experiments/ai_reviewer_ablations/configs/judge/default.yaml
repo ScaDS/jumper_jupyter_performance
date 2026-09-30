@@ -6,10 +6,6 @@
 # label instead of the analysis, and the whole comparison collapses.
 blind: true
 
-# How many units one packet may carry. One keeps each judgement independent;
-# raising it trades that for fewer sessions.
-units_per_packet: 1
-
 # Units to export per (usecase, ablation) cell, or null for all of them. Manual
 # judging does not scale to every generation of a full sweep, so this is the
 # knob that decides how much of it gets judged.

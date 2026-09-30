@@ -1,0 +1,15 @@
+defaults:
+  - base
+
+id: no_code
+name: Base without the cell source
+description: >-
+  The complement of code_only: every other source on, the cell source off.
+  Says how much of the analysis is carried by everything except the code.
+
+  Named for what it switches off rather than for what remains. It leaves
+  hardware and packages enabled alongside the measurements, so calling it
+  "telemetry only" promised an isolation it does not perform.
+effect:
+  context:
+    code: false
