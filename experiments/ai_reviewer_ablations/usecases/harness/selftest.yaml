@@ -1,0 +1,27 @@
+# Not a measurement: the smallest usecase that exercises the whole pipeline.
+# No dataset, no imports beyond the standard library, and a payload sized so
+# the 1 s sampler catches it - a failure here is the harness, not the usecase.
+payload_type: cpu_bound_python_loop
+description: >-
+  A sequential Python loop accumulating sqrt(i) * sin(i). Every optimization
+  the reviewer can reach for applies to it, so the suggestions are easy to
+  measure and the benchmark stays cheap.
+
+benchmark:
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: sequential_loop
+    source: code
+    weight: 2
+    fact: >-
+      The work is a sequential Python for loop over a range; every iteration
+      is independent and nothing runs them concurrently.
+  - id: interpreter_overhead
+    source: code
+    weight: 1
+    fact: >-
+      Each iteration pays CPython bytecode dispatch plus two separate math
+      module calls, so the cost is per-element interpreter overhead rather
+      than arithmetic.

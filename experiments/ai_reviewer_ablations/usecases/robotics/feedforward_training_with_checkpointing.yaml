@@ -1,0 +1,72 @@
+# Facts derived by reading the payload cell. Title and payload type come from
+# the notebook header, so they are not repeated here.
+description: >-
+  20000 full-batch training steps of a 1-1000-1000-1 MLP on 50 training points,
+  with a validation pass and a conditional full-model checkpoint written inside
+  the loop.
+
+preconditions:
+  - A CUDA device is available (the payload calls .to('cuda') unconditionally)
+  - ../model_checkpoints/e01/simple_nn/ is writable
+
+benchmark:
+  # `fork` would inherit a live CUDA context into the child, which CUDA does
+  # not support; keep this usecase on the full replay.
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: tiny_tensors_on_gpu
+    source: code
+    weight: 2
+    fact: >-
+      The work is 20000 iterations over a batch of 50 one-dimensional samples
+      through a 1-1000-1000-1 network. Every kernel is far too small to occupy
+      the GPU, so the cost is per-iteration launch and Python overhead rather
+      than arithmetic.
+  - id: per_iteration_sync
+    source: code
+    weight: 2
+    fact: >-
+      Each iteration calls .item() twice - once on the training loss and once
+      on the validation loss - and each call blocks the host until the device
+      has finished, so the loop synchronises 40000 times.
+  - id: checkpoint_inside_loop
+    source: code
+    weight: 2
+    fact: >-
+      torch.save is called inside the training loop whenever the validation
+      loss improves. Early in training that is almost every iteration, so the
+      loop writes the model to disk thousands of times.
+  - id: whole_module_pickled
+    source: code
+    weight: 1
+    fact: >-
+      torch.save stores the entire module object rather than its state_dict,
+      which pickles the class as well as roughly two million parameters on
+      every checkpoint.
+  - id: extra_validation_forward
+    source: code
+    weight: 1
+    fact: >-
+      A second forward pass over the validation set runs inside the loop every
+      iteration, though the validation loss is only used to decide whether to
+      checkpoint.
+  - id: plotting_in_the_timed_cell
+    source: code
+    weight: 1
+    fact: >-
+      Matplotlib figure construction, a reload of the best checkpoint and two
+      more forward passes happen in the same cell after training, so they are
+      included in whatever the cell is timed at.
+
+# NOT YET WRITTEN, and not to be guessed: every fact above has source `code`,
+# so conditional and global evidence coverage are identical for this usecase
+# and the coverage metrics say nothing about removing telemetry. Transcribe the
+# facts below from a measured `base` record - records/<id>.json carries
+# inputs.context_payload with timing_info, perf_tags and perf_summary - and
+# move them up:
+#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
+#   - {id: workload_tag, source: tags,   weight: 2, fact: "..."}
+#   - {id: gpu_underuse, source: perf,   weight: 2, fact: "..."}
+#   - {id: device_class, source: hardware, weight: 1, fact: "..."}

@@ -1,0 +1,62 @@
+description: >-
+  50 epochs of a small convolutional VAE over MNIST, batch 128, fed by a
+  single-process DataLoader and synchronised on the host once per batch.
+
+preconditions:
+  - A CUDA device is available, or the payload silently falls back to CPU
+  - ./data holds the MNIST download, or the prefix can fetch it
+
+benchmark:
+  # CUDA contexts do not survive fork; keep this usecase on the full replay.
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: single_process_dataloader
+    source: code
+    weight: 2
+    fact: >-
+      The DataLoader is built with default num_workers=0, so image decoding,
+      ToTensor conversion and collation for every one of the roughly 23000
+      batches run in the training process, between the steps they feed.
+  - id: per_batch_sync
+    source: code
+    weight: 2
+    fact: >-
+      total_loss += loss.item() runs once per batch and blocks the host until
+      the device has finished, so the loop synchronises once per iteration for
+      a number it only prints at the end of the epoch.
+  - id: small_model_large_overhead
+    source: code
+    weight: 1
+    fact: >-
+      The network is two small convolutions, two linear layers and a
+      two-dimensional latent, applied to 1x28x28 inputs at batch 128, so each
+      step is a short burst of GPU work surrounded by host-side overhead.
+  - id: unpinned_transfer
+    source: code
+    weight: 1
+    fact: >-
+      data.to(device) is a blocking copy: the loader does not pin memory and
+      the call does not pass non_blocking, so the transfer cannot overlap with
+      compute.
+  - id: loss_module_per_batch
+    source: code
+    weight: 1
+    fact: >-
+      vae_loss constructs a new nn.BCELoss module on every call, once per
+      batch, instead of reusing one.
+  - id: dataset_fits_in_memory
+    source: code
+    weight: 1
+    fact: >-
+      MNIST is 60000 28x28 images, small enough to hold on the device for the
+      whole run, so the per-batch host work is avoidable rather than inherent.
+
+# NOT YET WRITTEN, and not to be guessed - see the note in
+# feedforward_training_with_checkpointing.yaml. Every fact above is
+# code-derived, so the two coverage numbers coincide until telemetry facts are
+# transcribed from a measured `base` record:
+#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
+#   - {id: workload_tag, source: tags,   weight: 2, fact: "..."}
+#   - {id: gpu_underuse, source: perf,   weight: 2, fact: "..."}

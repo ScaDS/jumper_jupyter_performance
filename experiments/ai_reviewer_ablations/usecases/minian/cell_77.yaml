@@ -7,12 +7,25 @@ description: >-
   .compute() calls, five of which recompute values the iteration already has.
 
 # This usecase reads the intermediate zarr store the full minian pipeline
-# writes. It is not self-contained: ./minian_intermediate must already exist,
-# which means minian/cell_40 (or the upstream pipeline) has been run once.
+# writes, and does not produce it. Run minian/cell_40 (or the upstream
+# pipeline) once first, then point the store at a stable location.
 preconditions:
-  - The minian intermediate store exists at ./minian_intermediate
+  - >-
+    The minian intermediate store holds A, C_chk, b, f and Y_fm_chk, and lives
+    at ${workspace}/minian_intermediate (roughly 4 GB)
+
+# A benchmark replay executes the prefix in a fresh temporary directory, so a
+# path the notebook resolves against the working directory would not exist
+# when the cell is measured. Pinning it here is what makes this usecase
+# benchmarkable at all; the notebook falls back to ./minian_intermediate when
+# the variable is unset, so it still runs by hand.
+environment:
+  MINIAN_INTERMEDIATE: ${workspace}/minian_intermediate
 
 benchmark:
+  # The prefix is three cells - imports, open_minian, two persists - so the
+  # full replay is affordable here in a way it is not for cell_40, whose
+  # prefix is the entire pipeline.
   replay_mode: full
   extra_replay_modes: []
 

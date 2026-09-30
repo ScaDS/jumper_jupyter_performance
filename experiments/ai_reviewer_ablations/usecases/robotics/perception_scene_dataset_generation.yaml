@@ -1,0 +1,54 @@
+description: >-
+  Two 180-frame MuJoCo scenes rendered offscreen at 640x480, held in memory as
+  Python lists and written out as video, ground truth and a background image.
+
+preconditions:
+  - MuJoCo can create an offscreen context (MUJOCO_GL=egl is set by the prefix)
+  - object_detection_data/ is writable
+  - OpenCV has a working mp4v or MJPG video writer
+
+benchmark:
+  replay_mode: full
+  # The renderer holds an EGL context; do not fork it into a child.
+  extra_replay_modes: []
+
+reference_facts:
+  - id: sequential_frame_rendering
+    source: code
+    weight: 2
+    fact: >-
+      The work is 360 sequential offscreen renders - two scenes of 180 frames
+      at 640x480 - each preceded by a cheap mj_forward. Rendering, not physics,
+      is what the loop spends its time on.
+  - id: all_frames_held_in_memory
+    source: code
+    weight: 2
+    fact: >-
+      Every rendered frame is appended to a Python list and kept: 360 frames of
+      640x480x3 uint8 is roughly 330 MB, retained in scene_data after the loop
+      and handed again to media.show_video.
+  - id: renderer_rebuilt_for_background
+    source: code
+    weight: 1
+    fact: >-
+      render_background_frame builds a fresh MjModel, MjData and Renderer for a
+      single frame, once per scene, although the scene model already exists in
+      the caller.
+  - id: per_frame_colour_conversion
+    source: code
+    weight: 1
+    fact: >-
+      save_video_cv2 walks the frame list a second time, converting each frame
+      from RGB to BGR before writing it, so every frame is traversed twice.
+  - id: independent_scenes
+    source: code
+    weight: 1
+    fact: >-
+      The two scene configurations share no state and are generated one after
+      the other.
+
+# NOT YET WRITTEN, and not to be guessed - see the note in
+# feedforward_training_with_checkpointing.yaml.
+#   - {id: duration,      source: timing, weight: 1, tolerance: ..., fact: "..."}
+#   - {id: workload_tag,  source: tags,   weight: 2, fact: "..."}
+#   - {id: memory_growth, source: perf,   weight: 2, fact: "..."}

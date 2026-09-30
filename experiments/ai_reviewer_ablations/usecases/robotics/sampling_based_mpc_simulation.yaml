@@ -1,0 +1,62 @@
+description: >-
+  A 1000-step cart-pole episode under sampling-based MPC: each environment step
+  samples 20000 candidate action sequences of horizon 50, rolls them out on the
+  GPU through a Python loop over the horizon, and renders the frame.
+
+preconditions:
+  - MuJoCo can create an offscreen context (the prefix sets MUJOCO_GL=egl)
+  - A CUDA device is available, or planning falls back to CPU
+
+benchmark:
+  # A live CUDA context and an EGL renderer both rule out forking the prefix.
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: horizon_loop_is_sequential
+    source: code
+    weight: 2
+    fact: >-
+      predict_trajectories advances the rollout with a Python loop over the 50
+      horizon steps, each launching a handful of elementwise kernels on a
+      20000x4 tensor. Over 1000 environment steps that is 50000 sequential
+      iterations of very small GPU work.
+  - id: candidates_sampled_on_host
+    source: code
+    weight: 2
+    fact: >-
+      plan samples 20000x50 actions from a CPU distribution and then copies
+      them to the device, so a million floats cross the bus on every one of the
+      1000 environment steps.
+  - id: full_trajectory_materialised
+    source: code
+    weight: 2
+    fact: >-
+      A 20000x50x4 trajectory tensor is allocated and filled slice by slice on
+      every plan call, although only the summed cost of each candidate is
+      needed to pick the best one.
+  - id: only_first_action_used
+    source: code
+    weight: 1
+    fact: >-
+      plan returns action_sequences[best, 0]; the remaining 49 steps of the
+      chosen sequence and all 19999 other sequences are discarded and
+      recomputed from scratch at the next step.
+  - id: per_step_device_host_round_trip
+    source: code
+    weight: 1
+    fact: >-
+      costs.argmin() and the .cpu().numpy() on the returned action both block
+      the host on the device once per environment step.
+  - id: rendering_every_step
+    source: code
+    weight: 1
+    fact: >-
+      render_episode calls env.render() on every step and accumulates all 1000
+      MuJoCo frames in a list before showing them.
+
+# NOT YET WRITTEN, and not to be guessed - see the note in
+# feedforward_training_with_checkpointing.yaml.
+#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
+#   - {id: workload_tag, source: tags,   weight: 2, fact: "..."}
+#   - {id: gpu_underuse, source: perf,   weight: 2, fact: "..."}

@@ -1,0 +1,62 @@
+description: >-
+  20000 training episodes plus 10000 greedy evaluation episodes of tabular
+  Q-learning on a 4x4 grid world, in nested pure-Python loops.
+
+preconditions:
+  - No GPU is needed; pygame and gymnasium are importable
+
+benchmark:
+  replay_mode: full
+  # The prefix is imports and a 200-iteration dynamic-programming solve, so a
+  # fast replay mode would save little and this payload is CPU-only anyway.
+  extra_replay_modes: []
+
+reference_facts:
+  - id: nested_python_loops
+    source: code
+    weight: 2
+    fact: >-
+      The dominant structure is two nested Python loops - 30000 episodes of up
+      to 100 steps each - around work that is a handful of scalar operations,
+      so interpreter dispatch dominates the arithmetic.
+  - id: numpy_on_scalars
+    source: code
+    weight: 2
+    fact: >-
+      Every step calls numpy on tiny data: np.random.choice(np.arange(4)) for
+      exploration, np.where(...) over four entries for the greedy choice, and
+      tuple() indexing of a 4x4x4 array. Each call costs far more than the
+      value it produces.
+  - id: unused_info_per_step
+    source: code
+    weight: 2
+    fact: >-
+      GridWorldEnv.step calls _get_info, which computes an L1 norm with
+      np.linalg.norm on every step; the training and evaluation loops discard
+      that info entirely.
+  - id: full_array_error_per_episode
+    source: code
+    weight: 1
+    fact: >-
+      Each episode computes np.abs(Q_star - Q_pi_hat) twice, once for the max
+      and once for the mean, allocating the difference and its absolute value
+      two times per episode over 20000 episodes.
+  - id: duplicated_evaluation_loop
+    source: code
+    weight: 1
+    fact: >-
+      The evaluation loop repeats the training loop body with epsilon fixed at
+      zero, so the same per-step overhead is paid again for 10000 more
+      episodes.
+  - id: single_threaded_cpu
+    source: code
+    weight: 1
+    fact: >-
+      Nothing in the payload is vectorised, threaded or offloaded; episodes are
+      independent of one another but are walked strictly in sequence.
+
+# NOT YET WRITTEN, and not to be guessed - see the note in
+# feedforward_training_with_checkpointing.yaml.
+#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
+#   - {id: cpu_bound,    source: tags,   weight: 2, fact: "..."}
+#   - {id: gpu_idle,     source: perf,   weight: 1, fact: "..."}

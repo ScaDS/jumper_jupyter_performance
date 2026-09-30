@@ -1,0 +1,68 @@
+description: >-
+  50 CarRacing episodes of up to 1000 steps, where each step encodes a 96x96
+  frame into 11 hand-made features with a pure-Python ray cast, stores the raw
+  frames in a memory-mapped replay buffer and takes one gradient step on a tiny
+  MLP.
+
+preconditions:
+  - gymnasium[box2d] provides CarRacing-v3
+  - A CUDA device is available, or the agent falls back to CPU
+  - Enough disk for the LazyMemmapStorage backing file
+
+benchmark:
+  # CUDA contexts do not survive fork, and the memmap storage is per-process.
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: python_ray_cast
+    source: code
+    weight: 2
+    fact: >-
+      Perception is a pure-Python ray cast: eight rays, each marching pixel by
+      pixel down the frame in a Python loop and testing every pixel with
+      _is_car and _is_grass. This is the dominant cost of a step, and it is
+      interpreted scalar work over an image.
+  - id: cvtcolor_per_pixel
+    source: code
+    weight: 2
+    fact: >-
+      _is_grass calls cv2.cvtColor on a single reshaped 1x1 pixel, so an
+      OpenCV conversion is invoked once per pixel visited by a ray instead of
+      once per frame.
+  - id: features_recomputed_three_times
+    source: code
+    weight: 2
+    fact: >-
+      Each step encodes features three times: once in act for the current
+      state, and twice in store_experience for the same state and for the next
+      state. The next state is then encoded again as the current state on the
+      following step.
+  - id: raw_frames_in_replay_buffer
+    source: code
+    weight: 1
+    fact: >-
+      Both pixels and next_pixels are stored as float32 images in the replay
+      buffer even though only the 11 encoded features are ever sampled from it,
+      so each transition writes roughly 200 kB to the memmap for data that is
+      never read back.
+  - id: tiny_network_per_step
+    source: code
+    weight: 1
+    fact: >-
+      The Q network is LayerNorm plus two linear layers over an 11-dimensional
+      state, updated once per environment step on batches of 128, so the GPU
+      work per step is far smaller than the launch and transfer around it.
+  - id: per_step_host_sync
+    source: code
+    weight: 1
+    fact: >-
+      act ends in .item() on the argmax and store_experience moves features
+      back with .cpu(), so every step round-trips between device and host.
+
+# NOT YET WRITTEN, and not to be guessed - see the note in
+# feedforward_training_with_checkpointing.yaml.
+#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
+#   - {id: cpu_bound,    source: tags,   weight: 2, fact: "..."}
+#   - {id: gpu_underuse, source: perf,   weight: 2, fact: "..."}
+#   - {id: disk_write,   source: perf,   weight: 1, fact: "..."}
