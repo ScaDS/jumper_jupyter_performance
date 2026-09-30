@@ -231,8 +231,16 @@ class RunDirectory:
 
 
 def machine() -> dict:
-    """Enough about the host to tell two runs apart after the fact."""
+    """Enough about the host to tell two runs apart after the fact.
+
+    The batch job id is recorded because on disk a shard that has not
+    started and a shard that died before writing anything are the same
+    thing - no index line, no records - and a reader can only tell them
+    apart by asking the queue about a job it was told the number of.
+    """
     return {
+        "slurm_job_id": os.environ.get("SLURM_JOB_ID", ""),
+        "slurm_array_task": os.environ.get("SLURM_ARRAY_TASK_ID", ""),
         "node": platform.node(),
         "platform": platform.platform(),
         "processor": platform.processor(),

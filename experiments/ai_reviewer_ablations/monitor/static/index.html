@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ablation run monitor</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="identity">
+    <select id="run-select" title="Which run to watch"></select>
+    <span id="run-path" class="path"></span>
+  </div>
+  <div class="counters" id="counters"></div>
+  <div class="actions">
+    <span id="read-at" class="stamp"></span>
+    <button id="update" type="button">Update</button>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab is-active" data-tab="inputs" role="tab">Inputs</button>
+  <button class="tab" data-tab="shards" role="tab">Shards</button>
+  <button class="tab" data-tab="results" role="tab">Results</button>
+</nav>
+
+<main>
+  <section class="panel is-active" id="panel-inputs">
+    <h2>Context sources per preset</h2>
+    <p class="note">
+      The entire difference between the conditions being compared: a filled
+      cell is a source the reviewer was given, an empty one is a source it
+      was not.
+    </p>
+    <div id="matrix"></div>
+
+    <h2>Usecases</h2>
+    <div id="usecases"></div>
+
+    <h2>Files this run used</h2>
+    <div id="input-files"></div>
+  </section>
+
+  <section class="panel" id="panel-shards">
+    <div class="toolbar">
+      <h2>Pass grid</h2>
+      <label class="switch">
+        <input type="checkbox" id="colour-by-shard">
+        colour by shard instead of state
+      </label>
+    </div>
+    <p class="note">
+      A pass writes its verdict only when it finishes, which under a full
+      replay is hours away, so progress is counted from the records instead:
+      one lands per generation. Click a cell for its detail.
+    </p>
+    <div id="legend" class="legend"></div>
+    <div id="grid"></div>
+
+    <h2>Shards</h2>
+    <div id="shards"></div>
+  </section>
+
+  <section class="panel" id="panel-results">
+    <h2>Where the results are</h2>
+    <div id="where"></div>
+
+    <h2>Compare runs</h2>
+    <p class="note">
+      Runs are pooled only when they asked the same question - the same
+      presets, defined the same way, under the same protocol. Ones that
+      differ are shown side by side and said to differ, because a number
+      averaged over two definitions is not a number about either.
+    </p>
+    <div class="toolbar">
+      <select id="compare-runs" multiple size="4"></select>
+      <button type="button" id="compare">Compare</button>
+    </div>
+    <div id="comparison"></div>
+
+    <h2>Metrics</h2>
+    <p class="note">
+      A row is highlighted when the interval of its paired difference from
+      the baseline stays clear of zero - that, and not the point estimate,
+      is what counts as a difference between presets.
+    </p>
+    <div id="summary"></div>
+
+    <h2>Judging</h2>
+    <div id="judge"></div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="dialog">
+    <header>
+      <strong id="dialog-title"></strong>
+      <button type="button" id="dialog-close">close</button>
+    </header>
+    <div id="dialog-body"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -10,3 +10,5 @@ workspace/
 .pytest_cache/
 # Slurm job logs from scripts/romeo.sbatch.
 slurm_logs/
+# Monitor caches.
+monitor/__pycache__/

@@ -34,6 +34,12 @@ logger = logging.getLogger("jumper_ablations")
 register_resolvers()
 
 
+# Bumped when the run directory's layout changes in a way a reader cannot
+# ignore - a file moving, a field changing meaning. Adding a field does not
+# count: readers are required to ignore what they do not know.
+RUN_SCHEMA_VERSION = 1
+
+
 # What a resume has to agree with the stored records about. The machine and
 # the timestamp are deliberately absent: continuing a sweep on another node
 # is a normal thing to do and is recorded rather than refused.
@@ -113,6 +119,9 @@ def main(raw_config: DictConfig) -> int:
     ablations = [compose_ablation(one) for one in config.suite.ablations]
 
     snapshot = {
+        # The version of the run-directory layout, for readers that are not
+        # this program. monitor/PROTOCOL.md is the contract it identifies.
+        "schema_version": RUN_SCHEMA_VERSION,
         "run_id": config.run_id,
         "suite": config.suite.model_dump(),
         "protocol": config.protocol.model_dump(),
