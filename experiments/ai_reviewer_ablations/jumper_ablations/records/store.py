@@ -2,8 +2,8 @@
 
 One JSON file per record, because a record holds the whole prompt payload and
 nesting that into a CSV would destroy it. Beside them, a `runs.jsonl` index and
-a flat `runs.csv` - the index is what the later phases walk, the CSV is what a
-person opens first.
+a flat `runs.csv`. Both are derived from the records and rewritten whole,
+never appended to: several shards write this directory at once.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import Iterable, Iterator
 
+from jumper_ablations.files import write_atomically
 from jumper_ablations.records.schema import RunRecord
 
 RECORDS_DIRNAME = "records"
@@ -57,15 +58,22 @@ class RecordStore:
         return self.records_directory / f"{record_id}.json"
 
     def write(self, record: RunRecord) -> Path:
-        """Write one record and append it to the index."""
+        """Write one record.
+
+        Atomically, because it is written while a monitor is reading the
+        directory and while other shards are writing their own: a reader
+        should see a record or not see it, never half of one.
+
+        The flat views are not appended to here. Several shards write this
+        directory at once, and an append to one shared index from several
+        processes is not atomic - the same mistake that cost this experiment
+        two shards on one run. They are regenerated from the records
+        instead, which is also the only version that can be trusted after a
+        pass has been re-run.
+        """
         self.ensure()
         path = self.path_for(record.identity.record_id)
-        path.write_text(
-            record.model_dump_json(indent=2) + "\n",
-            encoding="utf-8",
-        )
-        with self.index_path.open("a", encoding="utf-8") as index:
-            index.write(json.dumps(_index_entry(record)) + "\n")
+        write_atomically(path, record.model_dump_json(indent=2) + "\n")
         return path
 
     def __iter__(self) -> Iterator[RunRecord]:
@@ -76,13 +84,24 @@ class RecordStore:
         return list(load_records(self.run_directory))
 
     def write_flat_view(self) -> Path:
-        """Rewrite `runs.csv` from the records currently on disk."""
+        """Rewrite the flat views from the records currently on disk.
+
+        Derived, never appended to, so that a shard finishing at the same
+        moment as another produces the same file rather than half of two.
+        """
         import pandas as pd
 
-        rows = [_flat_row(record) for record in self.load()]
+        records = self.load()
+        rows = [_flat_row(record) for record in records]
         frame = pd.DataFrame(rows, columns=list(_FLAT_COLUMNS))
         path = self.run_directory / FLAT_NAME
-        frame.to_csv(path, index=False)
+        write_atomically(path, frame.to_csv(index=False))
+        write_atomically(
+            self.index_path,
+            "".join(
+                json.dumps(_index_entry(record)) + "\n" for record in records
+            ),
+        )
         return path
 
 

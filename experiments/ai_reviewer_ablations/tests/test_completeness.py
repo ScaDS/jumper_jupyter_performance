@@ -235,3 +235,42 @@ def test_a_reading_usecase_keeps_sharing_the_family_directory(tmp_path):
     assert workspace_for(config, usecase, tmp_path / "a") == workspace_for(
         config, usecase, tmp_path / "b"
     )
+
+
+def test_the_flat_views_are_derived_rather_than_appended(tmp_path):
+    # Several shards write one run directory, so an append from each is a
+    # torn file. Rewriting from the records is also the only version that
+    # survives a pass being re-run: an append would keep both attempts.
+    from jumper_ablations.records.store import RecordStore
+
+    store = RecordStore(tmp_path)
+    store.ensure()
+    for generation in (1, 2):
+        store.write(make_record(generation=generation))
+
+    store.write_flat_view()
+    store.write_flat_view()
+
+    lines = [
+        line
+        for line in store.index_path.read_text().splitlines()
+        if line.strip()
+    ]
+    assert len(lines) == 2
+    assert len(store.load()) == 2
+    assert (tmp_path / "runs.csv").read_text().count("\n") == 3
+
+
+def test_rewriting_a_record_replaces_it(tmp_path):
+    # A re-run pass writes the same record ids again; the views must show
+    # one of each, not both attempts.
+    from jumper_ablations.records.store import RecordStore
+
+    store = RecordStore(tmp_path)
+    store.ensure()
+    store.write(make_record(generation=1))
+    store.write(make_record(generation=1))
+    store.write_flat_view()
+
+    assert len(store.load()) == 1
+    assert len(store.index_path.read_text().splitlines()) == 1
