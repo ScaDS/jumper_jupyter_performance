@@ -185,3 +185,48 @@ def test_presets_edited_mid_sweep_cannot_join_the_same_run(tmp_path):
 
     with pytest.raises(SystemExit, match="different strategy"):
         run.snapshot_strategies(source)
+
+
+def test_a_reader_never_sees_half_a_file(tmp_path):
+    # This is the failure that killed two shards thirteen seconds into a
+    # sweep: every shard regenerates the shared strategies file on startup
+    # and then checks the run's snapshot against it, so a plain write leaves
+    # a window in which the file is a prefix of itself and the check fails.
+    import threading
+
+    from jumper_ablations.files import write_atomically
+
+    target = tmp_path / "shared.yaml"
+    payload = "strategies:\n" + "".join(
+        f"  - id: preset_{index}\n" for index in range(400)
+    )
+    write_atomically(target, payload)
+
+    torn = []
+    stop = threading.Event()
+
+    def write() -> None:
+        for _ in range(40):
+            write_atomically(target, payload)
+
+    def read() -> None:
+        while not stop.is_set():
+            try:
+                seen = target.read_text(encoding="utf-8")
+            except FileNotFoundError:
+                torn.append("missing")
+                continue
+            if seen != payload:
+                torn.append(f"{len(seen)} of {len(payload)} bytes")
+
+    writers = [threading.Thread(target=write) for _ in range(4)]
+    readers = [threading.Thread(target=read) for _ in range(2)]
+    for thread in readers + writers:
+        thread.start()
+    for thread in writers:
+        thread.join()
+    stop.set()
+    for thread in readers:
+        thread.join()
+
+    assert torn == []
