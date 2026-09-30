@@ -7,16 +7,24 @@ defaults:
 # Five independent draws, as separate passes rather than as generations
 # inside one kernel.
 #
-# The reviewer benchmarks the first review of a kernel and skips every one
-# after it: the replay rebuilds the target cell's prefix from the cell
-# history, and by the second review that history has grown past what it can
-# reconstruct. Generations two onwards therefore produce an analysis and no
-# measurement at all, which is the whole suggestion half of the experiment.
+# Observed on minian/cell_77: the first generation of a pass benchmarks, and
+# every generation after it is skipped with
 #
-# A pass per draw costs the prefix again each time - a few minutes here -
-# and buys more than it costs: each draw starts from the same state instead
-# of from whatever the previous draw's benchmark left behind, including the
-# repaired suggestion code the benchmark writes back.
+#   benchmark skipped: prefix cell 0 could not be replayed
+#   - IndexError: list index out of range
+#
+# leaving an analysis and no measurement, which is the whole suggestion half
+# of the experiment. The same protocol on harness/selftest benchmarks both
+# of two generations, so this is not simply "one benchmark per kernel"; what
+# distinguishes cell_77 is that its payload writes into the store its own
+# prefix reads, so the second generation replays a prefix against a store
+# the first generation's benchmark has already changed. That is the reading
+# the evidence supports, and it is not yet confirmed by a traceback.
+#
+# A pass per draw sidesteps it either way, and buys more than the few
+# minutes of prefix it costs: each draw starts from the same state rather
+# than from whatever the previous draw's benchmark left behind - including
+# the repaired suggestion code the benchmark writes back over the original.
 #
 # Pairing and seeding key on (repetition, generation), so repetition 3 of
 # one preset still pairs with repetition 3 of another.
