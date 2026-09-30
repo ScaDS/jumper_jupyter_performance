@@ -292,3 +292,54 @@ def test_aggregating_a_run_without_metrics_yields_no_rows(tmp_path):
 
     assert merged["rows"] == []
     assert merged["runs"] == ["first", "absent"]
+
+
+def _two_shards() -> dict:
+    """A definition with a pass for each of two shards."""
+    return {
+        **DEFINITION,
+        "protocol": {**DEFINITION["protocol"], "repetitions": 2},
+        "config": {"shard": {"count": 2}},
+    }
+
+
+def _invocation(run, shard, job, stamp):
+    (run / "invocations").mkdir(exist_ok=True)
+    (run / "invocations" / f"{shard}-{stamp}.json").write_text(
+        json.dumps(
+            {"shard": shard, "slurm_job_id": job, "recorded_at": stamp}
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_a_queued_shard_is_not_called_lost_after_a_resubmission(tmp_path):
+    # A job records itself when it starts, so a shard queued right now still
+    # shows the job of the attempt before - which has ended. Reading that as
+    # "this shard died" turns a waiting pass red.
+    run = _run(tmp_path, _two_shards())
+    _invocation(run, "00-of-02", "111", "2026-09-30T20:38:45")
+    _invocation(run, "01-of-02", "222", "2026-09-30T20:38:45")
+    _invocation(run, "00-of-02", "333", "2026-09-30T22:54:27")
+
+    snapshot = model.snapshot(
+        run, {"333": {"state": "running"}, "222": {"state": "failed"}}
+    )
+    states = {entry["shard"]: entry["state"] for entry in snapshot["grid"]}
+
+    # Shard 1 has not joined the newer attempt yet; its silence is not a
+    # verdict, and the ended job belongs to the attempt before.
+    assert states.get(1) == model.STATE_PENDING
+
+
+def test_a_shard_that_died_in_the_current_attempt_is_still_lost(tmp_path):
+    run = _run(tmp_path, _two_shards())
+    _invocation(run, "00-of-02", "111", "2026-09-30T22:54:27")
+    _invocation(run, "01-of-02", "222", "2026-09-30T22:54:27")
+
+    snapshot = model.snapshot(
+        run, {"111": {"state": "running"}, "222": {"state": "failed"}}
+    )
+    states = {entry["shard"]: entry["state"] for entry in snapshot["grid"]}
+
+    assert states.get(1) == model.STATE_LOST

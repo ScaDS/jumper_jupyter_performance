@@ -551,8 +551,13 @@ def snapshot(run: Path, jobs: dict | None = None) -> dict:
             1,
         ),
     )
+    stale = _stale_shards(invocations)
     shard_states = {
-        index: as_mapping(jobs.get(str(job_id))).get("state", "")
+        index: (
+            ""
+            if index in stale
+            else as_mapping(jobs.get(str(job_id))).get("state", "")
+        )
         for index, job_id in _shard_jobs(invocations).items()
     }
 
@@ -715,6 +720,7 @@ def aggregate(results_root: Path, names: list[str]) -> dict:
 
 
 def _shard_jobs(invocations: list[dict]) -> dict:
+    """The newest job each shard has claimed, by shard index."""
     jobs = {}
     for invocation in invocations:
         index = _shard_index(invocation.get("shard") or "")
@@ -722,6 +728,30 @@ def _shard_jobs(invocations: list[dict]) -> dict:
         if index is not None and job_id:
             jobs[index] = job_id
     return jobs
+
+
+def _stale_shards(invocations: list[dict]) -> set:
+    """Shards whose last word about themselves predates someone else's.
+
+    A resubmission is invisible until its jobs start: a job records itself
+    on startup, so a shard queued right now still shows the job of the
+    attempt before - which has ended. Reading that as "this shard died"
+    turns a queued pass red and says the run is broken when it is waiting.
+
+    What is knowable from the directory is the ordering. If another shard
+    has spoken more recently than this one, there is a newer attempt under
+    way that this shard has not joined yet, so its silence is not a verdict.
+    """
+    latest = {}
+    for invocation in invocations:
+        index = _shard_index(invocation.get("shard") or "")
+        stamp = invocation.get("recorded_at") or ""
+        if index is not None and stamp > latest.get(index, ""):
+            latest[index] = stamp
+    if not latest:
+        return set()
+    newest = max(latest.values())
+    return {index for index, stamp in latest.items() if stamp < newest}
 
 
 def _input_files(run: Path, meta: dict) -> dict:

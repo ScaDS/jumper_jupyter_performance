@@ -178,6 +178,16 @@ the **verdict**: whether the pass ended well.
 `lost` is the whole reason `slurm_job_id` is recorded. On disk, "not started
 yet" and "died before writing anything" are the same thing.
 
+One qualification, and it is the difference between a useful red cell and a
+misleading one. A job records itself when it **starts**, so a shard that has
+been resubmitted and is sitting in a queue still shows the job of the attempt
+before - which has ended. Calling that `lost` reports a run as broken while
+it is waiting. A reader therefore compares invocation timestamps: when
+another shard has recorded itself more recently than this one, a newer
+attempt is under way that this shard has not joined yet, and its silence is
+not a verdict. Only a shard whose last word is as recent as anyone's can be
+`lost`.
+
 ## 5. Versioning
 
 `meta.json.schema_version` names the layout. Readers declare the highest they
