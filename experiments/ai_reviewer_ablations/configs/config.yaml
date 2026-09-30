@@ -39,6 +39,20 @@ workspace_root: ${storage_root}/workspace
 # same suite against a private library of notebooks without copying them in.
 usecases_root: ${experiment_root:}/usecases
 
+# Which slice of the pass grid this invocation runs. The grid is independent
+# kernel passes, so one job per node is the natural way to spend a cluster:
+# submit the same command as an array and let each task take its share. The
+# run definition stays identical in every task - only this differs - so they
+# write into one run directory and produce one report.
+#
+#   sbatch --array=0-3 scripts/romeo.sbatch suite=minian_cell_77 ...
+#
+# scripts/romeo.sbatch fills these in from the array task id, so the command
+# does not have to quote shell variables past hydra.
+shard:
+  index: 0
+  count: 1
+
 # Which existing run the offline commands (export_judge, evaluate, report)
 # read. Null means the newest one under results_root. `run` ignores it: it
 # always writes a fresh directory.

@@ -134,19 +134,32 @@ def test_the_same_experiment_resumes(tmp_path):
     )
 
 
-def test_resuming_appends_to_the_provenance_instead_of_replacing_it(tmp_path):
+def test_resuming_records_itself_without_touching_the_definition(tmp_path):
     run = _run(tmp_path, SNAPSHOT)
 
-    run.record_invocation({"node": "second-node"})
-    run.record_invocation({"node": "third-node"})
-    meta = run.meta()
+    run.record_invocation({"node": "second-node"}, "00-of-02")
+    run.record_invocation({"node": "third-node"}, "01-of-02")
 
-    assert meta["suite"] == SNAPSHOT["suite"]
-    assert meta["usecases"] == SNAPSHOT["usecases"]
-    assert [entry["node"] for entry in meta["invocations"]] == [
+    assert run.meta()["suite"] == SNAPSHOT["suite"]
+    assert run.meta()["usecases"] == SNAPSHOT["usecases"]
+    assert {entry["node"] for entry in run.invocation_entries()} == {
         "second-node",
         "third-node",
-    ]
+    }
+
+
+def test_the_definition_is_claimed_by_exactly_one_invocation(tmp_path):
+    # Shards start together, so all of them find the directory empty. The
+    # exclusive create decides; everyone else is handed what stands and
+    # checks itself against that rather than against its own copy.
+    run = RunDirectory.create(tmp_path / "r1")
+
+    first = run.claim_meta(SNAPSHOT)
+    second = run.claim_meta({**SNAPSHOT, "machine": {"node": "other"}})
+
+    assert first == SNAPSHOT
+    assert second == SNAPSHOT
+    assert run.meta() == SNAPSHOT
 
 
 def test_the_strategies_snapshot_is_written_once(tmp_path):
@@ -155,7 +168,20 @@ def test_the_strategies_snapshot_is_written_once(tmp_path):
     source.write_text("strategies: [{id: base}]\n", encoding="utf-8")
 
     run.snapshot_strategies(source)
-    source.write_text("strategies: [{id: base, changed: true}]\n", "utf-8")
     run.snapshot_strategies(source)
 
     assert "changed" not in run.strategies_snapshot.read_text()
+
+
+def test_presets_edited_mid_sweep_cannot_join_the_same_run(tmp_path):
+    # Half the records would have been produced under definitions the other
+    # half never saw, and nothing in either half would say so.
+    run = _run(tmp_path, SNAPSHOT)
+    source = tmp_path / "strategies.yaml"
+    source.write_text("strategies: [{id: base}]\n", encoding="utf-8")
+    run.snapshot_strategies(source)
+
+    source.write_text("strategies: [{id: base, changed: true}]\n", "utf-8")
+
+    with pytest.raises(SystemExit, match="different strategy"):
+        run.snapshot_strategies(source)

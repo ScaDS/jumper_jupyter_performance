@@ -75,27 +75,21 @@ def _already_recorded(run_directory: RunDirectory) -> set:
     run_id then continues where it stopped instead of paying for the finished
     passes again. Only successful passes count: a failed one is worth another
     try, and its records were never written.
-    """
-    if not run_directory.passes_index.is_file():
-        return set()
 
-    done = set()
-    for line in run_directory.passes_index.read_text("utf-8").splitlines():
-        if not line.strip():
-            continue
-        try:
-            entry = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if entry.get("status") == "ok":
-            done.add(
-                (
-                    entry.get("usecase"),
-                    entry.get("ablation"),
-                    entry.get("repetition"),
-                )
-            )
-    return done
+    Every shard's index is read, not just this one's. A shard that died can
+    then be picked up by a differently shaped set of shards - or by a single
+    job with no sharding at all - and it will still skip what any of them
+    finished.
+    """
+    return {
+        (
+            entry.get("usecase"),
+            entry.get("ablation"),
+            entry.get("repetition"),
+        )
+        for entry in run_directory.pass_entries()
+        if entry.get("status") == "ok"
+    }
 
 
 @hydra.main(
@@ -131,12 +125,15 @@ def main(raw_config: DictConfig) -> int:
         "machine": machine(),
         "config": OmegaConf.to_container(raw_config, resolve=True),
     }
-    existing = run_directory.meta()
-    if existing:
-        _refuse_incompatible_resume(existing, snapshot, run_directory)
-        run_directory.record_invocation(machine())
-    else:
-        run_directory.write_meta(snapshot)
+    # Exactly one invocation writes the definition; everyone else gets back
+    # what stands and checks itself against it. Shards start together, so
+    # "write it if it is missing" would have all of them find it missing.
+    of_record = run_directory.claim_meta(snapshot)
+    _refuse_incompatible_resume(of_record, snapshot, run_directory)
+    run_directory.record_invocation(
+        {**machine(), "shard": config.shard.label},
+        config.shard.label,
+    )
     run_directory.snapshot_strategies()
 
     total = len(usecases) * len(ablations) * config.protocol.repetitions
@@ -159,46 +156,54 @@ def main(raw_config: DictConfig) -> int:
         )
     )
 
+    grid = [
+        (usecase, ablation, repetition)
+        for usecase in usecases
+        for ablation in ablations
+        for repetition in range(config.protocol.repetitions)
+    ]
+    mine = config.shard.slice_of(grid)
+    if config.shard.count > 1:
+        logger.info(
+            f"shard {config.shard.label}: {len(mine)} of {len(grid)} pass(es)"
+        )
+
     done = _already_recorded(run_directory)
     if done:
         logger.info(f"resuming: {len(done)} pass(es) already recorded")
 
     failures = 0
-    for usecase in usecases:
-        for ablation in ablations:
-            for repetition in range(config.protocol.repetitions):
-                if (usecase.id, ablation.id, repetition) in done:
-                    logger.info(
-                        f"{usecase.id} | {ablation.id} | r{repetition} | "
-                        "already recorded, skipping"
-                    )
-                    continue
-                outcome = run_pass(
-                    config=config,
-                    run_directory=run_directory,
-                    usecase=usecase,
-                    ablation=ablation,
-                    repetition=repetition,
+    for usecase, ablation, repetition in mine:
+        if (usecase.id, ablation.id, repetition) in done:
+            logger.info(
+                f"{usecase.id} | {ablation.id} | r{repetition} | "
+                "already recorded, skipping"
+            )
+            continue
+        outcome = run_pass(
+            config=config,
+            run_directory=run_directory,
+            usecase=usecase,
+            ablation=ablation,
+            repetition=repetition,
+        )
+        if not config.protocol.keep_benchmark_workdirs:
+            prune_workdirs(
+                run_directory.pass_directory(
+                    usecase.id,
+                    ablation.id,
+                    repetition,
                 )
-                if not config.protocol.keep_benchmark_workdirs:
-                    prune_workdirs(
-                        run_directory.pass_directory(
-                            usecase.id,
-                            ablation.id,
-                            repetition,
-                        )
-                    )
-                run_directory.append_pass(outcome.as_entry())
-                level = (
-                    logging.INFO if outcome.status == "ok" else logging.ERROR
-                )
-                logger.log(
-                    level,
-                    f"{outcome.usecase} | {outcome.ablation} | "
-                    f"r{outcome.repetition} | {outcome.status} | "
-                    f"{outcome.captures} record(s)",
-                )
-                failures += outcome.status != "ok"
+            )
+        run_directory.append_pass(outcome.as_entry(), config.shard.label)
+        level = logging.INFO if outcome.status == "ok" else logging.ERROR
+        logger.log(
+            level,
+            f"{outcome.usecase} | {outcome.ablation} | "
+            f"r{outcome.repetition} | {outcome.status} | "
+            f"{outcome.captures} record(s)",
+        )
+        failures += outcome.status != "ok"
 
     store = RecordStore(run_directory.path)
     store.write_flat_view()

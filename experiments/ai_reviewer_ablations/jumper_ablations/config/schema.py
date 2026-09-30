@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import ClassVar, Literal
 
 from omegaconf import DictConfig, OmegaConf
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 CONTEXT_FAMILY = "context"
 PROMPT_FAMILY = "prompt"
@@ -204,6 +204,45 @@ class ReportingConfig(BaseModel):
     figures: bool = True
 
 
+class ShardConfig(BaseModel):
+    """Which slice of the pass grid this invocation executes.
+
+    A run is a grid of independent kernel passes, so the obvious way to spend
+    a cluster is one pass per node. Sharding says which passes belong to this
+    job; the experiment's definition - suite, protocol, usecases, ablations -
+    stays identical in every job, which is what lets them share one run
+    directory and one report.
+
+    This is deliberately not part of the protocol. The protocol is compared
+    when a run is resumed, and shards must not look to each other like
+    different experiments.
+    """
+
+    index: int = Field(default=0, ge=0)
+    count: int = Field(default=1, ge=1)
+
+    @model_validator(mode="after")
+    def _index_is_within_count(self) -> "ShardConfig":
+        if self.index >= self.count:
+            raise ValueError(
+                f"shard {self.index} of {self.count} does not exist"
+            )
+        return self
+
+    def slice_of(self, items: list) -> list:
+        """This shard's share, taken by striding rather than by blocks.
+
+        Passes differ in cost - a preset that returns fewer suggestions
+        benchmarks faster - so contiguous blocks would leave one job running
+        long after the others finished. Striding interleaves them.
+        """
+        return items[self.index :: self.count]
+
+    @property
+    def label(self) -> str:
+        return f"{self.index:02d}-of-{self.count:02d}"
+
+
 class ExperimentConfig(BaseModel):
     """Everything one run of the experiment was told to do."""
 
@@ -220,6 +259,7 @@ class ExperimentConfig(BaseModel):
     judge: JudgeConfig
     metrics: MetricsConfig
     reporting: ReportingConfig
+    shard: ShardConfig = Field(default_factory=ShardConfig)
 
 
 def load_experiment_config(config: DictConfig) -> ExperimentConfig:

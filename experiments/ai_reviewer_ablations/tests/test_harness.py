@@ -205,8 +205,6 @@ def test_sampling_reaches_the_kernel_as_python():
 def test_a_rerun_skips_the_passes_that_already_succeeded(tmp_path):
     # A sweep is hours of machine time; a kernel dying at pass 15 of 18 must
     # not cost the fourteen that worked.
-    import json
-
     from jumper_ablations.cli.run import _already_recorded
     from jumper_ablations.runner.run_directory import RunDirectory
 
@@ -238,10 +236,7 @@ def test_a_rerun_skips_the_passes_that_already_succeeded(tmp_path):
 
     assert done == {("a/one", "base", 0), ("a/one", "no_perf", 0)}
     assert ("a/two", "base", 0) not in done
-    assert (
-        json.loads(run.passes_index.read_text().splitlines()[0])["status"]
-        == "ok"
-    )
+    assert run.pass_entries()[0]["status"] == "ok"
 
 
 def test_a_usecase_can_pin_absolute_paths_for_its_data(tmp_path):

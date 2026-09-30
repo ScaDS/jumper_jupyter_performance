@@ -65,4 +65,20 @@ df -h "${JUMPER_ABLATION_STORAGE}" | tail -1
 # would oversubscribe the allocation and add timing noise to every benchmark.
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 
-python -m jumper_ablations.cli.run "$@"
+# An array task takes its share of the pass grid. Filled in here rather than
+# on the command line so that the hydra tokens do not have to quote shell
+# variables: one missed backslash and every task runs the whole grid.
+SHARD=()
+if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
+    COUNT="${SLURM_ARRAY_TASK_COUNT:-}"
+    if [[ -z "${COUNT}" ]]; then
+        COUNT=$((SLURM_ARRAY_TASK_MAX - SLURM_ARRAY_TASK_MIN + 1))
+    fi
+    SHARD=(
+        "shard.index=$((SLURM_ARRAY_TASK_ID - SLURM_ARRAY_TASK_MIN))"
+        "shard.count=${COUNT}"
+    )
+    echo "shard: ${SHARD[*]}"
+fi
+
+python -m jumper_ablations.cli.run "${SHARD[@]}" "$@"

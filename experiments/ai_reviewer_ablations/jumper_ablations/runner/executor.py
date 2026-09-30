@@ -79,16 +79,19 @@ def _kernel_environment(
     pass_directory: Path,
     usecase: Usecase | None = None,
     workspace: Path | None = None,
+    strategies_path: Path = STRATEGIES_FILE,
 ) -> dict:
     """What the kernel is told before it starts.
 
     The strategies path is how an ablation reaches the reviewer at all: the
     presets live in this experiment's folder and the reviewer merges them over
     its built-ins, so `--strategy no_timing` resolves without the extension
-    knowing this experiment exists.
+    knowing this experiment exists. What is handed over is the run's own
+    snapshot rather than the editable file it was copied from, so a preset
+    edited mid-sweep cannot redefine the passes that have not run yet.
     """
     environment = {
-        "JUMPER_AI_STRATEGIES_PATH": str(STRATEGIES_FILE),
+        "JUMPER_AI_STRATEGIES_PATH": str(strategies_path),
         # Per pass, so ai_prompts.log can be checked against the messages the
         # record claims were sent.
         "JUMPER_LOG_DIR": str(pass_directory / "logs"),
@@ -157,7 +160,12 @@ def run_pass(
         cell_timeout=protocol.kernel.cell_timeout,
         startup_timeout=protocol.kernel.startup_timeout,
         working_directory=workspace,
-        environment=_kernel_environment(pass_directory, usecase, workspace),
+        environment=_kernel_environment(
+            pass_directory,
+            usecase,
+            workspace,
+            run_directory.strategies_snapshot,
+        ),
     )
 
     with session:
