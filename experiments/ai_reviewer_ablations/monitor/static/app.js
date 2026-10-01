@@ -317,32 +317,7 @@ function renderResults() {
     ],
   ));
 
-  const summary = results.summary.map((row) => {
-    const low = parseFloat(row.paired_delta_ci_low);
-    const high = parseFloat(row.paired_delta_ci_high);
-    const clear = !Number.isNaN(low) && !Number.isNaN(high) &&
-      ((low > 0 && high > 0) || (low < 0 && high < 0));
-    return {
-      class: clear ? "finding" : "",
-      cells: [
-        row.ablation, row.metric, row.reported_value,
-        { value: fixed(row.estimate) },
-        { value: interval(row.ci_low, row.ci_high) },
-        { value: fixed(row.paired_delta) },
-        { value: interval(row.paired_delta_ci_low, row.paired_delta_ci_high) },
-        { value: row.paired_n || "-" },
-        { value: row.gaps || "0" },
-      ],
-    };
-  });
-  $("summary").replaceChildren(table(
-    [{ label: "preset" }, { label: "metric" }, { label: "value" },
-     { label: "estimate", num: true }, { label: "interval", num: true },
-     { label: "vs base", num: true }, { label: "interval of difference", num: true },
-     { label: "pairs", num: true }, { label: "gaps", num: true }],
-    summary,
-    { empty: "no summary.csv yet - run cli.report" },
-  ));
+  $("summary").replaceChildren(...comparisonTables(results.summary));
 
   $("judge").replaceChildren(table(
     [{ label: "what" }, { label: "count", num: true }],
@@ -385,6 +360,86 @@ async function compare() {
   } catch (failure) {
     $("comparison").replaceChildren(el("p", { class: "error" }, failure.message));
   }
+}
+
+// A preset reads as a column, a metric as a row. The experiment asks one
+// question - what changes when a source is removed - and that question is
+// answered by reading across, which a flat list of (preset, metric, value)
+// rows makes a person do with their finger.
+const CATEGORY_TITLES = {
+  analysis: "Analysis metrics",
+  suggestions: "Suggestions metrics",
+};
+
+function findsSomething(row) {
+  const low = parseFloat(row.paired_delta_ci_low);
+  const high = parseFloat(row.paired_delta_ci_high);
+  return !Number.isNaN(low) && !Number.isNaN(high) &&
+    ((low > 0 && high > 0) || (low < 0 && high < 0));
+}
+
+function comparisonTables(rows) {
+  if (!rows || !rows.length) {
+    return [el("p", { class: "empty" }, "no summary.csv yet - run cli.report")];
+  }
+
+  const baseline = rows.find((row) => row.ablation === "base")
+    ? "base" : rows[0].ablation;
+  const presets = [...new Set(rows.map((row) => row.ablation))]
+    .sort((a, b) => (a === baseline ? -1 : b === baseline ? 1 : a < b ? -1 : 1));
+  const usecases = [...new Set(rows.map((row) => row.usecase))].sort();
+
+  const out = [];
+  for (const usecase of usecases) {
+    if (usecases.length > 1) out.push(el("h3", {}, usecase));
+    for (const category of ["analysis", "suggestions"]) {
+      const mine = rows.filter((row) =>
+        row.usecase === usecase && row.category === category);
+      if (!mine.length) continue;
+
+      // One row per reported value, in the order the metrics registered
+      // them, so a metric's values stay together.
+      const keys = [];
+      const cells = new Map();
+      for (const row of mine) {
+        const key = `${row.metric}.${row.reported_value}`;
+        if (!cells.has(key)) { keys.push(key); cells.set(key, {}); }
+        cells.get(key)[row.ablation] = row;
+      }
+
+      out.push(el("h3", {}, CATEGORY_TITLES[category] || category));
+      out.push(table(
+        [{ label: "metric" }, ...presets.map((p) => ({
+          label: p === baseline ? `${p} (baseline)` : p, num: true }))],
+        keys.map((key) => ({
+          cells: [
+            { node: el("code", {}, key) },
+            ...presets.map((preset) => {
+              const row = cells.get(key)[preset];
+              if (!row) return { value: "-" };
+              const shown = fixed(row.estimate);
+              if (preset === baseline || !findsSomething(row)) {
+                return { value: shown };
+              }
+              // Marked where the interval of the difference from the
+              // baseline stays clear of zero - the point estimate alone
+              // says nothing about whether the presets differ.
+              return {
+                node: el("b", {
+                  class: "finding-cell",
+                  title: `vs ${baseline}: ${fixed(row.paired_delta)} ` +
+                    `(${interval(row.paired_delta_ci_low,
+                                 row.paired_delta_ci_high)}, ` +
+                    `n=${row.paired_n})`,
+                }, shown),
+              };
+            }),
+          ],
+        })),
+      ));
+    }
+  }
+  return out;
 }
 
 function fixed(value) {

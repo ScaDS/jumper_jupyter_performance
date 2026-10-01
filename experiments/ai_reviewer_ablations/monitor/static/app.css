@@ -163,6 +163,17 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
 .legend b { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; }
 
 tr.finding { background: color-mix(in srgb, var(--ok) 12%, transparent); }
+/* A value whose difference from the baseline clears zero. Marked, not
+   coloured by direction: better and worse are the metric's business, and
+   half of these are rates where down is good. */
+.finding-cell {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 3px;
+  padding: 1px 5px;
+  cursor: help;
+}
+h3 { font-size: 13px; margin: 18px 0 6px; color: var(--muted);
+     text-transform: uppercase; letter-spacing: .05em; }
 tr.gap td { color: var(--muted); }
 
 /* The `hidden` attribute is a UA rule of display:none, and any author rule
