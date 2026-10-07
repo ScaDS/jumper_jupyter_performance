@@ -1,10 +1,17 @@
-# noJUmP — Single-Node Performance Monitoring Demo (Pure Python)
+# noJUmP — Performance Monitoring Demo (Pure Python)
 
 This demo shows how to use JUmPER's performance monitoring from a **plain
 Python script** — no Jupyter notebook required.  It replicates the workload
 from `demos/metric_demo.ipynb` but uses the context-manager API
 (`service.monitored()`) to delimit "cells" (code segments) so that each
 phase of the workload is tracked separately.
+
+Two variants are provided:
+
+- **Single-node** (`run_demo.py`) — runs on one node, uses the default
+  monitor backend.
+- **Multi-node** (`run_demo_multinode.py`) — runs across multiple
+  SLURM-allocated nodes, uses the `slurm_multinode` monitor backend.
 
 ## Prerequisites
 
@@ -84,12 +91,42 @@ time.  Adjust these in the `#SBATCH` directives as needed.  Uncomment the
 SLURM output (stdout/stderr) is written to `nojump_demo_<jobid>.out` /
 `.err`.
 
-## 4. Analyzing the results
+## 4. Run the multi-node demo via SLURM (HPC)
+
+A second sbatch script is provided for running the demo across **multiple
+nodes** in a SLURM allocation.  This uses the `slurm_multinode` monitor
+backend, which launches a collector on every allocated node via `srun` and
+aggregates their samples.  The workload is executed sequentially on each
+node (node 1 first, then node 2, etc.).
+
+```bash
+# Edit run_demo_multinode.sbatch to set your venv path or module loads, then:
+sbatch run_demo_multinode.sbatch
+```
+
+The sbatch script requests 2 nodes by default.  Adjust the `#SBATCH`
+directives as needed (e.g. `--nodes=4` for more nodes).
+
+Each run creates a timestamped subdirectory `run_multinode_YYYYMMDD_HHMMSS/`
+containing:
+
+| File | Description |
+|---|---|
+| `perf_plot_slurm.jpeg` | Static performance plot (JPEG) |
+| `perf_data_slurm.pkl` | Pickle file with raw performance DataFrames |
+| `perf_data_slurm.csv` | Performance data as CSV (slurm level) |
+| `session/` | Full JUmPER session directory (CSVs, cell history, manifest) |
+
+SLURM output (stdout/stderr) is written to `nojump_multinode_<jobid>.out` /
+`.err`.
+
+## 5. Analyzing the results
 
 An analysis notebook is provided in `analyze_results.ipynb`.
 
-The notebook automatically finds the latest `run_YYYYMMDD_HHMMSS/`
-subdirectory.  It shows three ways to load and inspect the exported data:
+The notebook automatically finds the latest `run_YYYYMMDD_HHMMSS/` or
+`run_multinode_YYYYMMDD_HHMMSS/` subdirectory.  It shows three ways to load
+and inspect the exported data:
 
 1. **Session import** — `%import_session` via the JUmPER extension,
    giving full interactive plots and reports.
