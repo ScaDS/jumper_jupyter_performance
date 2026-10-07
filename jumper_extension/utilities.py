@@ -102,6 +102,14 @@ def detect_memory_limit(level, uid, slurm_job):
                     limit = f.read().strip()
                     if limit != "max":
                         return round(int(limit) / (1024**3), 2)
+
+        # Fallback: SLURM_MEM_PER_NODE (in MB)
+        slurm_mem = os.environ.get("SLURM_MEM_PER_NODE")
+        if slurm_mem:
+            try:
+                return round(int(slurm_mem) / 1024, 2)
+            except ValueError:
+                pass
     elif level == "process":
         try:
             import resource

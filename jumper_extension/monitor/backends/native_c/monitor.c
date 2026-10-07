@@ -198,7 +198,10 @@ static int collect_uid_pids(uid_t uid, int *out, int max_out) {
 
 static int collect_slurm_pids(int *out, int max_out) {
     if (g_slurm_job_id[0] == '\0') return 0;
-    int count = 0;
+    /* Seed with the target process's own PID tree so the slurm level
+       always has at least the monitored process's PIDs, even when
+       /proc/<pid>/environ is inaccessible due to ptrace restrictions. */
+    int count = collect_pid_tree(g_target_pid, out, max_out);
     char needle[128];
     int needle_len = snprintf(needle, sizeof(needle),
                               "SLURM_JOB_ID=%s", g_slurm_job_id);
@@ -222,7 +225,14 @@ static int collect_slurm_pids(int *out, int max_out) {
                 found = 1;
             off += elen + 1;
         }
-        if (found) out[count++] = pid;
+        if (found) {
+            /* Skip duplicates already in the array from the PID tree seed */
+            int dup = 0;
+            for (int j = 0; j < count; j++) {
+                if (out[j] == pid) { dup = 1; break; }
+            }
+            if (!dup) out[count++] = pid;
+        }
     }
     closedir(d);
     return count;
@@ -305,6 +315,14 @@ static void emit_ready(void) {
         getpid(), g_num_cpus, g_num_sys_cpus,
         ngpus, gpu_memory_gb(), gpu_name());
 
+    /* SLURM_MEM_PER_NODE fallback (in MB → GB) */
+    double slurm_mem = -1.0;
+    {
+        const char *env_mem = getenv("SLURM_MEM_PER_NODE");
+        if (env_mem && env_mem[0])
+            slurm_mem = atof(env_mem) / 1024.0;
+    }
+
     int first_ml = 1;
     for (int i = 0; i < MAX_LEVELS; i++) {
         if (!g_level_active[i]) continue;
@@ -313,6 +331,8 @@ static void emit_ready(void) {
         if (i == LEVEL_PROCESS && rlim_bytes > 0)
             fprintf(stdout, "\"%s\":%.2f", g_level_names[i],
                     (double)rlim_bytes / (1024.0 * 1024.0 * 1024.0));
+        else if (i == LEVEL_SLURM && slurm_mem > 0.0)
+            fprintf(stdout, "\"%s\":%.2f", g_level_names[i], slurm_mem);
         else
             fprintf(stdout, "\"%s\":%.2f", g_level_names[i], sys_mem);
     }
