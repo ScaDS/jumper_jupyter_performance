@@ -331,7 +331,7 @@ static void emit_ready(void) {
         if (i == LEVEL_PROCESS && rlim_bytes > 0)
             fprintf(stdout, "\"%s\":%.2f", g_level_names[i],
                     (double)rlim_bytes / (1024.0 * 1024.0 * 1024.0));
-        else if (i == LEVEL_SLURM && slurm_mem > 0.0)
+        else if ((i == LEVEL_PROCESS || i == LEVEL_SLURM) && slurm_mem > 0.0)
             fprintf(stdout, "\"%s\":%.2f", g_level_names[i], slurm_mem);
         else
             fprintf(stdout, "\"%s\":%.2f", g_level_names[i], sys_mem);

@@ -120,6 +120,15 @@ def detect_memory_limit(level, uid, slurm_job):
         except Exception:
             pass
 
+        # If no rlimit, fall back to SLURM memory limit when running under SLURM
+        if slurm_job:
+            slurm_mem = os.environ.get("SLURM_MEM_PER_NODE")
+            if slurm_mem:
+                try:
+                    return round(int(slurm_mem) / 1024, 2)
+                except ValueError:
+                    pass
+
     return system_mem
 
 
