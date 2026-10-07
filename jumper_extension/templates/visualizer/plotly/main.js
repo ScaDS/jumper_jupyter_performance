@@ -7,13 +7,11 @@
  *
  * FIGS shape: { node: { metric: { level: { "true"|"false": figDict } } } }
  * The "" key holds the aggregate view.  NODES lists the real node hostnames.
- * Single-node sessions have NODES = ["local"]; the node-selector dropdown is
- * rendered but hidden by the HTML hidden attribute.
+ * Each panel carries its own node dropdown (hidden for single-node sessions).
  *
  * Depends on component functions (loaded in order before this file):
  *   show_idle_checkbox : initShowIdle
  *   cell_range_slider  : getCellRange, initCellRangeSlider
- *   node_selector      : initNodeSelector
  *   add_panel_button   : initAddPanelButton, disableAddPanelButton
  *   panel              : createPanelElement, attachPanelEvents,
  *                        buildBoundaryUpdates, xRangeForCells, renderPlotInPanel
@@ -23,10 +21,8 @@
   /* ── state ────────────────────────────────────────────────────────────── */
   var panelCount    = 0;
   var usedMetrics   = [];
-  /* pid → { metricSel: <select>, levelSel: <select> } */
+  /* pid → { metricSel, levelSel, nodeSel } */
   var panelRegistry = {};
-  /* '' = aggregated view; hostname = per-node view */
-  var currentNode   = '';
 
   /* ── helpers ──────────────────────────────────────────────────────────── */
 
@@ -53,17 +49,18 @@
    * Assembles layout (boundaries, x-axis range) and calls renderPlotInPanel
    * for the given panel and selected metric/level.
    */
-  function renderPlot(pid, metric, level) {
+  function renderPlot(pid, metric, level, node) {
+    var nodeKey = node || '';
     var plotDiv = document.getElementById(pid + '-plot');
     var key     = showIdleKey();
-    var figData = (((FIGS[currentNode] || {})[metric] || {})[level] || {})[key];
+    var figData = (((FIGS[nodeKey] || {})[metric] || {})[level] || {})[key];
 
     if (!figData) {
       renderPlotInPanel(plotDiv, null, {});
       return;
     }
 
-    var ylim   = ((((YLIMS[currentNode] || {})[metric] || {})[level]) || {})[key] || [0, 1];
+    var ylim   = ((((YLIMS[nodeKey] || {})[metric] || {})[level]) || {})[key] || [0, 1];
     var rng    = getCellRange(CID, MIN_CELL, MAX_CELL);
     var bndArr = (key === 'true') ? BND_T : BND_F;
     var bnd    = buildBoundaryUpdates(bndArr, rng, ylim);
@@ -83,7 +80,8 @@
   function refreshAll() {
     Object.keys(panelRegistry).forEach(function (pid) {
       var p = panelRegistry[pid];
-      renderPlot(pid, p.metricSel.value, p.levelSel.value);
+      renderPlot(pid, p.metricSel.value, p.levelSel.value,
+                 p.nodeSel ? p.nodeSel.value : '');
     });
   }
 
@@ -105,7 +103,7 @@
       var pid    = CID + '-panel-' + panelCount;
       var metric = nextMetric();
       var defLev = (LEVS.indexOf('process') >= 0) ? 'process' : (LEVS[0] || 'process');
-      row.appendChild(createPanelElement(pid, metric, defLev, OPTS, LEVS));
+      row.appendChild(createPanelElement(pid, metric, defLev, OPTS, LEVS, NODES));
       pids.push(pid);
       panelCount++;
     }
@@ -114,12 +112,14 @@
       wrap.appendChild(row);
       pids.forEach(function (pid) {
         attachPanelEvents(pid, renderPlot);
-        panelRegistry[pid] = {
+        var reg = {
           metricSel: document.getElementById(pid + '-metric'),
-          levelSel:  document.getElementById(pid + '-level')
+          levelSel:  document.getElementById(pid + '-level'),
+          nodeSel:   document.getElementById(pid + '-node')
         };
-        renderPlot(pid, panelRegistry[pid].metricSel.value,
-                        panelRegistry[pid].levelSel.value);
+        panelRegistry[pid] = reg;
+        renderPlot(pid, reg.metricSel.value, reg.levelSel.value,
+                   reg.nodeSel ? reg.nodeSel.value : '');
       });
     }
 
@@ -137,10 +137,6 @@
   function init() {
     initCellRangeSlider(CID, MIN_CELL, MAX_CELL, INIT_RNG, refreshAll);
     initShowIdle(CID, refreshAll);
-    initNodeSelector(CID, function (node) {
-      currentNode = node;
-      refreshAll();
-    });
     initAddPanelButton(CID, addPanelRow);
     addPanelRow();
   }

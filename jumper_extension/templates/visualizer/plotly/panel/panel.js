@@ -6,7 +6,8 @@
 /* ── Panel DOM factory ───────────────────────────────────────────────────── */
 
 /**
- * Builds and returns a panel <div> with metric and level dropdowns.
+ * Builds and returns a panel <div> with metric, level and (multi-node only)
+ * node dropdowns.
  * The element is NOT yet attached to the document; call appendChild first.
  *
  * @param {string}   pid    - unique panel ID (e.g. "jump-vis-abc123-panel-0")
@@ -14,9 +15,10 @@
  * @param {string}   level  - initially selected level value
  * @param {Array}    opts   - [[label, value], …] metric options
  * @param {string[]} levs   - available level names
+ * @param {string[]} nodes  - node hostnames ([] or single → selector hidden)
  * @returns {HTMLElement}
  */
-function createPanelElement(pid, metric, level, opts, levs) {
+function createPanelElement(pid, metric, level, opts, levs, nodes) {
   var metricOpts = opts.map(function (o) {
     return '<option value="' + o[1] + '"' + (o[1] === metric ? ' selected' : '') + '>'
            + o[0] + '</option>';
@@ -27,6 +29,17 @@ function createPanelElement(pid, metric, level, opts, levs) {
            + l + '</option>';
   }).join('');
 
+  var nodeHtml = '';
+  if (nodes && nodes.length > 1) {
+    var nodeOpts = '<option value="" selected>&lt;Aggregated&gt;</option>'
+      + nodes.map(function (n) {
+          return '<option value="' + n + '">' + n + '</option>';
+        }).join('');
+    nodeHtml =
+      '<label>Node: <select class="jump-vis-node-sel" id="' + pid + '-node">'
+      + nodeOpts + '</select></label>';
+  }
+
   var div       = document.createElement('div');
   div.className    = 'jump-vis-panel';
   div.dataset.pid  = pid;
@@ -36,6 +49,7 @@ function createPanelElement(pid, metric, level, opts, levs) {
     + metricOpts + '</select></label>'
     + '<label>Level: <select class="jump-vis-level-sel" id="' + pid + '-level">'
     + levelOpts + '</select></label>'
+    + nodeHtml
     + '</div>'
     + '<div class="jump-vis-plot-area" id="' + pid + '-plot"></div>';
 
@@ -43,19 +57,24 @@ function createPanelElement(pid, metric, level, opts, levs) {
 }
 
 /**
- * Attaches change listeners to a panel's metric and level dropdowns.
- * onUpdate(pid, metric, level) is called on every dropdown change.
+ * Attaches change listeners to a panel's metric, level and node dropdowns.
+ * onUpdate(pid, metric, level, node) is called on every dropdown change.
  * Does NOT trigger an initial render — the caller is responsible for that.
  *
  * @param {string}   pid      - panel ID
- * @param {Function} onUpdate - (pid, metric, level) → void
+ * @param {Function} onUpdate - (pid, metric, level, node) → void
  */
 function attachPanelEvents(pid, onUpdate) {
   var mSel = document.getElementById(pid + '-metric');
   var lSel = document.getElementById(pid + '-level');
+  var nSel = document.getElementById(pid + '-node');
   if (!mSel || !lSel) return;
-  mSel.addEventListener('change', function () { onUpdate(pid, mSel.value, lSel.value); });
-  lSel.addEventListener('change', function () { onUpdate(pid, mSel.value, lSel.value); });
+  var fire = function () {
+    onUpdate(pid, mSel.value, lSel.value, nSel ? nSel.value : '');
+  };
+  mSel.addEventListener('change', fire);
+  lSel.addEventListener('change', fire);
+  if (nSel) nSel.addEventListener('change', fire);
 }
 
 /* ── Boundary helpers ────────────────────────────────────────────────────── */

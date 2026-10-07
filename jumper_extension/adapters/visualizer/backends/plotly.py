@@ -42,15 +42,49 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
         render_fn = RENDERERS.get(config.type)
         if render_fn is None:
             return None
-        result = render_fn(df, config, level, self._hardware, self._io_window)
+        result, bands, x = self._render_by_node(
+            df, config, level, render_fn
+        )
         if result is None:
             return None
 
+        xs = (x if x is not None else df["time"]).tolist()
         traces = []
         y_values = []
-        for item in result.series:
+        for idx, item in enumerate(result.series):
+            if bands:
+                lo, hi = bands[idx]
+                try:
+                    from matplotlib.colors import to_rgba
+                    r, g, b, _ = to_rgba(item.color)
+                    fillcolor = f"rgba({int(r*255)},{int(g*255)},{int(b*255)},0.15)"
+                except Exception:
+                    fillcolor = "rgba(0,0,0,0.1)"
+                band_color = item.color
+                traces.append(go.Scatter(
+                    x=xs,
+                    y=lo.tolist(),
+                    mode="lines",
+                    line=dict(color=band_color, dash="dot", width=0.8),
+                    opacity=0.6,
+                    name=f"{item.label} (min)",
+                    showlegend=False,
+                    hoverinfo="skip",
+                ))
+                traces.append(go.Scatter(
+                    x=xs,
+                    y=hi.tolist(),
+                    mode="lines",
+                    line=dict(color=band_color, dash="dot", width=0.8),
+                    opacity=0.6,
+                    name=f"{item.label} min/max",
+                    fill="tonexty",
+                    fillcolor=fillcolor,
+                ))
+                y_values.extend(lo.tolist())
+                y_values.extend(hi.tolist())
             traces.append(go.Scatter(
-                x=df["time"].tolist(),
+                x=xs,
                 y=item.data.tolist(),
                 mode="lines",
                 line=dict(
@@ -368,9 +402,15 @@ class PlotlyPerformanceVisualizer(PerformanceVisualizer):
 
         perfdata_by_level = {}
         for available_level in get_available_levels():
+            node_df = self.monitor.nodes.view(
+                level=available_level, node=node_name
+            )
+            if not node_df.empty and "node" not in node_df.columns:
+                node_df = node_df.copy()
+                node_df["node"] = node_name
             perfdata_by_level[available_level] = filter_perfdata(
                 filtered_cells,
-                self.monitor.nodes.view(level=available_level, node=node_name),
+                node_df,
                 not show_idle,
             )
 
@@ -734,7 +774,6 @@ class InteractivePlotlyWrapper:
     _JS_COMPONENTS = [
         "show_idle_checkbox",
         "cell_range_slider",
-        "node_selector",
         "add_panel_button",
         "panel",
     ]

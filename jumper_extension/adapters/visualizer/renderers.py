@@ -37,7 +37,9 @@ def render_single_series(df, config, level, hardware, io_window):
 
     ylim = config.ylim
     if column == "memory" and ylim is None:
-        ylim = (0.0, float(hardware.memory_limits.get(level, 0.0)))
+        limit = float(hardware.memory_limits.get(level, 0.0))
+        if limit > 0:
+            ylim = (0.0, limit)
 
     return PlotResult(
         series=[
