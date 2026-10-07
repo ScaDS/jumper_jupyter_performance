@@ -152,6 +152,11 @@ class MatplotlibPerformanceVisualizer(PerformanceVisualizer):
         current_cell_range,
         current_show_idle,
     ):
+        node_names = (
+            self.monitor.nodes.node_names()
+            if self.monitor and hasattr(self.monitor, "nodes")
+            else []
+        )
         return InteractivePlotWrapper(
             self._plot_metric,
             metrics,
@@ -160,6 +165,7 @@ class MatplotlibPerformanceVisualizer(PerformanceVisualizer):
             current_cell_range,
             current_show_idle,
             self.figsize,
+            node_names=node_names,
         )
 
     def _render_direct_plot(
@@ -250,6 +256,7 @@ class InteractivePlotWrapper:
         cell_range=None,
         show_idle=False,
         figsize=None,
+        node_names=None,
     ):
         self.plot_callback, self.perfdata_by_level, self.metrics = (
             plot_callback,
@@ -262,6 +269,7 @@ class InteractivePlotWrapper:
             show_idle,
             figsize,
         )
+        self.node_names = node_names or []
         self.shown_metrics, self.panel_count, self.max_panels = (
             set(),
             0,
@@ -326,6 +334,14 @@ class InteractivePlotWrapper:
             value="process",
             description="Level:",
         )
+        node_options = [("All Nodes", "")] + [
+            (n, n) for n in self.node_names
+        ]
+        node_dropdown = widgets.Dropdown(
+            options=node_options,
+            value="",
+            description="Node:",
+        )
         fig, ax = plt.subplots(figsize=self.figsize, constrained_layout=True)
         if not is_ipympl_backend():
             plt.close(fig)
@@ -334,7 +350,10 @@ class InteractivePlotWrapper:
         def update_plot():
             metric = metric_dropdown.value
             level = level_dropdown.value
+            selected_node = node_dropdown.value
             df = self.perfdata_by_level.get(level)
+            if df is not None and selected_node and "node" in df.columns:
+                df = df[df["node"] == selected_node]
             if not is_ipympl_backend():
                 output.clear_output(wait=True)
             with output:
@@ -353,11 +372,13 @@ class InteractivePlotWrapper:
 
         metric_dropdown.observe(on_dropdown_change)
         level_dropdown.observe(on_dropdown_change)
+        node_dropdown.observe(on_dropdown_change)
 
         # Store panel data for updates
         panel_data = {
             "metric_dropdown": metric_dropdown,
             "level_dropdown": level_dropdown,
+            "node_dropdown": node_dropdown,
             "figure": fig,
             "axes": ax,
             "output": output,
@@ -371,8 +392,11 @@ class InteractivePlotWrapper:
             with output:
                 plt.show()
 
+        dropdowns = [metric_dropdown, level_dropdown]
+        if len(self.node_names) > 1:
+            dropdowns.append(node_dropdown)
         return widgets.VBox(
-            [widgets.HBox([metric_dropdown, level_dropdown]), output]
+            [widgets.HBox(dropdowns), output]
         )
 
     def _get_next_metric(self):

@@ -113,9 +113,14 @@ class NodeDataStore:
             return perf_data.view(level=level, slice_=slice_, cell_history=cell_history)
 
         if len(self._nodes) == 1:
-            return next(iter(self._nodes.values())).view(
+            n, perf = next(iter(self._nodes.items()))
+            df = perf.view(
                 level=level, slice_=slice_, cell_history=cell_history
             )
+            if not df.empty:
+                df = df.copy()
+                df["node"] = n
+            return df
 
         return self._aggregate(level, cell_history)
 
@@ -124,6 +129,8 @@ class NodeDataStore:
         for n, perf in self._nodes.items():
             df = perf.view(level)
             if not df.empty:
+                df = df.copy()
+                df["node"] = n
                 node_dfs[n] = df
 
         if not node_dfs:
@@ -132,20 +139,7 @@ class NodeDataStore:
             df = next(iter(node_dfs.values()))
             return self._attach_cell_index(df, cell_history) if cell_history else df
 
-        min_len = min(len(df) for df in node_dfs.values())
-        if min_len == 0:
-            return pd.DataFrame()
-
-        frames = [
-            df.iloc[:min_len].reset_index(drop=True)
-            for df in node_dfs.values()
-        ]
-        result = frames[0].copy()
-
-        self._aggregate_memory(frames, result)
-        self._aggregate_io(frames, result)
-        self._aggregate_cpu(frames, result)
-        self._aggregate_gpu(frames, result)
+        result = pd.concat(node_dfs.values(), ignore_index=True)
 
         if cell_history is not None:
             result = self._attach_cell_index(result, cell_history)
