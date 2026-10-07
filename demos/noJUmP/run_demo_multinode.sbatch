@@ -4,7 +4,7 @@
 #SBATCH --error=nojump_multinode_%j.err
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=3
 #SBATCH --time=00:30:00
 #SBATCH --mem=8G
 #SBATCH --gres=gpu:1

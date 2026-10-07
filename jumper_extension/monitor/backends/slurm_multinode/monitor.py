@@ -53,6 +53,8 @@ class _NodeConnection:
         # Use srun to launch the collector on the specific node
         srun_cmd = [
             "srun",
+            "--overlap",
+            "--nodes=1",
             "--nodelist=" + self.hostname,
             "--ntasks=1",
             "--unbuffered",

@@ -229,6 +229,8 @@ def _srun_on_node(hostname: str, script_dir: str, python_code: str) -> None:
     """Run a Python snippet on a specific node via srun."""
     cmd = [
         "srun",
+        "--overlap",
+        "--nodes=1",
         f"--nodelist={hostname}",
         "--ntasks=1",
         "--unbuffered",
