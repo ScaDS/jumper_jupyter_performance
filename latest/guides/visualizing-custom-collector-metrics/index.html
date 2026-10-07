@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -1711,9 +1711,9 @@ DataFrame. To make it available to <code>%perfmonitor_plot --metrics</code>, add
 <span class="w">    </span><span class="nt">your_metric_key</span><span class="p">:</span><span class="w">     </span><span class="c1"># what the user types in --metrics</span>
 <span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">single_series</span>
 <span class="w">      </span><span class="nt">column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">your_column</span><span class="w">    </span><span class="c1"># column name declared in collectors.yaml handler columns</span>
-<span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Chart</span><span class="nv"> </span><span class="s">title&quot;</span>
+<span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"Chart</span><span class="nv"> </span><span class="s">title"</span>
 <span class="w">      </span><span class="nt">ylim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span><span class="w">             </span><span class="c1"># or [min, max]</span>
-<span class="w">      </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Legend</span><span class="nv"> </span><span class="s">label&quot;</span>
+<span class="w">      </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="s">"Legend</span><span class="nv"> </span><span class="s">label"</span>
 </code></pre></div>
 <p>Four built-in plot types are available:</p>
 <table>
@@ -1774,16 +1774,16 @@ one panel using <code>composite_series</code>.</p>
 <span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">composite_series</span>
 <span class="w">      </span><span class="nt">series</span><span class="p">:</span>
 <span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">io_read</span>
-<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Disk</span><span class="nv"> </span><span class="s">Read</span><span class="nv"> </span><span class="s">(bytes/s)&quot;</span>
-<span class="w">          </span><span class="nt">color</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;steelblue&quot;</span>
+<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="s">"Disk</span><span class="nv"> </span><span class="s">Read</span><span class="nv"> </span><span class="s">(bytes/s)"</span>
+<span class="w">          </span><span class="nt">color</span><span class="p">:</span><span class="w"> </span><span class="s">"steelblue"</span>
 <span class="w">          </span><span class="nt">width</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
 <span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">net_bytes_recv</span>
-<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Net</span><span class="nv"> </span><span class="s">Recv</span><span class="nv"> </span><span class="s">(bytes/s)&quot;</span>
-<span class="w">          </span><span class="nt">color</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;darkorange&quot;</span>
+<span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="s">"Net</span><span class="nv"> </span><span class="s">Recv</span><span class="nv"> </span><span class="s">(bytes/s)"</span>
+<span class="w">          </span><span class="nt">color</span><span class="p">:</span><span class="w"> </span><span class="s">"darkorange"</span>
 <span class="w">          </span><span class="nt">width</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.0</span>
-<span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Disk</span><span class="nv"> </span><span class="s">Read</span><span class="nv"> </span><span class="s">vs</span><span class="nv"> </span><span class="s">Network</span><span class="nv"> </span><span class="s">Receive</span><span class="nv"> </span><span class="s">(bytes/s)&quot;</span>
+<span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"Disk</span><span class="nv"> </span><span class="s">Read</span><span class="nv"> </span><span class="s">vs</span><span class="nv"> </span><span class="s">Network</span><span class="nv"> </span><span class="s">Receive</span><span class="nv"> </span><span class="s">(bytes/s)"</span>
 <span class="w">      </span><span class="nt">ylim</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
-<span class="w">      </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Disk</span><span class="nv"> </span><span class="s">vs</span><span class="nv"> </span><span class="s">Network&quot;</span>
+<span class="w">      </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="s">"Disk</span><span class="nv"> </span><span class="s">vs</span><span class="nv"> </span><span class="s">Network"</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1852,7 +1852,7 @@ the inverse points to local disk as the bottleneck.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -1901,21 +1901,21 @@
 <span class="normal">61</span>
 <span class="normal">62</span>
 <span class="normal">63</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">install_kernel</span><span class="p">(</span><span class="n">user</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Install the Jumper Wrapper Kernel specification.</span>
+<span class="w">    </span><span class="sd">"""Install the Jumper Wrapper Kernel specification.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        user: If True, install for current user only. Ignored if prefix is set.</span>
 <span class="sd">        prefix: Install to specific prefix path (e.g., sys.prefix for virtualenv).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 
     <span class="n">kernel_spec_manager</span> <span class="o">=</span> <span class="n">KernelSpecManager</span><span class="p">()</span>
 
     <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
-        <span class="n">kernel_json_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">,</span> <span class="s1">&#39;kernel.json&#39;</span><span class="p">)</span>
+        <span class="n">kernel_json_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">,</span> <span class="s1">'kernel.json'</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">kernel_json_path</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">kernel_json_path</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">KERNEL_JSON</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="c1"># Add branded icons for the base launcher entry (full kangaroo icon)</span>
@@ -1925,19 +1925,19 @@
         <span class="k">if</span> <span class="n">prefix</span><span class="p">:</span>
             <span class="n">kernel_spec_manager</span><span class="o">.</span><span class="n">install_kernel_spec</span><span class="p">(</span>
                 <span class="n">temp_dir</span><span class="p">,</span>
-                <span class="n">kernel_name</span><span class="o">=</span><span class="s1">&#39;jumper_wrapper&#39;</span><span class="p">,</span>
+                <span class="n">kernel_name</span><span class="o">=</span><span class="s1">'jumper_wrapper'</span><span class="p">,</span>
                 <span class="n">user</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                 <span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">kernel_spec_manager</span><span class="o">.</span><span class="n">install_kernel_spec</span><span class="p">(</span>
                 <span class="n">temp_dir</span><span class="p">,</span>
-                <span class="n">kernel_name</span><span class="o">=</span><span class="s1">&#39;jumper_wrapper&#39;</span><span class="p">,</span>
+                <span class="n">kernel_name</span><span class="o">=</span><span class="s1">'jumper_wrapper'</span><span class="p">,</span>
                 <span class="n">user</span><span class="o">=</span><span class="n">user</span>
             <span class="p">)</span>
 
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Jumper Wrapper Kernel installed successfully!&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;You can now use it by selecting &#39;Jumper Wrapper Kernel&#39; in Jupyter.&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Jumper Wrapper Kernel installed successfully!"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"You can now use it by selecting 'Jumper Wrapper Kernel' in Jupyter."</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1970,14 +1970,14 @@
 <span class="normal">73</span>
 <span class="normal">74</span>
 <span class="normal">75</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">uninstall_kernel</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove the Jumper Wrapper Kernel specification.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Remove the Jumper Wrapper Kernel specification."""</span>
     <span class="n">kernel_spec_manager</span> <span class="o">=</span> <span class="n">KernelSpecManager</span><span class="p">()</span>
 
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">kernel_spec_manager</span><span class="o">.</span><span class="n">remove_kernel_spec</span><span class="p">(</span><span class="s1">&#39;jumper_wrapper&#39;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Jumper Wrapper Kernel uninstalled successfully!&quot;</span><span class="p">)</span>
+        <span class="n">kernel_spec_manager</span><span class="o">.</span><span class="n">remove_kernel_spec</span><span class="p">(</span><span class="s1">'jumper_wrapper'</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"Jumper Wrapper Kernel uninstalled successfully!"</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to uninstall kernel: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to uninstall kernel: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -2023,26 +2023,26 @@
 <span class="normal">97</span>
 <span class="normal">98</span>
 <span class="normal">99</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;CLI entry point for kernel installation and removal.&quot;&quot;&quot;</span>
-    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s1">&#39;Install/Uninstall Jumper Wrapper Kernel&#39;</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;action&#39;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;install&#39;</span><span class="p">,</span> <span class="s1">&#39;uninstall&#39;</span><span class="p">],</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Action to perform&#39;</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--user&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Install for the current user (default)&#39;</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--sys-prefix&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span>
-                        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Install to sys.prefix (e.g., for virtualenv/conda)&#39;</span><span class="p">)</span>
-    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--prefix&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-                        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Install to a specific prefix&#39;</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""CLI entry point for kernel installation and removal."""</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s1">'Install/Uninstall Jumper Wrapper Kernel'</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">'action'</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s1">'install'</span><span class="p">,</span> <span class="s1">'uninstall'</span><span class="p">],</span> <span class="n">help</span><span class="o">=</span><span class="s1">'Action to perform'</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">'--user'</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">'store_true'</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s1">'Install for the current user (default)'</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">'--sys-prefix'</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">'store_true'</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s1">'Install to sys.prefix (e.g., for virtualenv/conda)'</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">'--prefix'</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s1">'Install to a specific prefix'</span><span class="p">)</span>
 
     <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
 
-    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">action</span> <span class="o">==</span> <span class="s1">&#39;install&#39;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">action</span> <span class="o">==</span> <span class="s1">'install'</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">sys_prefix</span><span class="p">:</span>
             <span class="n">install_kernel</span><span class="p">(</span><span class="n">user</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">prefix</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">prefix</span><span class="p">:</span>
             <span class="n">install_kernel</span><span class="p">(</span><span class="n">user</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">prefix</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">install_kernel</span><span class="p">(</span><span class="n">user</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">user</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">action</span> <span class="o">==</span> <span class="s1">&#39;uninstall&#39;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">action</span> <span class="o">==</span> <span class="s1">'uninstall'</span><span class="p">:</span>
         <span class="n">uninstall_kernel</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -2112,7 +2112,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": [], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

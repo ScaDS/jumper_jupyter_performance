@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -1880,8 +1880,8 @@ non-trivial custom backend looks like.</p>
 <span class="c1"># Configure a multi-node SLURM monitor. Both arguments are optional;</span>
 <span class="c1"># defaults target a standard single-allocation setup.</span>
 <span class="n">my_monitor</span> <span class="o">=</span> <span class="n">SlurmMultinodeMonitor</span><span class="p">(</span>
-    <span class="n">log_path</span><span class="o">=</span><span class="s2">&quot;runs/2026-04-21/jumper_multinode.jsonl&quot;</span><span class="p">,</span>
-    <span class="n">python_executable</span><span class="o">=</span><span class="s2">&quot;/opt/conda/envs/hpc/bin/python&quot;</span><span class="p">,</span>
+    <span class="n">log_path</span><span class="o">=</span><span class="s2">"runs/2026-04-21/jumper_multinode.jsonl"</span><span class="p">,</span>
+    <span class="n">python_executable</span><span class="o">=</span><span class="s2">"/opt/conda/envs/hpc/bin/python"</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">service</span><span class="o">.</span><span class="n">start_monitoring</span><span class="p">(</span><span class="n">interval</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">monitor</span><span class="o">=</span><span class="n">my_monitor</span><span class="p">)</span>
@@ -1893,7 +1893,7 @@ non-trivial custom backend looks like.</p>
 
 <span class="c1"># The standard reporter, plotter and exporter all work against the</span>
 <span class="c1"># monitor you just plugged in:</span>
-<span class="n">service</span><span class="o">.</span><span class="n">export_perfdata</span><span class="p">(</span><span class="n">file</span><span class="o">=</span><span class="s2">&quot;runs/2026-04-21/perf.csv&quot;</span><span class="p">)</span>
+<span class="n">service</span><span class="o">.</span><span class="n">export_perfdata</span><span class="p">(</span><span class="n">file</span><span class="o">=</span><span class="s2">"runs/2026-04-21/perf.csv"</span><span class="p">)</span>
 </code></pre></div>
 <p>Inside <code>SlurmMultinodeMonitor</code>, the protocol attributes are populated
 from the ready-handshake of each per-node collector:</p>
@@ -1920,7 +1920,7 @@ the full implementation.</p>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">MyCustomMonitor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Monitor that collects samples from my_metric_source.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Monitor that collects samples from my_metric_source."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Protocol surface</span>
@@ -1936,7 +1936,7 @@ the full implementation.</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_system_cpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_gpus</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gpu_memory</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">gpu_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gpu_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cpu_handles</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">memory_limits</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
 
@@ -2081,7 +2081,7 @@ itself; it only means the tailored check does not apply.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

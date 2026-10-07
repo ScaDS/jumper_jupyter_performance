@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -2336,15 +2336,15 @@ variables.</p>
 <span class="normal">22</span>
 <span class="normal">23</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ExportVars</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Names of variables used when exporting data frames.</span>
+<span class="w">    </span><span class="sd">"""Names of variables used when exporting data frames.</span>
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        perfdata: Variable name for exported performance data.</span>
 <span class="sd">        cell_history: Variable name for exported cell history.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="n">perfdata</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;perfdata_df&quot;</span>
-    <span class="n">cell_history</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cell_history_df&quot;</span>
+    <span class="n">perfdata</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"perfdata_df"</span>
+    <span class="n">cell_history</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cell_history_df"</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -2447,15 +2447,15 @@ variables.</p>
 <span class="normal">35</span>
 <span class="normal">36</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">LoadedVars</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Names of variables used when loading data frames.</span>
+<span class="w">    </span><span class="sd">"""Names of variables used when loading data frames.</span>
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        perfdata: Variable name for loaded performance data.</span>
 <span class="sd">        cell_history: Variable name for loaded cell history.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="n">perfdata</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;loaded_perfdata_df&quot;</span>
-    <span class="n">cell_history</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;loaded_cell_history_df&quot;</span>
+    <span class="n">perfdata</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"loaded_perfdata_df"</span>
+    <span class="n">cell_history</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"loaded_cell_history_df"</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -2571,16 +2571,16 @@ variables.</p>
 <span class="normal">50</span>
 <span class="normal">51</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">PerfomanceReports</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for automatic per-cell performance reports.</span>
+<span class="w">    </span><span class="sd">"""Configuration for automatic per-cell performance reports.</span>
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        enabled: Whether per-cell reports are enabled.</span>
 <span class="sd">        level: Monitoring level used when generating reports.</span>
 <span class="sd">        text: If True, use text reports instead of HTML.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;process&quot;</span>
+    <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"process"</span>
     <span class="n">text</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 </code></pre></div></td></tr></table></div>
               </details>
@@ -2697,13 +2697,13 @@ variables.</p>
 <span class="normal">65</span>
 <span class="normal">66</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">PerformanceMonitoring</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for the performance monitoring loop.</span>
+<span class="w">    </span><span class="sd">"""Configuration for the performance monitoring loop.</span>
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        default_interval: Default sampling interval in seconds.</span>
 <span class="sd">        user_interval: User-provided interval overriding the default.</span>
 <span class="sd">        running: Whether monitoring is currently running.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">default_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
     <span class="n">user_interval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -2882,7 +2882,7 @@ names used when exporting or loading data.</p>
 <span class="normal">95</span>
 <span class="normal">96</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Settings</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Top-level configuration container for the extension.</span>
+<span class="w">    </span><span class="sd">"""Top-level configuration container for the extension.</span>
 
 <span class="sd">    Groups performance reports, monitoring configuration, and variable</span>
 <span class="sd">    names used when exporting or loading data.</span>
@@ -2893,20 +2893,20 @@ names used when exporting or loading data.</p>
 <span class="sd">        export_vars: Names for exported data variables.</span>
 <span class="sd">        loaded_vars: Names for loaded data variables.</span>
 <span class="sd">        visualizer_backend: Default backend used for plotting.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">perfreports</span><span class="p">:</span> <span class="n">PerfomanceReports</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PerfomanceReports</span><span class="p">)</span>
     <span class="n">monitoring</span><span class="p">:</span> <span class="n">PerformanceMonitoring</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">PerformanceMonitoring</span><span class="p">)</span>
     <span class="n">export_vars</span><span class="p">:</span> <span class="n">ExportVars</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">ExportVars</span><span class="p">)</span>
     <span class="n">loaded_vars</span><span class="p">:</span> <span class="n">LoadedVars</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">LoadedVars</span><span class="p">)</span>
-    <span class="n">visualizer_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;matplotlib&quot;</span>
+    <span class="n">visualizer_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"matplotlib"</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">snapshot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Settings&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a deep copy of the current settings.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">snapshot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Settings"</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return a deep copy of the current settings.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Settings: Independent copy of the current configuration.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
@@ -2974,12 +2974,12 @@ names used when exporting or loading data.</p>
 <span class="normal">93</span>
 <span class="normal">94</span>
 <span class="normal">95</span>
-<span class="normal">96</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">snapshot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Settings&quot;</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a deep copy of the current settings.</span>
+<span class="normal">96</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">snapshot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Settings"</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return a deep copy of the current settings.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Settings: Independent copy of the current configuration.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -3077,7 +3077,7 @@ names used when exporting or loading data.</p>
 <span class="normal">22</span>
 <span class="normal">23</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ArgParsers</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for command-line argument parsers.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Configuration for command-line argument parsers."""</span>
     <span class="n">perfmonitor_start</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span>
     <span class="n">perfreport</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span>
     <span class="n">auto_perfreports</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span>
@@ -3152,19 +3152,19 @@ names used when exporting or loading data.</p>
 <span class="normal">177</span>
 <span class="normal">178</span>
 <span class="normal">179</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">build_export_session_parser</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build parser for exporting a full session package.</span>
+<span class="w">    </span><span class="sd">"""Build parser for exporting a full session package.</span>
 
 <span class="sd">    Usage examples in magics:</span>
 <span class="sd">      %export_session                        # uses default directory name</span>
 <span class="sd">      %export_session my_dir                 # export into directory</span>
 <span class="sd">      %export_session my_session.zip         # export and zip (auto-detected by .zip extension)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">&quot;path&quot;</span><span class="p">,</span>
-        <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">,</span>
+        <span class="s2">"path"</span><span class="p">,</span>
+        <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span>
         <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Target directory or .zip path (defaults to jumper-session-&lt;timestamp&gt;)&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Target directory or .zip path (defaults to jumper-session-&lt;timestamp&gt;)"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">parser</span>
 </code></pre></div></td></tr></table></div>
@@ -3198,12 +3198,12 @@ names used when exporting or loading data.</p>
 <span class="normal">187</span>
 <span class="normal">188</span>
 <span class="normal">189</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">build_import_session_parser</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build parser for importing a full session package from directory or zip.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Build parser for importing a full session package from directory or zip."""</span>
     <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">&quot;path&quot;</span><span class="p">,</span>
+        <span class="s2">"path"</span><span class="p">,</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to exported session directory or .zip archive&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Path to exported session directory or .zip archive"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">parser</span>
 </code></pre></div></td></tr></table></div>
@@ -3258,33 +3258,33 @@ names used when exporting or loading data.</p>
 <span class="normal">53</span>
 <span class="normal">54</span>
 <span class="normal">55</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">build_perfmonitor_start_parser</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build an ArgumentParser for the perfmonitor_start command.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Build an ArgumentParser for the perfmonitor_start command."""</span>
     <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">&quot;interval&quot;</span><span class="p">,</span>
-        <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">,</span>
+        <span class="s2">"interval"</span><span class="p">,</span>
+        <span class="n">nargs</span><span class="o">=</span><span class="s2">"?"</span><span class="p">,</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
         <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Sampling interval in seconds (default: 1.0)&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Sampling interval in seconds (default: 1.0)"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">&quot;--monitor&quot;</span><span class="p">,</span>
+        <span class="s2">"--monitor"</span><span class="p">,</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
-        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="s2">&quot;native_c&quot;</span><span class="p">,</span> <span class="s2">&quot;subprocess_python&quot;</span><span class="p">,</span> <span class="s2">&quot;thread&quot;</span><span class="p">,</span> <span class="s2">&quot;slurm_multinode&quot;</span><span class="p">],</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Monitor backend to use (default: subprocess-based Python collector, &quot;</span>
-             <span class="s2">&quot;&#39;native_c&#39; for native C collector, &quot;</span>
-             <span class="s2">&quot;&#39;subprocess_python&#39; for explicit Python subprocess collector, &quot;</span>
-             <span class="s2">&quot;&#39;thread&#39; for in-process threaded monitor)&quot;</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">"default"</span><span class="p">,</span>
+        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">"default"</span><span class="p">,</span> <span class="s2">"native_c"</span><span class="p">,</span> <span class="s2">"subprocess_python"</span><span class="p">,</span> <span class="s2">"thread"</span><span class="p">,</span> <span class="s2">"slurm_multinode"</span><span class="p">],</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Monitor backend to use (default: subprocess-based Python collector, "</span>
+             <span class="s2">"'native_c' for native C collector, "</span>
+             <span class="s2">"'subprocess_python' for explicit Python subprocess collector, "</span>
+             <span class="s2">"'thread' for in-process threaded monitor)"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">&quot;--check-sanity&quot;</span><span class="p">,</span>
-        <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;check_sanity&quot;</span><span class="p">,</span>
-        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Run a short sanity check of the selected monitor before &quot;</span>
-             <span class="s2">&quot;starting real monitoring. Tailored for thread, &quot;</span>
-             <span class="s2">&quot;subprocess_python and native_c monitors; other monitors &quot;</span>
-             <span class="s2">&quot;are expected to fail this check.&quot;</span><span class="p">,</span>
+        <span class="s2">"--check-sanity"</span><span class="p">,</span>
+        <span class="n">dest</span><span class="o">=</span><span class="s2">"check_sanity"</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Run a short sanity check of the selected monitor before "</span>
+             <span class="s2">"starting real monitoring. Tailored for thread, "</span>
+             <span class="s2">"subprocess_python and native_c monitors; other monitors "</span>
+             <span class="s2">"are expected to fail this check."</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">parser</span>
 </code></pre></div></td></tr></table></div>
@@ -3329,23 +3329,23 @@ names used when exporting or loading data.</p>
 <span class="normal">75</span>
 <span class="normal">76</span>
 <span class="normal">77</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">build_perfreport_parser</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build an ArgumentParser instance for JUmPER commands.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Build an ArgumentParser instance for JUmPER commands."""</span>
     <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">&quot;--cell&quot;</span><span class="p">,</span>
+        <span class="s2">"--cell"</span><span class="p">,</span>
         <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Cell index or range (e.g., 5, 2:8, :5)&quot;</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Cell index or range (e.g., 5, 2:8, :5)"</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">&quot;--level&quot;</span><span class="p">,</span>
-        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;process&quot;</span><span class="p">,</span>
+        <span class="s2">"--level"</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">"process"</span><span class="p">,</span>
         <span class="n">choices</span><span class="o">=</span><span class="n">get_available_levels</span><span class="p">(),</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Performance level&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Performance level"</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
-        <span class="s2">&quot;--text&quot;</span><span class="p">,</span>
-        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
-        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Show report in text format&quot;</span>
+        <span class="s2">"--text"</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">"store_true"</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">"Show report in text format"</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">parser</span>
 </code></pre></div></td></tr></table></div>
@@ -3459,7 +3459,7 @@ names used when exporting or loading data.</p>
 <span class="normal">207</span>
 <span class="normal">208</span>
 <span class="normal">209</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">parse_arguments</span><span class="p">(</span><span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">line</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse common command line arguments for JUmPER commands.</span>
+<span class="w">    </span><span class="sd">"""Parse common command line arguments for JUmPER commands.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        line: The command line string to parse</span>
@@ -3467,7 +3467,7 @@ names used when exporting or loading data.</p>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Parsed arguments or None if parsing failed</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">args</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">(</span><span class="n">shlex</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">line</span><span class="p">))</span>
@@ -3597,22 +3597,22 @@ names used when exporting or loading data.</p>
 <span class="normal">237</span>
 <span class="normal">238</span>
 <span class="normal">239</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">parse_cell_range</span><span class="p">(</span><span class="n">cell_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cell_history_length</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse a cell range string into start and end indices.</span>
+<span class="w">    </span><span class="sd">"""Parse a cell range string into start and end indices.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        cell_str: String representing cell range (e.g., &quot;1:3&quot;, &quot;5&quot;, &quot;:10&quot;)</span>
+<span class="sd">        cell_str: String representing cell range (e.g., "1:3", "5", ":10")</span>
 <span class="sd">        cell_history_length: Length of cell history</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Tuple of (start_idx, end_idx) or None if invalid</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">cell_str</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">try</span><span class="p">:</span>
         <span class="n">max_idx</span> <span class="o">=</span> <span class="n">cell_history_length</span> <span class="o">-</span> <span class="mi">1</span>
-        <span class="k">if</span> <span class="s2">&quot;:&quot;</span> <span class="ow">in</span> <span class="n">cell_str</span><span class="p">:</span>
-            <span class="n">start_str</span><span class="p">,</span> <span class="n">end_str</span> <span class="o">=</span> <span class="n">cell_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">":"</span> <span class="ow">in</span> <span class="n">cell_str</span><span class="p">:</span>
+            <span class="n">start_str</span><span class="p">,</span> <span class="n">end_str</span> <span class="o">=</span> <span class="n">cell_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">":"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
             <span class="n">start_idx</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">start_str</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">start_str</span><span class="p">)</span>
             <span class="n">end_idx</span> <span class="o">=</span> <span class="n">max_idx</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">end_str</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">end_str</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -3717,7 +3717,7 @@ those messages.</p>
 <span class="normal">29</span>
 <span class="normal">30</span>
 <span class="normal">31</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ExtensionErrorCode</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Error codes emitted by the extension.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Error codes emitted by the extension."""</span>
 
     <span class="n">PYNVML_NOT_AVAILABLE</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
     <span class="n">NVIDIA_DRIVERS_NOT_AVAILABLE</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
@@ -3802,7 +3802,7 @@ those messages.</p>
 <span class="normal">48</span>
 <span class="normal">49</span>
 <span class="normal">50</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ExtensionInfoCode</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Informational codes emitted by the extension.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Informational codes emitted by the extension."""</span>
 
     <span class="n">IMPRECISE_INTERVAL</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
     <span class="n">MISSED_MEASUREMENTS</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>
@@ -3893,14 +3893,14 @@ those messages.</p>
 <span class="normal">161</span>
 <span class="normal">162</span>
 <span class="normal">163</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_jumper_process_error_hint</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a hint pointing to the error log file.</span>
+<span class="w">    </span><span class="sd">"""Return a hint pointing to the error log file.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        str: Human-readable hint with the path to the error log file.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">jumper_process_error_hint</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Hint: full error info saved to log file: &quot;</span>
-        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">LOGGING</span><span class="p">[</span><span class="s1">&#39;handlers&#39;</span><span class="p">][</span><span class="s1">&#39;error_file&#39;</span><span class="p">][</span><span class="s1">&#39;filename&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="s2">"</span><span class="se">\n</span><span class="s2">Hint: full error info saved to log file: "</span>
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">LOGGING</span><span class="p">[</span><span class="s1">'handlers'</span><span class="p">][</span><span class="s1">'error_file'</span><span class="p">][</span><span class="s1">'filename'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">jumper_process_error_hint</span>
 </code></pre></div></td></tr></table></div>
@@ -3950,7 +3950,7 @@ those messages.</p>
 
 
 <h2 id="jumper_extension.core.service.build_perfmonitor_service" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">build_perfmonitor_service</span><span class="p">(</span><span class="n">plots_disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">plots_disabled_reason</span><span class="o">=</span><span class="s1">&#39;Plotting not available.&#39;</span><span class="p">,</span> <span class="n">display_disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">display_disabled_reason</span><span class="o">=</span><span class="s1">&#39;Display not available.&#39;</span><span class="p">,</span> <span class="n">visualizer_backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">build_perfmonitor_service</span><span class="p">(</span><span class="n">plots_disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">plots_disabled_reason</span><span class="o">=</span><span class="s1">'Plotting not available.'</span><span class="p">,</span> <span class="n">display_disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">display_disabled_reason</span><span class="o">=</span><span class="s1">'Display not available.'</span><span class="p">,</span> <span class="n">visualizer_backend</span><span class="o">=</span><span class="s1">'matplotlib'</span><span class="p">)</span></code>
 
 </h2>
 
@@ -4150,12 +4150,12 @@ display is disabled.</p>
 <span class="normal">1193</span>
 <span class="normal">1194</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">build_perfmonitor_service</span><span class="p">(</span>
         <span class="n">plots_disabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">plots_disabled_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Plotting not available.&quot;</span><span class="p">,</span>
+        <span class="n">plots_disabled_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Plotting not available."</span><span class="p">,</span>
         <span class="n">display_disabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">display_disabled_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Display not available.&quot;</span><span class="p">,</span>
-        <span class="n">visualizer_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;matplotlib&quot;</span><span class="p">,</span>
+        <span class="n">display_disabled_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Display not available."</span><span class="p">,</span>
+        <span class="n">visualizer_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"matplotlib"</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerfmonitorService</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a new :class:`PerfmonitorService` instance.</span>
+<span class="w">    </span><span class="sd">"""Build a new :class:`PerfmonitorService` instance.</span>
 
 <span class="sd">    This factory configures the default monitor, visualizer, reporter,</span>
 <span class="sd">    cell history, and script writer for use in Python code.</span>
@@ -4168,7 +4168,7 @@ display is disabled.</p>
 <span class="sd">        display_disabled_reason: Human-readable reason shown when rich</span>
 <span class="sd">            display is disabled.</span>
 <span class="sd">        visualizer_backend: Visualizer backend to use. Supported values:</span>
-<span class="sd">            ``&quot;matplotlib&quot;`` (default) and ``&quot;plotly&quot;``.</span>
+<span class="sd">            ``"matplotlib"`` (default) and ``"plotly"``.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        PerfmonitorService: A fully initialized service instance.</span>
@@ -4176,12 +4176,12 @@ display is disabled.</p>
 <span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from jumper_extension.core.service import build_perfmonitor_service</span>
 <span class="sd">        &gt;&gt;&gt; service = build_perfmonitor_service()</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">settings</span> <span class="o">=</span> <span class="n">Settings</span><span class="p">()</span>
     <span class="n">settings</span><span class="o">.</span><span class="n">visualizer_backend</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">visualizer_backend</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">visualizer_backend</span>
-        <span class="k">else</span> <span class="s2">&quot;matplotlib&quot;</span>
+        <span class="k">else</span> <span class="s2">"matplotlib"</span>
     <span class="p">)</span>
     <span class="n">monitor</span> <span class="o">=</span> <span class="n">PerformanceMonitor</span><span class="p">()</span>
     <span class="n">cell_history</span> <span class="o">=</span> <span class="n">CellHistory</span><span class="p">()</span>
@@ -4216,7 +4216,7 @@ display is disabled.</p>
 
 
 <h2 id="jumper_extension.core.service.build_perfmonitor_magic_adapter" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">build_perfmonitor_magic_adapter</span><span class="p">(</span><span class="n">plots_disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">plots_disabled_reason</span><span class="o">=</span><span class="s1">&#39;Plotting not available.&#39;</span><span class="p">,</span> <span class="n">display_disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">display_disabled_reason</span><span class="o">=</span><span class="s1">&#39;Display not available.&#39;</span><span class="p">,</span> <span class="n">visualizer_backend</span><span class="o">=</span><span class="s1">&#39;matplotlib&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">build_perfmonitor_magic_adapter</span><span class="p">(</span><span class="n">plots_disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">plots_disabled_reason</span><span class="o">=</span><span class="s1">'Plotting not available.'</span><span class="p">,</span> <span class="n">display_disabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">display_disabled_reason</span><span class="o">=</span><span class="s1">'Display not available.'</span><span class="p">,</span> <span class="n">visualizer_backend</span><span class="o">=</span><span class="s1">'matplotlib'</span><span class="p">)</span></code>
 
 </h2>
 
@@ -4418,12 +4418,12 @@ display is disabled.</p>
 <span class="normal">1252</span>
 <span class="normal">1253</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">build_perfmonitor_magic_adapter</span><span class="p">(</span>
         <span class="n">plots_disabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">plots_disabled_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Plotting not available.&quot;</span><span class="p">,</span>
+        <span class="n">plots_disabled_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Plotting not available."</span><span class="p">,</span>
         <span class="n">display_disabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">display_disabled_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Display not available.&quot;</span><span class="p">,</span>
-        <span class="n">visualizer_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;matplotlib&quot;</span><span class="p">,</span>
+        <span class="n">display_disabled_reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Display not available."</span><span class="p">,</span>
+        <span class="n">visualizer_backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"matplotlib"</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PerfmonitorMagicAdapter</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a new :class:`PerfmonitorMagicAdapter` instance.</span>
+<span class="w">    </span><span class="sd">"""Build a new :class:`PerfmonitorMagicAdapter` instance.</span>
 
 <span class="sd">    This factory constructs a :class:`PerfmonitorService` and wraps it</span>
 <span class="sd">    with a string-based adapter suitable for IPython magics or other</span>
@@ -4437,7 +4437,7 @@ display is disabled.</p>
 <span class="sd">        display_disabled_reason: Human-readable reason shown when rich</span>
 <span class="sd">            display is disabled.</span>
 <span class="sd">        visualizer_backend: Visualizer backend to use. Supported values:</span>
-<span class="sd">            ``&quot;matplotlib&quot;`` (default) and ``&quot;plotly&quot;``.</span>
+<span class="sd">            ``"matplotlib"`` (default) and ``"plotly"``.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        PerfmonitorMagicAdapter: Adapter instance wrapping the service.</span>
@@ -4447,7 +4447,7 @@ display is disabled.</p>
 <span class="sd">        ...     build_perfmonitor_magic_adapter,</span>
 <span class="sd">        ... )</span>
 <span class="sd">        &gt;&gt;&gt; adapter = build_perfmonitor_magic_adapter()</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">service</span> <span class="o">=</span> <span class="n">build_perfmonitor_service</span><span class="p">(</span>
         <span class="n">plots_disabled</span><span class="o">=</span><span class="n">plots_disabled</span><span class="p">,</span>
         <span class="n">plots_disabled_reason</span><span class="o">=</span><span class="n">plots_disabled_reason</span><span class="p">,</span>
@@ -4541,7 +4541,7 @@ display is disabled.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
