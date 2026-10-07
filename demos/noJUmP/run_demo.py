@@ -278,9 +278,13 @@ def main() -> int:
     service.plot_performance(
         level=export_level,
         save_jpeg=jpeg_path,
-        pickle_file=pickle_path,
     )
     logger.info(f"JPEG plot ({export_level}) saved to: {jpeg_path}")
+
+    perf_frames = service.export_perfdata(level=export_level)
+    import pickle as _pickle
+    with open(pickle_path, "wb") as f:
+        _pickle.dump(perf_frames, f)
     logger.info(f"Pickle data ({export_level}) saved to: {pickle_path}")
 
     service.export_perfdata(
