@@ -6569,7 +6569,20 @@ Allows building a reporter without displaying.</p>
 <span class="normal">225</span>
 <span class="normal">226</span>
 <span class="normal">227</span>
-<span class="normal">228</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SessionExporter</span><span class="p">:</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SessionExporter</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Handles exporting a monitoring session to directory/ZIP."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">monitor</span><span class="p">,</span> <span class="n">cell_history</span><span class="p">,</span> <span class="n">visualizer</span><span class="p">,</span> <span class="n">reporter</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
@@ -6672,6 +6685,18 @@ Allows building a reporter without displaying.</p>
 <span class="sd">            Manifest dictionary</span>
 <span class="sd">        """</span>
         <span class="n">hardware</span> <span class="o">=</span> <span class="n">aggregate_node_info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">monitor</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">hardware</span><span class="p">)</span>
+        <span class="n">nodes_info</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">monitor</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">hardware</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">nodes_info</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s2">"node"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+                <span class="s2">"num_cpus"</span><span class="p">:</span> <span class="n">info</span><span class="o">.</span><span class="n">num_cpus</span><span class="p">,</span>
+                <span class="s2">"num_system_cpus"</span><span class="p">:</span> <span class="n">info</span><span class="o">.</span><span class="n">num_system_cpus</span><span class="p">,</span>
+                <span class="s2">"num_gpus"</span><span class="p">:</span> <span class="n">info</span><span class="o">.</span><span class="n">num_gpus</span><span class="p">,</span>
+                <span class="s2">"gpu_memory"</span><span class="p">:</span> <span class="n">info</span><span class="o">.</span><span class="n">gpu_memory</span><span class="p">,</span>
+                <span class="s2">"gpu_name"</span><span class="p">:</span> <span class="n">info</span><span class="o">.</span><span class="n">gpu_name</span><span class="p">,</span>
+                <span class="s2">"memory_limits"</span><span class="p">:</span> <span class="n">info</span><span class="o">.</span><span class="n">memory_limits</span><span class="p">,</span>
+                <span class="s2">"cpu_handles"</span><span class="p">:</span> <span class="n">info</span><span class="o">.</span><span class="n">cpu_handles</span><span class="p">,</span>
+            <span class="p">})</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="s2">"version"</span><span class="p">:</span> <span class="s2">"1.0"</span><span class="p">,</span>
             <span class="s2">"app"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"JUmPER"</span><span class="p">,</span> <span class="s2">"version"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app_version</span><span class="p">()},</span>
@@ -6693,6 +6718,7 @@ Allows building a reporter without displaying.</p>
                 <span class="s2">"slurm_job"</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">monitor</span><span class="p">,</span> <span class="s2">"slurm_job"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
                 <span class="s2">"os"</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
                 <span class="s2">"python"</span><span class="p">:</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">" "</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="s2">"nodes"</span><span class="p">:</span> <span class="n">nodes_info</span><span class="p">,</span>
             <span class="p">},</span>
             <span class="s2">"levels"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">monitor</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">levels</span><span class="p">,</span>
             <span class="s2">"schemas"</span><span class="p">:</span> <span class="p">{</span>
@@ -6893,20 +6919,7 @@ Allows building a reporter without displaying.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>jumper_extension/adapters/session.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">244</span>
 <span class="normal">245</span>
 <span class="normal">246</span>
 <span class="normal">247</span>
@@ -7050,7 +7063,20 @@ Allows building a reporter without displaying.</p>
 <span class="normal">385</span>
 <span class="normal">386</span>
 <span class="normal">387</span>
-<span class="normal">388</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SessionImporter</span><span class="p">:</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SessionImporter</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Handles importing a monitoring session from directory/ZIP."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
@@ -7240,20 +7266,7 @@ Allows building a reporter without displaying.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>jumper_extension/adapters/session.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span>
-<span class="normal">247</span>
-<span class="normal">248</span>
-<span class="normal">249</span>
-<span class="normal">250</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">250</span>
 <span class="normal">251</span>
 <span class="normal">252</span>
 <span class="normal">253</span>
@@ -7262,7 +7275,20 @@ Allows building a reporter without displaying.</p>
 <span class="normal">256</span>
 <span class="normal">257</span>
 <span class="normal">258</span>
-<span class="normal">259</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">import_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">service</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">import_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">service</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Import a session into the given service. Returns True on success."""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">False</span>
