@@ -283,8 +283,18 @@ def main() -> int:
 
     perf_frames = service.export_perfdata(level=export_level)
     import pickle as _pickle
+    # Convert DataFrames to plain dicts for cross-version compatibility
+    if isinstance(perf_frames, dict):
+        serializable = {
+            k: v.to_dict(orient="records") if hasattr(v, "to_dict") else v
+            for k, v in perf_frames.items()
+        }
+    elif hasattr(perf_frames, "to_dict"):
+        serializable = perf_frames.to_dict(orient="records")
+    else:
+        serializable = perf_frames
     with open(pickle_path, "wb") as f:
-        _pickle.dump(perf_frames, f)
+        _pickle.dump(serializable, f)
     logger.info(f"Pickle data ({export_level}) saved to: {pickle_path}")
 
     service.export_perfdata(
