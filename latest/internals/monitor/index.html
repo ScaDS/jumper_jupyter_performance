@@ -4859,7 +4859,7 @@ context["io"], context["user_pids"], and context["slurm_pids"].</p>
     <span class="k">def</span><span class="w"> </span><span class="nf">_collect_system</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handle</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
         <span class="n">util_rates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_util_rates</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
         <span class="n">memory_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pynvml</span><span class="o">.</span><span class="n">nvmlDeviceGetMemoryInfo</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">util_rates</span><span class="o">.</span><span class="n">gpu</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">memory_info</span><span class="o">.</span><span class="n">used</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">util_rates</span><span class="o">.</span><span class="n">gpu</span><span class="p">,</span> <span class="n">util_rates</span><span class="o">.</span><span class="n">memory</span><span class="p">,</span> <span class="n">memory_info</span><span class="o">.</span><span class="n">used</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_collect_process</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -4878,7 +4878,7 @@ context["io"], context["user_pids"], and context["slurm_pids"].</p>
                 <span class="p">)</span>
                 <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">util_rates</span><span class="o">.</span><span class="n">gpu</span> <span class="k">if</span> <span class="n">process_mem</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">process_mem</span>
+        <span class="k">return</span> <span class="n">util_rates</span><span class="o">.</span><span class="n">gpu</span> <span class="k">if</span> <span class="n">process_mem</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">util_rates</span><span class="o">.</span><span class="n">memory</span> <span class="k">if</span> <span class="n">process_mem</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">process_mem</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_collect_other</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -4916,7 +4916,7 @@ context["io"], context["user_pids"], and context["slurm_pids"].</p>
             <span class="k">if</span> <span class="n">filtered_gpu_processes</span>
             <span class="k">else</span> <span class="mf">0.0</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">filtered_util</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">filtered_mem</span>
+        <span class="k">return</span> <span class="n">filtered_util</span><span class="p">,</span> <span class="n">util_rates</span><span class="o">.</span><span class="n">memory</span> <span class="k">if</span> <span class="n">filtered_gpu_processes</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">filtered_mem</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">shutdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
