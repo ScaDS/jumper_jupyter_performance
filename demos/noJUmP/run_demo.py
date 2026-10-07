@@ -226,8 +226,11 @@ def cuda_heavy_computation() -> None:
 def main() -> int:
     logger.info("=== noJUmP single-node demo ===")
 
-    output_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     export_level = "slurm" if is_slurm_available() else "user"
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    output_dir = os.path.join(base_dir, f"run_{timestamp}")
+    os.makedirs(output_dir, exist_ok=True)
     jpeg_path = os.path.join(output_dir, f"perf_plot_{export_level}.jpeg")
     pickle_path = os.path.join(output_dir, f"perf_data_{export_level}.pkl")
     csv_path = os.path.join(output_dir, f"perf_data_{export_level}.csv")
