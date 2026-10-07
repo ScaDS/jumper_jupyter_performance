@@ -2516,6 +2516,9 @@
 
         <p>Offline monitor that satisfies MonitorProtocol.</p>
 <p>Holds static DataFrames plus metadata from a manifest; does not collect live data.</p>
+<p>If the manifest contains a <code>nodes</code> list, each node is registered
+separately and the performance DataFrames are split by their <code>node</code>
+column.  Otherwise a single <code>"local"</code> node is created as before.</p>
 
 
 
@@ -2575,10 +2578,46 @@
 <span class="normal">129</span>
 <span class="normal">130</span>
 <span class="normal">131</span>
-<span class="normal">132</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OfflinePerformanceMonitor</span><span class="p">:</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">OfflinePerformanceMonitor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Offline monitor that satisfies MonitorProtocol.</span>
 
 <span class="sd">    Holds static DataFrames plus metadata from a manifest; does not collect live data.</span>
+
+<span class="sd">    If the manifest contains a ``nodes`` list, each node is registered</span>
+<span class="sd">    separately and the performance DataFrames are split by their ``node``</span>
+<span class="sd">    column.  Otherwise a single ``"local"`` node is created as before.</span>
 <span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
@@ -2597,24 +2636,52 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">wallclock_start_time</span> <span class="o">=</span> <span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"wallclock_start_time"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">wallclock_stop_time</span> <span class="o">=</span> <span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"wallclock_stop_time"</span><span class="p">)</span>
 
-        <span class="n">num_cpus</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_cpus"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="n">num_system_cpus</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_system_cpus"</span><span class="p">,</span> <span class="n">num_cpus</span><span class="p">)</span> <span class="ow">or</span> <span class="n">num_cpus</span><span class="p">)</span>
-        <span class="n">num_gpus</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_gpus"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
-
-        <span class="n">node_info</span> <span class="o">=</span> <span class="n">NodeInfo</span><span class="p">(</span>
-            <span class="n">node</span><span class="o">=</span><span class="s2">"local"</span><span class="p">,</span>
-            <span class="n">num_cpus</span><span class="o">=</span><span class="n">num_cpus</span><span class="p">,</span>
-            <span class="n">num_system_cpus</span><span class="o">=</span><span class="n">num_system_cpus</span><span class="p">,</span>
-            <span class="n">num_gpus</span><span class="o">=</span><span class="n">num_gpus</span><span class="p">,</span>
-            <span class="n">gpu_memory</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"gpu_memory"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">),</span>
-            <span class="n">gpu_name</span><span class="o">=</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"gpu_name"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
-            <span class="n">memory_limits</span><span class="o">=</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"memory_limits"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{},</span>
-            <span class="n">cpu_handles</span><span class="o">=</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"cpu_handles"</span><span class="p">,</span> <span class="p">[])</span> <span class="ow">or</span> <span class="p">[],</span>
-        <span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">NodeDataStore</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">register_node</span><span class="p">(</span><span class="n">node_info</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">load_frames</span><span class="p">(</span><span class="s2">"local"</span><span class="p">,</span> <span class="n">perf_dfs</span> <span class="ow">or</span> <span class="p">{})</span>
+
+        <span class="n">nodes_info</span> <span class="o">=</span> <span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nodes"</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="k">if</span> <span class="n">nodes_info</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ni</span> <span class="ow">in</span> <span class="n">nodes_info</span><span class="p">:</span>
+                <span class="n">node_info</span> <span class="o">=</span> <span class="n">NodeInfo</span><span class="p">(</span>
+                    <span class="n">node</span><span class="o">=</span><span class="n">ni</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"node"</span><span class="p">,</span> <span class="s2">"local"</span><span class="p">),</span>
+                    <span class="n">num_cpus</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">ni</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_cpus"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">),</span>
+                    <span class="n">num_system_cpus</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">ni</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_system_cpus"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">),</span>
+                    <span class="n">num_gpus</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">ni</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_gpus"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">),</span>
+                    <span class="n">gpu_memory</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">ni</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"gpu_memory"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">),</span>
+                    <span class="n">gpu_name</span><span class="o">=</span><span class="n">ni</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"gpu_name"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
+                    <span class="n">memory_limits</span><span class="o">=</span><span class="n">ni</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"memory_limits"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{},</span>
+                    <span class="n">cpu_handles</span><span class="o">=</span><span class="n">ni</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"cpu_handles"</span><span class="p">,</span> <span class="p">[])</span> <span class="ow">or</span> <span class="p">[],</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">register_node</span><span class="p">(</span><span class="n">node_info</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">level</span><span class="p">,</span> <span class="n">df</span> <span class="ow">in</span> <span class="p">(</span><span class="n">perf_dfs</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">df</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="s2">"node"</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">node_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">node_names</span><span class="p">():</span>
+                        <span class="n">node_df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">"node"</span><span class="p">]</span> <span class="o">==</span> <span class="n">node_name</span><span class="p">]</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+                            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"node"</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"ignore"</span>
+                        <span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">load_frames</span><span class="p">(</span><span class="n">node_name</span><span class="p">,</span> <span class="p">{</span><span class="n">level</span><span class="p">:</span> <span class="n">node_df</span><span class="p">})</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">first_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">node_names</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">node_names</span><span class="p">()</span> <span class="k">else</span> <span class="s2">"local"</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">load_frames</span><span class="p">(</span><span class="n">first_node</span><span class="p">,</span> <span class="p">{</span><span class="n">level</span><span class="p">:</span> <span class="n">df</span><span class="p">})</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">num_cpus</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_cpus"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">num_system_cpus</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_system_cpus"</span><span class="p">,</span> <span class="n">num_cpus</span><span class="p">)</span> <span class="ow">or</span> <span class="n">num_cpus</span><span class="p">)</span>
+            <span class="n">num_gpus</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_gpus"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span>
+
+            <span class="n">node_info</span> <span class="o">=</span> <span class="n">NodeInfo</span><span class="p">(</span>
+                <span class="n">node</span><span class="o">=</span><span class="s2">"local"</span><span class="p">,</span>
+                <span class="n">num_cpus</span><span class="o">=</span><span class="n">num_cpus</span><span class="p">,</span>
+                <span class="n">num_system_cpus</span><span class="o">=</span><span class="n">num_system_cpus</span><span class="p">,</span>
+                <span class="n">num_gpus</span><span class="o">=</span><span class="n">num_gpus</span><span class="p">,</span>
+                <span class="n">gpu_memory</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"gpu_memory"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">),</span>
+                <span class="n">gpu_name</span><span class="o">=</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"gpu_name"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
+                <span class="n">memory_limits</span><span class="o">=</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"memory_limits"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{},</span>
+                <span class="n">cpu_handles</span><span class="o">=</span><span class="n">monitor_info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"cpu_handles"</span><span class="p">,</span> <span class="p">[])</span> <span class="ow">or</span> <span class="p">[],</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">register_node</span><span class="p">(</span><span class="n">node_info</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">load_frames</span><span class="p">(</span><span class="s2">"local"</span><span class="p">,</span> <span class="n">perf_dfs</span> <span class="ow">or</span> <span class="p">{})</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">is_imported</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">session_source</span> <span class="o">=</span> <span class="n">source</span>
