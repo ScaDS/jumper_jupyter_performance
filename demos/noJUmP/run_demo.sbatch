@@ -28,7 +28,7 @@ python run_demo.py
 
 echo ""
 echo "Demo finished at $(date)"
-echo "Outputs:"
+echo "Outputs saved to run_<timestamp>/ subdirectory:"
 echo "  - perf_plot_slurm.jpeg"
 echo "  - perf_data_slurm.pkl"
 echo "  - perf_data_slurm.csv"

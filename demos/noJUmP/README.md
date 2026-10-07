@@ -51,14 +51,14 @@ is included in the filenames.
 
 ### Output files
 
-After the script finishes, the following files are created in this
-directory (shown with `user` level; replace with `slurm` when running
-under SLURM):
+Each run creates a timestamped subdirectory `run_YYYYMMDD_HHMMSS/`
+containing all exported data (shown with `user` level; replace with
+`slurm` when running under SLURM):
 
 | File | Description |
 |---|---|
 | `perf_plot_user.jpeg` | Static performance plot (JPEG) |
-| `perf_data_user.pkl` | Pickle file with plot data |
+| `perf_data_user.pkl` | Pickle file with raw performance DataFrames |
 | `perf_data_user.csv` | Performance data as CSV (user level) |
 | `session/` | Full JUmPER session directory (CSVs, cell history, manifest) |
 
@@ -86,13 +86,15 @@ SLURM output (stdout/stderr) is written to `nojump_demo_<jobid>.out` /
 
 ## 4. Analyzing the results
 
-An analysis notebook is provided in `analyze_results.ipynb`.  It shows
-three ways to load and inspect the exported data:
+An analysis notebook is provided in `analyze_results.ipynb`.
 
-1. **Session import** — `%import_session session/` via the JUmPER
-   extension, giving full interactive plots and reports.
-2. **Pickle file** — load `perf_data.pkl` directly with `pickle` or
-   `pandas`.
+The notebook automatically finds the latest `run_YYYYMMDD_HHMMSS/`
+subdirectory.  It shows three ways to load and inspect the exported data:
+
+1. **Session import** — `%import_session` via the JUmPER extension,
+   giving full interactive plots and reports.
+2. **Pickle file** — load `perf_data_<level>.pkl` directly with `pickle`
+   or `pandas`.
 3. **CSV files** — read the per-level CSVs in the `session/` directory
    directly.
 
