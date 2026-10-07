@@ -3044,13 +3044,7 @@
 <span class="normal">233</span>
 <span class="normal">234</span>
 <span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">NodeDataStore</span><span class="p">:</span>
+<span class="normal">236</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">NodeDataStore</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Single source of truth for per-node hardware metadata and time-series data.</span>
 
 <span class="sd">    ``register_node(info)`` stores both the ``NodeInfo`` and the corresponding</span>
@@ -3142,9 +3136,14 @@
             <span class="k">return</span> <span class="n">perf_data</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="n">slice_</span><span class="o">=</span><span class="n">slice_</span><span class="p">,</span> <span class="n">cell_history</span><span class="o">=</span><span class="n">cell_history</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span>
+            <span class="n">n</span><span class="p">,</span> <span class="n">perf</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">perf</span><span class="o">.</span><span class="n">view</span><span class="p">(</span>
                 <span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="n">slice_</span><span class="o">=</span><span class="n">slice_</span><span class="p">,</span> <span class="n">cell_history</span><span class="o">=</span><span class="n">cell_history</span>
             <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="n">df</span><span class="p">[</span><span class="s2">"node"</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>
+            <span class="k">return</span> <span class="n">df</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate</span><span class="p">(</span><span class="n">level</span><span class="p">,</span> <span class="n">cell_history</span><span class="p">)</span>
 
@@ -3153,6 +3152,8 @@
         <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">perf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">df</span> <span class="o">=</span> <span class="n">perf</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="n">df</span><span class="p">[</span><span class="s2">"node"</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>
                 <span class="n">node_dfs</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">node_dfs</span><span class="p">:</span>
@@ -3161,20 +3162,7 @@
             <span class="n">df</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">node_dfs</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attach_cell_index</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">cell_history</span><span class="p">)</span> <span class="k">if</span> <span class="n">cell_history</span> <span class="k">else</span> <span class="n">df</span>
 
-        <span class="n">min_len</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="k">for</span> <span class="n">df</span> <span class="ow">in</span> <span class="n">node_dfs</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-        <span class="k">if</span> <span class="n">min_len</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
-
-        <span class="n">frames</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="n">min_len</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">df</span> <span class="ow">in</span> <span class="n">node_dfs</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
-        <span class="p">]</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">frames</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate_memory</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate_io</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate_cpu</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate_gpu</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">node_dfs</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">cell_history</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attach_cell_index</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">cell_history</span><span class="p">)</span>
@@ -3398,7 +3386,13 @@ Used by reporter/service/session to get a single summary view.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>jumper_extension/adapters/data/node.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">245</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
 <span class="normal">246</span>
 <span class="normal">247</span>
 <span class="normal">248</span>
@@ -3418,13 +3412,7 @@ Used by reporter/service/session to get a single summary view.</p>
 <span class="normal">262</span>
 <span class="normal">263</span>
 <span class="normal">264</span>
-<span class="normal">265</span>
-<span class="normal">266</span>
-<span class="normal">267</span>
-<span class="normal">268</span>
-<span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">aggregate_node_info</span><span class="p">(</span><span class="n">hardware</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NodeInfo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">NodeInfo</span><span class="p">:</span>
+<span class="normal">265</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">aggregate_node_info</span><span class="p">(</span><span class="n">hardware</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">NodeInfo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">NodeInfo</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Return a synthetic NodeInfo aggregating all nodes in *hardware*.</span>
 
 <span class="sd">    CPUs/GPUs are summed, gpu_memory takes the max, memory_limits are</span>
