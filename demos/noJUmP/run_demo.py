@@ -241,37 +241,37 @@ def main() -> int:
     service.show_resources()
 
     # --- Cell 0: imports & function definitions (already done above) ---
-    with service.monitored():
+    with service.monitored("Cell 0: setup"):
         logger.info("Cell 0: setup complete")
 
     # --- Cell 1: all CPUs ---
-    with service.monitored():
+    with service.monitored("Cell 1: compute_pi with all CPUs"):
         logger.info("Cell 1: compute_pi with all CPUs")
         compute_pi(10**8, multiprocessing.cpu_count())
 
     # --- Cell 2: half CPUs ---
-    with service.monitored():
+    with service.monitored("Cell 2: compute_pi with half CPUs"):
         logger.info("Cell 2: compute_pi with half CPUs")
         compute_pi(10**8, multiprocessing.cpu_count() // 2)
 
     # --- Cell 3: memory ---
-    with service.monitored():
+    with service.monitored("Cell 3: fill 2.5 GB memory"):
         logger.info("Cell 3: fill 2.5 GB memory")
         allocated = fill_memory_2_5gb()
         time.sleep(5)
 
     # --- Cell 4: I/O ---
-    with service.monitored():
+    with service.monitored("Cell 4: write/read 1 GB"):
         logger.info("Cell 4: write/read 1 GB")
         write_and_read_1gb_forced()
 
     # --- Cell 5: CUDA memory ---
-    with service.monitored():
+    with service.monitored("Cell 5: CUDA memory operations"):
         logger.info("Cell 5: CUDA memory operations")
         cuda_memory_operations()
 
     # --- Cell 6: CUDA compute ---
-    with service.monitored():
+    with service.monitored("Cell 6: CUDA heavy computation"):
         logger.info("Cell 6: CUDA heavy computation")
         cuda_heavy_computation()
 

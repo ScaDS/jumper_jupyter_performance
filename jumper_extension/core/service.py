@@ -1,3 +1,4 @@
+import inspect
 import logging
 import shlex
 from contextlib import contextmanager
@@ -804,12 +805,17 @@ class PerfmonitorService:
         return output_path
 
     @contextmanager
-    def monitored(self) -> "Iterator[PerfmonitorService]":
+    def monitored(self, label: str = "") -> "Iterator[PerfmonitorService]":
         """Context manager for monitoring a code block.
 
         This helper simulates a virtual cell: it registers a synthetic
         cell before the block and finalizes it afterwards so that the
         enclosed code is tracked like any other cell.
+
+        Args:
+            label: Optional human-readable label for the code block.
+                If provided, it is stored as the cell's source code in
+                the cell history.  If omitted, a placeholder is used.
 
         Yields:
             PerfmonitorService: The current service instance, for
@@ -820,16 +826,61 @@ class PerfmonitorService:
 
                 with service.monitored():
                     do_expensive_work()
+
+            Use a label for better cell history tracking::
+
+                with service.monitored("compute_pi with all CPUs"):
+                    compute_pi(10**8, multiprocessing.cpu_count())
         """
-        unavailable_message = "unavailable on monitored context"
+        raw_cell = label if label else "# <Code unavailable on monitored context>"
+
+        # Capture the caller's line number (the `with` statement)
+        try:
+            stack = inspect.stack()
+            caller_info = stack[2]
+            start_line = caller_info.lineno
+            filename = caller_info.filename
+        except Exception:
+            start_line = 0
+            filename = ""
+
         self.on_pre_run_cell(
-            raw_cell=f"# <Code {unavailable_message}>",
-            cell_magics=[f"<Magics {unavailable_message}>"],
+            raw_cell=raw_cell,
+            cell_magics=[],
             should_skip_report=False
         )
         try:
             yield self
         finally:
+            # Determine the end line of the with block by parsing
+            # the source code indentation.
+            end_line = start_line
+            if filename and start_line and caller_info.frame:
+                try:
+                    source_lines, file_start = inspect.getsourcelines(
+                        caller_info.frame.f_code
+                    )
+                    with_idx = start_line - file_start
+                    if 0 <= with_idx < len(source_lines):
+                        with_line = source_lines[with_idx]
+                        with_indent = len(with_line) - len(with_line.lstrip())
+                        idx = with_idx + 1
+                        while idx < len(source_lines):
+                            line = source_lines[idx]
+                            if line.strip():
+                                indent = len(line) - len(line.lstrip())
+                                if indent <= with_indent:
+                                    break
+                            idx += 1
+                        end_line = file_start + idx - 1
+                except Exception:
+                    pass
+
+            # Append line range to the cell history entry
+            if self.cell_history.current_cell and start_line:
+                loc = f"  [{filename}:{start_line}-{end_line}]"
+                self.cell_history.current_cell["raw_cell"] += loc
+
             self.on_post_run_cell(None)
 
     def close(self) -> None:
@@ -1124,9 +1175,9 @@ class PerfmonitorMagicAdapter:
         return result
 
     @contextmanager
-    def monitored(self):
+    def monitored(self, label: str = ""):
         """Code performance monitoring context manager."""
-        with self.service.monitored():
+        with self.service.monitored(label=label):
             yield self
 
     def close(self):
