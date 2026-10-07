@@ -115,23 +115,20 @@ class PerformanceVisualizer:
                 self.subsets[subset_key][metric_key] = validate_metric_config(cfg)
 
     def _render_by_node(self, df, config, level, render_fn):
-        """Render per-node data and combine into mean/min/max series.
+        """Render per-node data and combine into Average/Min/Max lines.
 
         If *df* contains a ``node`` column with more than one unique value,
         the renderer is applied to each node separately (with that node's
-        hardware info) and the resulting series are combined positionally:
-        the mean becomes the main line and per-timestamp min/max are
-        returned as bands.
+        hardware info) and all resulting series are pooled: per timestamp,
+        the mean becomes the "Average" line and the extremes become "Min"
+        and "Max" lines — three lines total, styled like summary_series.
 
-        Returns ``(result, bands, x)`` where ``result`` is a PlotResult
-        whose series hold the per-node means, ``bands`` is a list of
-        ``(min, max)`` pd.Series aligned with ``result.series`` (``None``
-        for single-node data), and ``x`` is the time axis Series.
+        Returns ``(result, x)`` where ``result`` is a PlotResult and ``x``
+        is the time axis Series to plot against.
         """
         if "node" not in df.columns:
             return (
                 render_fn(df, config, level, self._hardware, self._io_window),
-                None,
                 df.get("time"),
             )
 
@@ -141,7 +138,6 @@ class PerformanceVisualizer:
             hw = self._node_hardware(node_name)
             return (
                 render_fn(df, config, level, hw, self._io_window),
-                None,
                 df.get("time"),
             )
 
@@ -156,39 +152,41 @@ class PerformanceVisualizer:
                 per_node.append((sub, res))
 
         if not per_node:
-            return None, None, None
+            return None, None
         if len(per_node) == 1:
             sub, res = per_node[0]
-            return res, None, sub.get("time")
+            return res, sub.get("time")
 
-        n_series = min(len(res.series) for _, res in per_node)
-        mean_series, bands = [], []
-        for i in range(n_series):
-            cols = [
-                res.series[i].data.reset_index(drop=True).astype(float)
-                for _, res in per_node
-            ]
-            mat = pd.concat(cols, axis=1)
-            ref = per_node[0][1].series[i]
-            mean_series.append(
-                SeriesItem(
-                    label=ref.label,
-                    data=mat.mean(axis=1),
-                    color=ref.color,
-                    width=ref.width,
-                    opacity=ref.opacity,
-                    linestyle=ref.linestyle,
-                )
-            )
-            bands.append((mat.min(axis=1), mat.max(axis=1)))
+        cols = []
+        for _, res in per_node:
+            for item in res.series:
+                cols.append(item.data.reset_index(drop=True).astype(float))
+        min_len = min(len(c) for c in cols)
+        mat = pd.concat([c.iloc[:min_len] for c in cols], axis=1)
 
         result = PlotResult(
-            series=mean_series,
+            series=[
+                SeriesItem(
+                    label="Average", data=mat.mean(axis=1),
+                    color="blue", width=2.0, opacity=1.0,
+                    linestyle="solid",
+                ),
+                SeriesItem(
+                    label="Min", data=mat.min(axis=1),
+                    color="blue", width=2.0, opacity=0.35,
+                    linestyle="dotted",
+                ),
+                SeriesItem(
+                    label="Max", data=mat.max(axis=1),
+                    color="blue", width=2.0, opacity=0.35,
+                    linestyle="dashed",
+                ),
+            ],
             title=per_node[0][1].title,
             ylim=per_node[0][1].ylim,
         )
-        x = per_node[0][0]["time"].reset_index(drop=True)
-        return result, bands, x
+        x = per_node[0][0]["time"].reset_index(drop=True).iloc[:min_len]
+        return result, x
 
     def _node_hardware(self, node_name):
         """Return NodeInfo for *node_name*, falling back to the aggregate."""

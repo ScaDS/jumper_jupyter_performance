@@ -48,9 +48,7 @@ class MatplotlibPerformanceVisualizer(PerformanceVisualizer):
         render_fn = RENDERERS.get(config.type)
         if render_fn is None:
             return
-        result, bands, x = self._render_by_node(
-            df, config, level, render_fn
-        )
+        result, x = self._render_by_node(df, config, level, render_fn)
         if result is None:
             return
 
@@ -58,7 +56,7 @@ class MatplotlibPerformanceVisualizer(PerformanceVisualizer):
             _, ax = plt.subplots(figsize=self.figsize)
 
         time_axis = x if x is not None else df["time"]
-        for idx, item in enumerate(result.series):
+        for item in result.series:
             ax.plot(
                 time_axis,
                 item.data,
@@ -68,14 +66,6 @@ class MatplotlibPerformanceVisualizer(PerformanceVisualizer):
                 alpha=item.opacity,
                 label=item.label,
             )
-            if bands:
-                lo, hi = bands[idx]
-                ax.fill_between(
-                    time_axis, lo, hi,
-                    color=item.color,
-                    alpha=0.15,
-                    linewidth=0,
-                )
         if result.series:
             ax.legend()
 
