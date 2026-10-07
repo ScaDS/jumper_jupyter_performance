@@ -84,6 +84,10 @@ class OfflinePerformanceMonitor:
     """Offline monitor that satisfies MonitorProtocol.
 
     Holds static DataFrames plus metadata from a manifest; does not collect live data.
+
+    If the manifest contains a ``nodes`` list, each node is registered
+    separately and the performance DataFrames are split by their ``node``
+    column.  Otherwise a single ``"local"`` node is created as before.
     """
 
     def __init__(
@@ -102,24 +106,52 @@ class OfflinePerformanceMonitor:
         self.wallclock_start_time = monitor_info.get("wallclock_start_time")
         self.wallclock_stop_time = monitor_info.get("wallclock_stop_time")
 
-        num_cpus = int(monitor_info.get("num_cpus", 0) or 0)
-        num_system_cpus = int(monitor_info.get("num_system_cpus", num_cpus) or num_cpus)
-        num_gpus = int(monitor_info.get("num_gpus", 0) or 0)
-
-        node_info = NodeInfo(
-            node="local",
-            num_cpus=num_cpus,
-            num_system_cpus=num_system_cpus,
-            num_gpus=num_gpus,
-            gpu_memory=float(monitor_info.get("gpu_memory", 0.0) or 0.0),
-            gpu_name=monitor_info.get("gpu_name", "") or "",
-            memory_limits=monitor_info.get("memory_limits", {}) or {},
-            cpu_handles=monitor_info.get("cpu_handles", []) or [],
-        )
-
         self.nodes = NodeDataStore()
-        self.nodes.register_node(node_info)
-        self.nodes.load_frames("local", perf_dfs or {})
+
+        nodes_info = monitor_info.get("nodes", [])
+        if nodes_info:
+            for ni in nodes_info:
+                node_info = NodeInfo(
+                    node=ni.get("node", "local"),
+                    num_cpus=int(ni.get("num_cpus", 0) or 0),
+                    num_system_cpus=int(ni.get("num_system_cpus", 0) or 0),
+                    num_gpus=int(ni.get("num_gpus", 0) or 0),
+                    gpu_memory=float(ni.get("gpu_memory", 0.0) or 0.0),
+                    gpu_name=ni.get("gpu_name", "") or "",
+                    memory_limits=ni.get("memory_limits", {}) or {},
+                    cpu_handles=ni.get("cpu_handles", []) or [],
+                )
+                self.nodes.register_node(node_info)
+
+            for level, df in (perf_dfs or {}).items():
+                if df is None or df.empty:
+                    continue
+                if "node" in df.columns:
+                    for node_name in self.nodes.node_names():
+                        node_df = df[df["node"] == node_name].drop(
+                            columns=["node"], errors="ignore"
+                        )
+                        self.nodes.load_frames(node_name, {level: node_df})
+                else:
+                    first_node = self.nodes.node_names()[0] if self.nodes.node_names() else "local"
+                    self.nodes.load_frames(first_node, {level: df})
+        else:
+            num_cpus = int(monitor_info.get("num_cpus", 0) or 0)
+            num_system_cpus = int(monitor_info.get("num_system_cpus", num_cpus) or num_cpus)
+            num_gpus = int(monitor_info.get("num_gpus", 0) or 0)
+
+            node_info = NodeInfo(
+                node="local",
+                num_cpus=num_cpus,
+                num_system_cpus=num_system_cpus,
+                num_gpus=num_gpus,
+                gpu_memory=float(monitor_info.get("gpu_memory", 0.0) or 0.0),
+                gpu_name=monitor_info.get("gpu_name", "") or "",
+                memory_limits=monitor_info.get("memory_limits", {}) or {},
+                cpu_handles=monitor_info.get("cpu_handles", []) or [],
+            )
+            self.nodes.register_node(node_info)
+            self.nodes.load_frames("local", perf_dfs or {})
 
         self.is_imported = True
         self.session_source = source

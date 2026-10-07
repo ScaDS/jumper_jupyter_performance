@@ -121,6 +121,18 @@ class SessionExporter:
             Manifest dictionary
         """
         hardware = aggregate_node_info(self.monitor.nodes.hardware)
+        nodes_info = []
+        for name, info in self.monitor.nodes.hardware.items():
+            nodes_info.append({
+                "node": name,
+                "num_cpus": info.num_cpus,
+                "num_system_cpus": info.num_system_cpus,
+                "num_gpus": info.num_gpus,
+                "gpu_memory": info.gpu_memory,
+                "gpu_name": info.gpu_name,
+                "memory_limits": info.memory_limits,
+                "cpu_handles": info.cpu_handles,
+            })
         return {
             "version": "1.0",
             "app": {"name": "JUmPER", "version": self._app_version()},
@@ -142,6 +154,7 @@ class SessionExporter:
                 "slurm_job": getattr(self.monitor, "slurm_job", None),
                 "os": os.name,
                 "python": sys.version.split(" ")[0],
+                "nodes": nodes_info,
             },
             "levels": self.monitor.nodes.levels,
             "schemas": {
