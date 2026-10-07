@@ -21,9 +21,9 @@ subsets:
     gpu_band:
       type: multi_series
       prefix: gpu_band_
-      title: "GPU Bandwidth Usage (%) - Across GPUs"
+      title: "GPU Memory Utilization (%) - Across GPUs"
       ylim: [0, 100]
-      label: "GPU Bandwidth (All GPUs)"
+      label: "GPU Memory Utilization (All GPUs)"
     gpu_mem:
       type: multi_series
       prefix: gpu_mem_
@@ -49,9 +49,9 @@ subsets:
     gpu_band_summary:
       type: summary_series
       columns: [gpu_band_min, gpu_band_avg, gpu_band_max]
-      title: "GPU Bandwidth Usage (%)"
+      title: "GPU Memory Utilization (%)"
       ylim: [0, 100]
-      label: "GPU Bandwidth Summary"
+      label: "GPU Memory Utilization Summary"
     gpu_mem_summary:
       type: summary_series
       columns: [gpu_mem_min, gpu_mem_avg, gpu_mem_max]

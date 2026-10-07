@@ -81,8 +81,10 @@ static gpu_sample_t collect_system(int dev_idx) {
     gpu_sample_t s = {0, 0, 0};
     if (!g_nvml.available || dev_idx >= g_nvml.num_gpus) return s;
     nvmlUtilization_t u;
-    if (g_nvml.GetUtil(g_nvml.devices[dev_idx], &u) == NVML_SUCCESS)
+    if (g_nvml.GetUtil(g_nvml.devices[dev_idx], &u) == NVML_SUCCESS) {
         s.util = (double)u.gpu;
+        s.band = (double)u.memory;
+    }
     nvmlMemory_t mi;
     if (g_nvml.GetMemInfo(g_nvml.devices[dev_idx], &mi) == NVML_SUCCESS)
         s.mem_gb = (double)mi.used / (1024.0 * 1024.0 * 1024.0);
@@ -107,8 +109,10 @@ static gpu_sample_t collect_process(int dev_idx, int *pids, int npids) {
     s.mem_gb = (double)proc_mem / (1024.0 * 1024.0 * 1024.0);
     if (s.mem_gb > 0) {
         nvmlUtilization_t u;
-        if (g_nvml.GetUtil(g_nvml.devices[dev_idx], &u) == NVML_SUCCESS)
+        if (g_nvml.GetUtil(g_nvml.devices[dev_idx], &u) == NVML_SUCCESS) {
             s.util = (double)u.gpu;
+            s.band = (double)u.memory;
+        }
     }
     return s;
 }

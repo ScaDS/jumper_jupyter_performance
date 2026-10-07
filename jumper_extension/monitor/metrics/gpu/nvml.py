@@ -83,7 +83,7 @@ class NvmlGpuCollector(GpuCollectorBackend):
     def _collect_system(self, handle: object) -> tuple[float, float, float]:
         util_rates = self._get_util_rates(handle)
         memory_info = self._pynvml.nvmlDeviceGetMemoryInfo(handle)
-        return util_rates.gpu, 0.0, memory_info.used / (1024**3)
+        return util_rates.gpu, util_rates.memory, memory_info.used / (1024**3)
 
     def _collect_process(
         self,
@@ -102,7 +102,7 @@ class NvmlGpuCollector(GpuCollectorBackend):
                 )
                 / (1024**3)
         )
-        return util_rates.gpu if process_mem > 0 else 0.0, 0.0, process_mem
+        return util_rates.gpu if process_mem > 0 else 0.0, util_rates.memory if process_mem > 0 else 0.0, process_mem
 
     def _collect_other(
         self,
@@ -140,7 +140,7 @@ class NvmlGpuCollector(GpuCollectorBackend):
             if filtered_gpu_processes
             else 0.0
         )
-        return filtered_util, 0.0, filtered_mem
+        return filtered_util, util_rates.memory if filtered_gpu_processes else 0.0, filtered_mem
 
     def shutdown(self) -> None:
         return None
