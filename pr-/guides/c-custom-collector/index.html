@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
       
 
@@ -1806,13 +1806,13 @@ Use <code>ctx-&gt;all_pids</code> / <code>ctx-&gt;n_all</code> to iterate over a
 <p><strong>1.</strong> Create <code>metrics/&lt;name&gt;/&lt;name&gt;.h</code>:
 <div class="highlight"><pre><span></span><code><span class="cp">#ifndef JUMPER_METRICS_&lt;NAME&gt;_H</span>
 <span class="cp">#define JUMPER_METRICS_&lt;NAME&gt;_H</span>
-<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;monitor.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">"monitor.h"</span>
 <span class="k">extern</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">CCollector</span><span class="w"> </span><span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="n">_collector</span><span class="p">;</span>
 <span class="cp">#endif</span>
 </code></pre></div></p>
 <p><strong>2.</strong> Implement <code>metrics/&lt;name&gt;/&lt;name&gt;.c</code> — define all needed callbacks and expose:
 <div class="highlight"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="n">CCollector</span><span class="w"> </span><span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="n">_collector</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w">          </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&lt;name&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w">          </span><span class="o">=</span><span class="w"> </span><span class="s">"&lt;name&gt;"</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">setup</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="n">_setup</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">snapshot</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="n">_snapshot</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">emit_columns</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">name</span><span class="o">&gt;</span><span class="n">_emit_columns</span><span class="p">,</span>
@@ -1827,7 +1827,7 @@ Use <code>ctx-&gt;all_pids</code> / <code>ctx-&gt;n_all</code> to iterate over a
 <span class="w">    </span>metrics/&lt;name&gt;/&lt;name&gt;.c
 </code></pre></div></p>
 <p><strong>4.</strong> Register in <code>monitor.c</code>:
-<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;metrics/&lt;name&gt;/&lt;name&gt;.h&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">"metrics/&lt;name&gt;/&lt;name&gt;.h"</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">CCollector</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">g_registry</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="o">&amp;</span><span class="n">cpu_collector</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">memory_collector</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">io_collector</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">gpu_collector</span><span class="p">,</span>
@@ -1896,7 +1896,7 @@ from Python) — the new collector will be active on the next monitor start.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
