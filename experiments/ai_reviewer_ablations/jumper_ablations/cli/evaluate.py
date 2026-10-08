@@ -8,6 +8,11 @@ Cheap and repeatable on purpose: it reads the records the expensive phase
 wrote and never runs the reviewer, so adding a metric costs a second rather
 than a sweep. Judged metrics are read from the verdict files an agent session
 produced; ones nobody has judged are reported as gaps, never as zeros.
+
+Two files come out. ``metrics.csv`` is what the report reads: one row per
+metric per unit for a run-scope metric, per cell for a cell-scope one.
+``metric_units.csv`` puts both scopes at unit grain, which is what pooling
+several runs needs - see ``aggregate/units.py``.
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ from jumper_ablations.config.schema import load_experiment_config
 from jumper_ablations.evaluation.base import EvaluationResult
 from jumper_ablations.evaluation.deterministic import DeterministicEvaluation
 from jumper_ablations.evaluation.judge import JudgeEvaluation
+from jumper_ablations.aggregate.units import unit_values
 from jumper_ablations.evaluation.judge.layout import missing_path
 from jumper_ablations.metrics.base import METHOD_DETERMINISTIC, METHOD_JUDGE
 from jumper_ablations.metrics.registry import selected_metrics
@@ -36,6 +42,7 @@ from jumper_ablations.paths import CLI_CONFIG_PATH, register_resolvers
 logger = logging.getLogger("jumper_ablations")
 
 METRICS_NAME = "metrics.csv"
+UNITS_NAME = "metric_units.csv"
 
 register_resolvers()
 
@@ -85,10 +92,23 @@ def main(raw_config: DictConfig) -> int:
             method.evaluate(group, run_contexts, cell_contexts, parameters)
         )
 
+    run_id = run.run_id
     frame = pd.DataFrame([row.__dict__ for row in result.rows])
+    frame.insert(0, "run_id", run_id)
     path = run.path / METRICS_NAME
     frame.to_csv(path, index=False)
     logger.info(f"{len(frame)} metric value(s) in {path}")
+
+    units = unit_values(
+        rows=result.rows,
+        metrics_by_id={metric.id: metric for metric in metrics},
+        cell_contexts=cell_contexts,
+        parameters=parameters,
+        run_id=run_id,
+    )
+    units_path = run.path / UNITS_NAME
+    units.to_csv(units_path, index=False)
+    logger.info(f"{len(units)} per-unit value(s) in {units_path}")
 
     if result.gaps:
         gaps = pd.DataFrame(result.gaps)

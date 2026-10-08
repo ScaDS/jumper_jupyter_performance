@@ -27,12 +27,16 @@ import pandas as pd
 
 from jumper_ablations.config.schema import ReportingConfig
 from jumper_ablations.metrics.base import SCOPE_CELL, SCOPE_RUN, MetricRow
-from jumper_ablations.metrics.context import CellContext
+from jumper_ablations.metrics.context import CellContext, unit_key_of
 from jumper_ablations.statistics import bootstrap_interval, clean, mean
 
 logger = logging.getLogger("jumper_ablations")
 
 SUMMARY_COLUMNS = (
+    # First, because it is what makes a row self-describing once rows from
+    # several runs sit in one table. Joining on the file's location instead
+    # works exactly until the file is copied.
+    "run_id",
     "usecase",
     "ablation",
     "category",
@@ -64,6 +68,7 @@ def summarise(
     cell_contexts: list[CellContext],
     reporting: ReportingConfig,
     parameters: dict | None = None,
+    run_id: str = "",
 ) -> pd.DataFrame:
     """One row per (usecase, ablation, metric, reported value)."""
     parameters = parameters or {}
@@ -107,6 +112,7 @@ def summarise(
         baseline = estimates.get(baseline_key, {})
         summary.append(
             {
+                "run_id": run_id,
                 "usecase": usecase,
                 "ablation": ablation,
                 "category": metric.spec.category,
@@ -190,50 +196,19 @@ def _estimate(
 
 
 def _per_unit(group: pd.DataFrame) -> dict:
-    """Values keyed by the experimental unit, for pairing two presets.
-
-    The unit is the *pass* and the generation within it - ``r00`` and ``g01``
-    in the unit id - not the generation alone. Keying on the generation made
-    a second repetition silently overwrite the first, so with
-    ``repetitions > 1`` half the data left the comparison without a trace.
-    """
+    """Values keyed by the experimental unit, for pairing two presets."""
     paired = {}
     for unit_id, value in zip(group["unit_id"], group["value"]):
-        key = _unit_key_of(str(unit_id))
+        key = unit_key_of(str(unit_id))
         if key is not None and pd.notna(value):
             paired[key] = float(value)
     return paired
-
-
-def _unit_key_of(unit_id: str) -> tuple[int, int] | None:
-    """``(repetition, generation)`` out of a record id, or None."""
-    repetition, generation = None, None
-    for part in unit_id.split("__"):
-        if part.startswith("r") and part[1:].isdigit():
-            repetition = int(part[1:])
-        elif part.startswith("g") and part[1:].isdigit():
-            generation = int(part[1:])
-    if generation is None:
-        return None
-    return (repetition if repetition is not None else 0, generation)
 
 
 def _draw_units(generator, units: tuple) -> list:
     """One bootstrap resample of the units, with replacement."""
     positions = generator.integers(0, len(units), size=len(units))
     return [units[position] for position in positions]
-
-
-def _resampled(context: CellContext, chosen: list) -> CellContext:
-    """The same cell, rebuilt from a resampled list of units."""
-    return CellContext(
-        usecase_id=context.usecase_id,
-        ablation_id=context.ablation_id,
-        records=tuple(
-            record for unit in chosen for record in context.unit(unit)
-        ),
-        usecase=context.usecase,
-    )
 
 
 def _cell_paired_difference(
@@ -328,10 +303,10 @@ def _difference_on(
     """Both presets recomputed on the same units, then subtracted."""
     try:
         value = metric.compute(
-            _resampled(context, chosen), metric_parameters
+            context.restricted_to(chosen), metric_parameters
         ).get(reported_value)
         baseline = metric.compute(
-            _resampled(baseline_context, chosen), metric_parameters
+            baseline_context.restricted_to(chosen), metric_parameters
         ).get(reported_value)
     except Exception:
         return None
@@ -370,7 +345,7 @@ def _cell_interval(
         chosen = _draw_units(generator, units)
         try:
             values = metric.compute(
-                _resampled(context, chosen), metric_parameters
+                context.restricted_to(chosen), metric_parameters
             )
         except Exception:
             continue

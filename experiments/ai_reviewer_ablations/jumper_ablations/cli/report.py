@@ -77,6 +77,7 @@ def main(raw_config: DictConfig) -> int:
         cell_contexts=cell_contexts,
         reporting=config.reporting,
         parameters=_parameters(config),
+        run_id=run.run_id,
     )
     summary_path = run.path / SUMMARY_NAME
     summary.to_csv(summary_path, index=False)

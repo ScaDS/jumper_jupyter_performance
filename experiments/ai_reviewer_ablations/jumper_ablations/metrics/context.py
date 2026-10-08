@@ -167,6 +167,40 @@ class CellContext:
             if record.identity.unit_key == key
         )
 
+    def restricted_to(self, keys) -> "CellContext":
+        """The same cell, rebuilt from the listed units.
+
+        A key may appear twice - that is what a bootstrap resample is - so the
+        records are collected per listed key rather than filtered once.
+        """
+        return CellContext(
+            usecase_id=self.usecase_id,
+            ablation_id=self.ablation_id,
+            records=tuple(
+                record for key in keys for record in self.unit(key)
+            ),
+            usecase=self.usecase,
+        )
+
+
+def unit_key_of(unit_id: str) -> tuple[int, int] | None:
+    """``(repetition, generation)`` out of a record id, or None.
+
+    The unit is the pass and the generation within it - ``r00`` and ``g01`` in
+    the record id - not the generation alone. Keying on the generation made a
+    second repetition silently overwrite the first, so with
+    ``repetitions > 1`` half the data left the comparison without a trace.
+    """
+    repetition, generation = None, None
+    for part in unit_id.split("__"):
+        if part.startswith("r") and part[1:].isdigit():
+            repetition = int(part[1:])
+        elif part.startswith("g") and part[1:].isdigit():
+            generation = int(part[1:])
+    if generation is None:
+        return None
+    return (repetition if repetition is not None else 0, generation)
+
 
 def drop_empty_context(records: list[RunRecord]) -> list[RunRecord]:
     """Remove the generations the reviewer answered without any context.

@@ -158,6 +158,15 @@ class RunDirectory:
             return {}
         return json.loads(self.meta_path.read_text(encoding="utf-8"))
 
+    @property
+    def run_id(self) -> str:
+        """What this run calls itself, falling back to its directory name.
+
+        A run whose first job died before writing ``meta.json`` still has to
+        be nameable, because its records are still there to be scored.
+        """
+        return str(self.meta().get("run_id") or self.path.name)
+
     def claim_meta(self, snapshot: dict) -> dict:
         """Write the run's definition if nobody has, and return what stands.
 
