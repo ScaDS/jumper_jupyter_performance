@@ -25,6 +25,7 @@ from jumper_ablations.statistics import mean, rate
 class PassAtK(DeterministicMetric):
     spec = MetricSpec(
         id="pass_at_k",
+        display_name="pass@1 / pass@k",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

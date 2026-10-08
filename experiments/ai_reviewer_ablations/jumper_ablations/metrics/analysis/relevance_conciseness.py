@@ -46,6 +46,7 @@ class RelevanceVerdict(BaseModel):
 class RelevanceConciseness(JudgeMetric):
     spec = MetricSpec(
         id="relevance_conciseness",
+        display_name="Relevance / Conciseness",
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

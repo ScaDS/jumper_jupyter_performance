@@ -29,6 +29,7 @@ from jumper_ablations.statistics import dispersion, mean, rate, spearman
 class ReplayModeAgreement(DeterministicMetric):
     spec = MetricSpec(
         id="replay_mode_agreement",
+        display_name="Replay-Mode Agreement",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

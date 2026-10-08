@@ -45,6 +45,10 @@ SUMMARY_COLUMNS = (
     "evaluation_method",
     "metric",
     "reported_value",
+    # The spreadsheet's name for this value, empty where it has none. Kept
+    # here and not in the per-unit file: it is a constant of the metric, and
+    # repeating it on every one of a hundred thousand rows says nothing more.
+    "metric_name",
     # Whether this row is the metric's answer or a quantity it was computed
     # from, so a reader can ask for results alone without knowing the names.
     "value_kind",
@@ -215,6 +219,7 @@ def _summarise_usecase(
                 "evaluation_method": metric.spec.evaluation_method,
                 "metric": metric_id,
                 "reported_value": reported_value,
+                "metric_name": metric.spec.name_of(reported_value),
                 "value_kind": metric.spec.kind_of(reported_value),
                 "estimate": values.get("estimate"),
                 "ci_low": values.get("ci_low"),

@@ -25,6 +25,7 @@ from jumper_ablations.statistics import rate
 class ExecutionSuccess(DeterministicMetric):
     spec = MetricSpec(
         id="execution_success",
+        display_name="Execution Success Before / After Repair",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

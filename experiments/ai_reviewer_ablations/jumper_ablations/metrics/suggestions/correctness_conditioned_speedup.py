@@ -26,6 +26,7 @@ from jumper_ablations.statistics import geometric_mean, median, rate
 class CorrectnessConditionedSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="correctness_conditioned_speedup",
+        display_name="Correctness-Conditioned Speedup / Coverage",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

@@ -24,6 +24,7 @@ from jumper_ablations.statistics import mean, rate, spearman
 class RankQuality(DeterministicMetric):
     spec = MetricSpec(
         id="rank_quality",
+        display_name="Rank Quality",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

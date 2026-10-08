@@ -57,6 +57,7 @@ class TransferVerdict(BaseModel):
 class AnalysisToSuggestionTransfer(JudgeMetric):
     spec = MetricSpec(
         id="analysis_to_suggestion_transfer",
+        display_name="Analysis-to-Suggestion Transfer",
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

@@ -35,6 +35,7 @@ from jumper_ablations.statistics import mean, rate
 class Repairs(DeterministicMetric):
     spec = MetricSpec(
         id="repairs",
+        display_name="Repairs",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

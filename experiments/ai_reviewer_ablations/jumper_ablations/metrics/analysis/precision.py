@@ -53,6 +53,7 @@ class PrecisionVerdict(BaseModel):
 class Precision(JudgeMetric):
     spec = MetricSpec(
         id="precision",
+        display_name="Precision",
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

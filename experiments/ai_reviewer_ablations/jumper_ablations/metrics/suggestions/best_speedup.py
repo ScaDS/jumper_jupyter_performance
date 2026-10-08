@@ -25,6 +25,7 @@ from jumper_ablations.statistics import mean, median
 class BestSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="best_speedup",
+        display_name="Best Suggestion Speedup",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

@@ -56,10 +56,25 @@ class MetricSpec:
     scope: str
     reported_values: tuple[str, ...]
     description: str
+    # The metric's name in the source spreadsheet, which is what a reader
+    # recognises; the id is what the files are keyed by. Only a result
+    # carries it: a denominator is not a row of that table.
+    display_name: str = ""
     # The subset of reported_values that are the quantities the results were
     # computed from rather than results themselves, named as the source
     # spreadsheet's Units column files them under "count".
     supporting_values: tuple[str, ...] = ()
+
+    def name_of(self, reported_value: str) -> str:
+        """The spreadsheet's name for this value, or "" when it has none.
+
+        Empty for every supporting quantity, and for a metric the
+        spreadsheet does not have a row for - which is a fact worth seeing
+        rather than papering over with the id.
+        """
+        if self.kind_of(reported_value) != KIND_RESULT:
+            return ""
+        return self.display_name
 
     def kind_of(self, reported_value: str) -> str:
         return (

@@ -22,6 +22,7 @@ DEFAULT_REQUESTED = 3
 class RequestedVersusReturned(DeterministicMetric):
     spec = MetricSpec(
         id="requested_vs_returned",
+        display_name="Requested vs Returned Suggestions",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

@@ -25,6 +25,7 @@ from jumper_ablations.statistics import mean
 class EndToEndCost(DeterministicMetric):
     spec = MetricSpec(
         id="end_to_end_cost",
+        display_name="End-to-End Cost",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

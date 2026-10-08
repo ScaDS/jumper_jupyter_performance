@@ -28,6 +28,7 @@ from jumper_ablations.statistics import rate
 class CorrectnessRates(DeterministicMetric):
     spec = MetricSpec(
         id="correctness_rates",
+        display_name="Correctness Status Rates",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

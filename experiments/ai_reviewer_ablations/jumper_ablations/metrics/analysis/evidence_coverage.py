@@ -93,6 +93,7 @@ def _reachable_facts(context):
 class ConditionalEvidenceCoverage(JudgeMetric):
     spec = MetricSpec(
         id="conditional_evidence_coverage",
+        display_name="Conditional Evidence Coverage",
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,
@@ -124,6 +125,7 @@ class ConditionalEvidenceCoverage(JudgeMetric):
 class GlobalEvidenceCoverage(JudgeMetric):
     spec = MetricSpec(
         id="global_evidence_coverage",
+        display_name="Global Evidence Coverage",
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

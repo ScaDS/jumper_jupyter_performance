@@ -53,6 +53,7 @@ class DiversityVerdict(BaseModel):
 class SuggestionDiversity(JudgeMetric):
     spec = MetricSpec(
         id="suggestion_diversity",
+        display_name="Suggestion Diversity",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

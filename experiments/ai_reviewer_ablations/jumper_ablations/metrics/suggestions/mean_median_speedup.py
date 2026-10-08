@@ -25,6 +25,7 @@ from jumper_ablations.statistics import geometric_mean, mean, median
 class MeanMedianSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="mean_median_speedup",
+        display_name="Mean / Median Suggestion Speedup",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,
@@ -60,6 +61,7 @@ class MeanMedianSpeedup(DeterministicMetric):
 class MeanMedianCorrectSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="mean_median_correct_speedup",
+        display_name="Mean / Median Suggestion Speedup",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

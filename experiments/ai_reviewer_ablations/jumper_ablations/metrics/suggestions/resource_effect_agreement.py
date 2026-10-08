@@ -86,6 +86,7 @@ def _direction(baseline: float | None, variant: float | None) -> str | None:
 class ResourceEffectAgreement(JudgeMetric):
     spec = MetricSpec(
         id="resource_effect_agreement",
+        display_name="Resource-Effect Agreement",
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,
