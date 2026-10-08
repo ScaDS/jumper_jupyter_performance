@@ -60,6 +60,11 @@ class RelevanceConciseness(JudgeMetric):
             "count of irrelevant observations and of code changes proposed in "
             "the analysis step."
         ),
+        supporting_values=(
+            "irrelevant_observation_count",
+            "premature_suggestion_count",
+            "total_claims",
+        ),
     )
     verdict_model = RelevanceVerdict
 

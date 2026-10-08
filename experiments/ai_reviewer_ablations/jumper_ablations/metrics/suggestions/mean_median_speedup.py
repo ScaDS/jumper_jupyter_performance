@@ -39,6 +39,9 @@ class MeanMedianSpeedup(DeterministicMetric):
             "every suggestion that ran, pooled over the generations of this "
             "preset. The geometric mean is the one to quote: these are ratios."
         ),
+        supporting_values=(
+            "measured_suggestions",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:
@@ -69,6 +72,9 @@ class MeanMedianCorrectSpeedup(DeterministicMetric):
         description=(
             "The same three averages over the suggestions that also produced "
             "matching results."
+        ),
+        supporting_values=(
+            "correct_suggestions",
         ),
     )
 

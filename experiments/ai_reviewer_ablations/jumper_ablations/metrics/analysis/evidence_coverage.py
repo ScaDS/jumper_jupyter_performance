@@ -106,6 +106,11 @@ class ConditionalEvidenceCoverage(JudgeMetric):
             "Weighted recall over the reference facts this ablation could "
             "still reach - how well the model used the context it received."
         ),
+        supporting_values=(
+            "covered_weight",
+            "total_weight",
+            "facts",
+        ),
     )
     verdict_model = EvidenceCoverageVerdict
 
@@ -132,6 +137,11 @@ class GlobalEvidenceCoverage(JudgeMetric):
             "Weighted recall over every reference fact, with the same "
             "denominator for every preset - what was lost by removing a "
             "source. Read next to the conditional number, never instead of it."
+        ),
+        supporting_values=(
+            "covered_weight",
+            "total_weight",
+            "facts",
         ),
     )
     verdict_model = EvidenceCoverageVerdict

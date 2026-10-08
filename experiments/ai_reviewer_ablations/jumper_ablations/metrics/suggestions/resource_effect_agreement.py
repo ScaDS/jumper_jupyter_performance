@@ -100,6 +100,10 @@ class ResourceEffectAgreement(JudgeMetric):
             "direction predicted. Predictions the benchmark did not measure "
             "are reported as uncheckable rather than counted either way."
         ),
+        supporting_values=(
+            "checked_predictions",
+            "uncheckable_predictions",
+        ),
     )
     verdict_model = ResourceEffectVerdict
 

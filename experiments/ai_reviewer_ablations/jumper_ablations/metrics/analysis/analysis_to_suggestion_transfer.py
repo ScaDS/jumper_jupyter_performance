@@ -72,6 +72,10 @@ class AnalysisToSuggestionTransfer(JudgeMetric):
             "share of the analysis's stated constraints that the suggestions "
             "preserve."
         ),
+        supporting_values=(
+            "constraints_stated",
+            "suggestions_total",
+        ),
     )
     verdict_model = TransferVerdict
 

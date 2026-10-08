@@ -39,6 +39,9 @@ class RankQuality(DeterministicMetric):
             "correct suggestions cannot be ranked and are excluded from the "
             "correlation."
         ),
+        supporting_values=(
+            "comparable_generations",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:

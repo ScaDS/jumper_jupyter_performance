@@ -67,6 +67,10 @@ class SuggestionDiversity(JudgeMetric):
             "response, and the share of suggestions that repeat one already "
             "offered."
         ),
+        supporting_values=(
+            "distinct_technique_count",
+            "suggestions_total",
+        ),
     )
     verdict_model = DiversityVerdict
 

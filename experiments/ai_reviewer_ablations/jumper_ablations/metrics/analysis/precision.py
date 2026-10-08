@@ -68,6 +68,11 @@ class Precision(JudgeMetric):
             "Share of the analysis's claims that the given sources support, "
             "and how many contradict them or refer to nothing in them."
         ),
+        supporting_values=(
+            "contradiction_count",
+            "hallucination_count",
+            "total_claims",
+        ),
     )
     verdict_model = PrecisionVerdict
 

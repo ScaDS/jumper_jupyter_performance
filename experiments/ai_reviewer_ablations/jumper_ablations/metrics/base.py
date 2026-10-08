@@ -37,6 +37,14 @@ SCOPE_RUN = "run"
 SCOPE_CELL = "cell"
 SCOPES = (SCOPE_RUN, SCOPE_CELL)
 
+# A reported value is either the metric's answer or a quantity that answer was
+# computed from. Both are reported, because a rate without its denominator is
+# unreadable - verified_rate = 1.0 over one suggestion and over sixty are
+# different claims - but only the first kind is a result, and a reader has to
+# be able to ask for just those.
+KIND_RESULT = "result"
+KIND_INPUT = "input"
+
 
 @dataclasses.dataclass(frozen=True)
 class MetricSpec:
@@ -48,6 +56,17 @@ class MetricSpec:
     scope: str
     reported_values: tuple[str, ...]
     description: str
+    # The subset of reported_values that are the quantities the results were
+    # computed from rather than results themselves, named as the source
+    # spreadsheet's Units column files them under "count".
+    supporting_values: tuple[str, ...] = ()
+
+    def kind_of(self, reported_value: str) -> str:
+        return (
+            KIND_INPUT
+            if reported_value in self.supporting_values
+            else KIND_RESULT
+        )
 
     def __post_init__(self) -> None:
         if self.category not in CATEGORIES:
@@ -61,6 +80,17 @@ class MetricSpec:
             raise ValueError(f"{self.id}: unknown scope {self.scope!r}")
         if not self.reported_values:
             raise ValueError(f"{self.id}: a metric has to report something")
+        unknown = set(self.supporting_values) - set(self.reported_values)
+        if unknown:
+            raise ValueError(
+                f"{self.id}: supporting values not reported: "
+                f"{', '.join(sorted(unknown))}"
+            )
+        if not set(self.reported_values) - set(self.supporting_values):
+            raise ValueError(
+                f"{self.id}: every reported value is supporting, so the "
+                "metric has no result"
+            )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -69,6 +99,7 @@ class MetricRow:
 
     metric: str
     reported_value: str
+    value_kind: str
     value: float | None
     usecase: str
     ablation: str
@@ -104,6 +135,7 @@ class Metric:
             MetricRow(
                 metric=self.spec.id,
                 reported_value=name,
+                value_kind=self.spec.kind_of(name),
                 value=values.get(name),
                 usecase=context.usecase_id,
                 ablation=context.ablation_id,

@@ -40,6 +40,9 @@ class BestSpeedup(DeterministicMetric):
             "suggestion each generation produced - once over everything "
             "that ran, once over what also produced matching results."
         ),
+        supporting_values=(
+            "generations_with_a_measurement",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:

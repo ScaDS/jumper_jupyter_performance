@@ -16,6 +16,8 @@ from jumper_ablations.config.schema import (
 )
 from jumper_ablations.metrics import build_cell_contexts
 from jumper_ablations.metrics.base import (
+    KIND_RESULT,
+    MetricSpec,
     CATEGORY_ANALYSIS,
     CATEGORY_SUGGESTIONS,
     METHOD_DETERMINISTIC,
@@ -41,6 +43,7 @@ def _row(ablation: str, value: float, generation: int, repetition: int = 0):
     return MetricRow(
         metric="bottleneck_identification",
         reported_value="total_score",
+        value_kind=KIND_RESULT,
         value=value,
         usecase="synthetic/loop",
         ablation=ablation,
@@ -180,12 +183,14 @@ class _UnitMeanMetric:
 
     id = "unit_mean"
 
-    class spec:
-        id = "unit_mean"
-        scope = SCOPE_CELL
-        category = CATEGORY_SUGGESTIONS
-        evaluation_method = METHOD_DETERMINISTIC
-        reported_values = ("mean",)
+    spec = MetricSpec(
+        id="unit_mean",
+        category=CATEGORY_SUGGESTIONS,
+        evaluation_method=METHOD_DETERMINISTIC,
+        scope=SCOPE_CELL,
+        reported_values=("mean",),
+        description="The mean of the values the test chose.",
+    )
 
     def __init__(self, by_cell: dict):
         self.by_cell = by_cell
@@ -205,6 +210,7 @@ def _cell_rows(ablation: str, units):
         MetricRow(
             metric="unit_mean",
             reported_value="mean",
+            value_kind=KIND_RESULT,
             value=None,
             usecase="synthetic/loop",
             ablation=ablation,

@@ -41,6 +41,10 @@ class CorrectnessConditionedSpeedup(DeterministicMetric):
             "with the share of all suggestions that qualified. The speedup is "
             "meaningless without the coverage and is never quoted alone."
         ),
+        supporting_values=(
+            "correct_suggestions",
+            "suggestions",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:

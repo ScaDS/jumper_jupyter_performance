@@ -38,6 +38,9 @@ class ExecutionSuccess(DeterministicMetric):
             "Fraction of suggestions that ran on their first version, the "
             "fraction that ran after repairs, and the difference."
         ),
+        supporting_values=(
+            "suggestions",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:

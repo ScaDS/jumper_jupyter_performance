@@ -43,6 +43,9 @@ SUMMARY_COLUMNS = (
     "evaluation_method",
     "metric",
     "reported_value",
+    # Whether this row is the metric's answer or a quantity it was computed
+    # from, so a reader can ask for results alone without knowing the names.
+    "value_kind",
     "estimate",
     "ci_low",
     "ci_high",
@@ -119,6 +122,7 @@ def summarise(
                 "evaluation_method": metric.spec.evaluation_method,
                 "metric": metric_id,
                 "reported_value": reported_value,
+                "value_kind": metric.spec.kind_of(reported_value),
                 "estimate": values.get("estimate"),
                 "ci_low": values.get("ci_low"),
                 "ci_high": values.get("ci_high"),

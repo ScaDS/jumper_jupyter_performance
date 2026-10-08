@@ -37,6 +37,9 @@ class RequestedVersusReturned(DeterministicMetric):
             "number. `requested` comes from the metric's config: nothing in "
             "the pipeline pins it."
         ),
+        supporting_values=(
+            "requested",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:

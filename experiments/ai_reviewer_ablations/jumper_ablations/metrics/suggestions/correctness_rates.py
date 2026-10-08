@@ -43,6 +43,9 @@ class CorrectnessRates(DeterministicMetric):
             "differed from it, could not be compared, or never ran. "
             "`unverified` is not counted as correct anywhere."
         ),
+        supporting_values=(
+            "suggestions",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:

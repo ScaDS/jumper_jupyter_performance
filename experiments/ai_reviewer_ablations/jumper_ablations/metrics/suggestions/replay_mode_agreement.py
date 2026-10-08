@@ -45,6 +45,9 @@ class ReplayModeAgreement(DeterministicMetric):
             "their speedups are, how similarly they rank, and how often a "
             "requested mode fell back to the full replay."
         ),
+        supporting_values=(
+            "modes_compared",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:

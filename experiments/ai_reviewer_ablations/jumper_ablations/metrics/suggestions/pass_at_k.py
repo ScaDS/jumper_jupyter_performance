@@ -35,6 +35,10 @@ class PassAtK(DeterministicMetric):
             "suggestion. `mean_k` is the average number of options a response "
             "held."
         ),
+        supporting_values=(
+            "mean_k",
+            "generations",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:
