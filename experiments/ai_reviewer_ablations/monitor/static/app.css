@@ -162,6 +162,63 @@ code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-
 .legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin: 8px 0; }
 .legend b { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; }
 
+/* The filter bar. A checkbox menu rather than <select multiple>, which
+   needs ctrl-click to pick a second value and shows three rows of twenty. */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  margin: 0 0 10px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.filters-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.filters .modes { display: flex; gap: 10px; }
+.filters .modes label,
+.picker .options label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+
+.picker { position: relative; }
+.picker > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.picker > summary::-webkit-details-marker { display: none; }
+.picker > summary::after { content: " \25be"; color: var(--muted); }
+.picker[open] > summary { border-color: var(--accent); }
+.picker .options {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  max-height: 320px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+  white-space: nowrap;
+}
+button.link {
+  border: none;
+  background: none;
+  color: var(--accent);
+  padding: 5px 4px;
+  text-decoration: underline;
+}
+.note.counted { margin: 0 0 8px; font-size: 12px; }
+
 tr.finding { background: color-mix(in srgb, var(--ok) 12%, transparent); }
 /* A value whose difference from the baseline clears zero. Marked, not
    coloured by direction: better and worse are the metric's business, and

@@ -317,7 +317,7 @@ function renderResults() {
     ],
   ));
 
-  $("summary").replaceChildren(...comparisonTables(results.summary));
+  renderSummary();
 
   $("judge").replaceChildren(table(
     [{ label: "what" }, { label: "count", num: true }],
@@ -359,6 +359,163 @@ async function compare() {
     $("comparison").replaceChildren(banner, table(headers, rows));
   } catch (failure) {
     $("comparison").replaceChildren(el("p", { class: "error" }, failure.message));
+  }
+}
+
+// -- filters ------------------------------------------------------------
+
+// What the viewer has narrowed the metric table to. An empty set means "no
+// opinion", not "nothing": a facet whose values all got filtered out of a
+// particular run would otherwise blank the table rather than ignore itself.
+const filters = {
+  show: "results",
+  usecase: new Set(),
+  ablation: new Set(),
+  evaluation_method: new Set(),
+  metric: new Set(),
+};
+
+const FACETS = [
+  { key: "usecase", label: "usecase" },
+  { key: "ablation", label: "preset" },
+  { key: "evaluation_method", label: "method" },
+  { key: "metric", label: "metric" },
+];
+
+// The three states of the one control the whole table hangs on. "results" is
+// the default because two thirds of the rows are denominators and counters:
+// useful next to their rate, noise when every one of them has its own line.
+const SHOW_MODES = [
+  { id: "results", label: "results", hint: "only the metrics' own answers" },
+  { id: "inputs", label: "+inputs", hint: "and the quantities they are computed from" },
+  { id: "all", label: "all", hint: "and the rows nothing measured" },
+];
+
+function restoreFilters() {
+  // A per-viewer convenience, so a chosen view survives a reload. It lives
+  // in the browser, never in the run directory, and a browser that refuses
+  // to store it simply starts from the default.
+  try {
+    const saved = JSON.parse(localStorage.getItem("monitor.filters") || "{}");
+    if (SHOW_MODES.some((mode) => mode.id === saved.show)) filters.show = saved.show;
+    for (const facet of FACETS) {
+      if (Array.isArray(saved[facet.key])) filters[facet.key] = new Set(saved[facet.key]);
+    }
+  } catch (failure) {
+    // Private windows, cleared site data, storage disabled: not an error.
+  }
+}
+
+function saveFilters() {
+  try {
+    localStorage.setItem("monitor.filters", JSON.stringify({
+      show: filters.show,
+      ...Object.fromEntries(FACETS.map((f) => [f.key, [...filters[f.key]]])),
+    }));
+  } catch (failure) {
+    // See restoreFilters.
+  }
+}
+
+function hasValue(row) {
+  return !Number.isNaN(parseFloat(row.estimate));
+}
+
+function applyFilters(rows) {
+  let kept = (rows || []).filter((row) =>
+    FACETS.every((facet) =>
+      !filters[facet.key].size || filters[facet.key].has(row[facet.key])));
+
+  if (filters.show === "results") {
+    // Rows written before value_kind existed carry none, and a row with no
+    // kind is a result: the alternative hides data because a run is old.
+    kept = kept.filter((row) => (row.value_kind || "result") === "result");
+  }
+  if (filters.show !== "all") {
+    // A reported value that no preset measured is a gap, not a comparison.
+    // Dropping the whole key rather than the empty cells keeps the surviving
+    // row readable: a metric is only absent when it is absent everywhere.
+    const measured = new Set();
+    for (const row of kept) {
+      if (hasValue(row)) measured.add(`${row.usecase}\u0000${row.metric}.${row.reported_value}`);
+    }
+    kept = kept.filter((row) =>
+      measured.has(`${row.usecase}\u0000${row.metric}.${row.reported_value}`));
+  }
+  return kept;
+}
+
+function picker(facet, rows) {
+  const values = [...new Set(rows.map((row) => row[facet.key]).filter(Boolean))].sort();
+  const chosen = filters[facet.key];
+  const count = chosen.size ? ` (${chosen.size})` : "";
+  return el("details", { class: "picker" }, [
+    el("summary", {}, `${facet.label}${count}`),
+    el("div", { class: "options" }, values.map((value) =>
+      el("label", {}, [
+        el("input", {
+          type: "checkbox",
+          checked: chosen.has(value) ? "checked" : null,
+          onchange: (event) => {
+            if (event.target.checked) chosen.add(value);
+            else chosen.delete(value);
+            saveFilters();
+            renderSummary({ keepOpen: facet.key });
+          },
+        }),
+        value,
+      ]))),
+  ]);
+}
+
+function filterBar(rows) {
+  const modes = el("div", { class: "modes" }, SHOW_MODES.map((mode) =>
+    el("label", { title: mode.hint }, [
+      el("input", {
+        type: "radio",
+        name: "show",
+        checked: filters.show === mode.id ? "checked" : null,
+        onchange: () => {
+          filters.show = mode.id;
+          saveFilters();
+          renderSummary();
+        },
+      }),
+      mode.label,
+    ])));
+
+  const reset = el("button", {
+    type: "button",
+    class: "link",
+    onclick: () => {
+      filters.show = "results";
+      for (const facet of FACETS) filters[facet.key].clear();
+      saveFilters();
+      renderSummary();
+    },
+  }, "reset");
+
+  return el("div", { class: "filters" }, [
+    el("span", { class: "filters-label" }, "show:"),
+    modes,
+    ...FACETS.map((facet) => picker(facet, rows)),
+    reset,
+  ]);
+}
+
+function renderSummary(options = {}) {
+  const all = (snapshot && snapshot.results && snapshot.results.summary) || [];
+  const shown = applyFilters(all);
+  const bar = filterBar(all);
+  const counted = el("p", { class: "note counted" },
+    `${shown.length} of ${all.length} rows`);
+  $("summary").replaceChildren(bar, counted, ...comparisonTables(shown));
+  if (options.keepOpen) {
+    // Changing one checkbox re-renders the bar, which would otherwise shut
+    // the menu after every single click.
+    const index = FACETS.findIndex((facet) => facet.key === options.keepOpen);
+    const menus = bar.querySelectorAll("details.picker");
+    if (menus[index]) menus[index].open = true;
   }
 }
 
@@ -485,4 +642,5 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "r" && !event.metaKey && !event.ctrlKey) update();
 });
 
+restoreFilters();
 update();
