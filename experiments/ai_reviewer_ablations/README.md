@@ -256,6 +256,14 @@ suggestions, the benchmark verdicts and the sampling that was applied. The
 tables are regenerable from it at any time with `cli.evaluate` and
 `cli.report`, so a new metric never costs another sweep.
 
+`cli.report` is the expensive half of that, because a cell-scope metric has
+no interval until it is recomputed on a few hundred resampled unit sets.
+Resamples are shared across a metric's reported values and between the
+interval and the paired difference, and usecases are summarised in parallel
+(`reporting.workers`, 0 to choose). On the pilot that is 19k recomputations
+rather than 212k; a nine-usecase run with fifty units per cell is about a
+minute rather than twelve.
+
 `passes.jsonl` is the first file to open. A pass with `prefix_failed` never
 got to the reviewer; `capture_failed` means the magic ran and nothing came
 back.

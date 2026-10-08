@@ -202,6 +202,12 @@ class ReportingConfig(BaseModel):
     baseline_ablation: str = "base"
     bootstrap: BootstrapConfig = Field(default_factory=BootstrapConfig)
     figures: bool = True
+    # Usecases are summarised independently, so they parallelise exactly.
+    # 0 means choose, and the choice stays modest because the report is
+    # usually run on a login node that other people are using. The result
+    # does not depend on this: every resample is drawn from a seed fixed by
+    # the unit set, not by the order work happens to complete in.
+    workers: int = Field(default=0, ge=0)
 
 
 class ShardConfig(BaseModel):

@@ -21,6 +21,8 @@ the difference of the two means.
 from __future__ import annotations
 
 import logging
+import os
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -73,16 +75,107 @@ def summarise(
     parameters: dict | None = None,
     run_id: str = "",
 ) -> pd.DataFrame:
-    """One row per (usecase, ablation, metric, reported value)."""
+    """One row per (usecase, ablation, metric, reported value).
+
+    Usecases are summarised one at a time and may be summarised in parallel:
+    nothing a cell-scope metric does crosses a usecase, and the resample
+    cache that makes the cell path affordable is only useful within one.
+    """
     parameters = parameters or {}
     frame = rows_frame(rows)
     if frame.empty:
         return pd.DataFrame(columns=list(SUMMARY_COLUMNS))
 
+    usecases = sorted(frame["usecase"].unique())
+    work = [
+        (
+            frame[frame["usecase"] == usecase],
+            [
+                context
+                for context in cell_contexts
+                if context.usecase_id == usecase
+            ],
+        )
+        for usecase in usecases
+    ]
+    summary = []
+    for produced in _map_usecases(
+        work, metrics_by_id, reporting, parameters, run_id
+    ):
+        summary.extend(produced)
+    return pd.DataFrame(summary, columns=list(SUMMARY_COLUMNS))
+
+
+def _workers(reporting: ReportingConfig, usecases: int) -> int:
+    """How many processes to summarise with. 0 in the config means choose.
+
+    Capped low on purpose: the report is usually run interactively on a
+    login node that other people are also using, and the first optimisation
+    already removed an order of magnitude from the work.
+    """
+    if reporting.workers:
+        return max(1, min(reporting.workers, usecases))
+    return max(1, min(usecases, os.cpu_count() or 1, 4))
+
+
+def _map_usecases(
+    work: list, metrics_by_id: dict, reporting, parameters, run_id: str
+) -> list[list[dict]]:
+    """Summarise each usecase, in this process or in several.
+
+    Returns a complete list rather than yielding as results arrive: a pool
+    that fails halfway has to be retried from the beginning, and a caller
+    that had already consumed part of the first attempt would then count
+    those usecases twice.
+    """
+    workers = _workers(reporting, len(work))
+    if workers > 1:
+        logger.info(
+            f"summarising {len(work)} usecase(s) on {workers} process(es)"
+        )
+        try:
+            with ProcessPoolExecutor(max_workers=workers) as pool:
+                futures = [
+                    pool.submit(
+                        _summarise_usecase,
+                        group,
+                        contexts,
+                        metrics_by_id,
+                        reporting,
+                        parameters,
+                        run_id,
+                    )
+                    for group, contexts in work
+                ]
+                return [future.result() for future in futures]
+        except Exception as failure:
+            # A pool that cannot start - no fork, a sandbox, an unpicklable
+            # metric someone has just added - is a reason to be slow, not a
+            # reason to produce no report.
+            logger.warning(f"falling back to one process: {failure}")
+
+    return [
+        _summarise_usecase(
+            group, contexts, metrics_by_id, reporting, parameters, run_id
+        )
+        for group, contexts in work
+    ]
+
+
+def _summarise_usecase(
+    frame: pd.DataFrame,
+    cell_contexts: list,
+    metrics_by_id: dict,
+    reporting: ReportingConfig,
+    parameters: dict,
+    run_id: str,
+) -> list[dict]:
+    """Every summary row of one usecase."""
     contexts_by_cell = {
         (context.usecase_id, context.ablation_id): context
         for context in cell_contexts
     }
+    bootstrap = CellBootstrap(reporting, parameters)
 
     estimates: dict[tuple, dict] = {}
     for key, group in frame.groupby(
@@ -99,7 +192,7 @@ def summarise(
             reported_value=reported_value,
             context=contexts_by_cell.get((usecase, ablation)),
             reporting=reporting,
-            metric_parameters=parameters.get(metric_id, {}),
+            bootstrap=bootstrap,
         )
 
     summary = []
@@ -142,13 +235,13 @@ def summarise(
                         (usecase, reporting.baseline_ablation)
                     ),
                     reporting=reporting,
-                    metric_parameters=parameters.get(metric_id, {}),
+                    bootstrap=bootstrap,
                 ),
                 "gaps": values.get("gaps"),
             }
         )
 
-    return pd.DataFrame(summary, columns=list(SUMMARY_COLUMNS))
+    return summary
 
 
 def _estimate(
@@ -157,7 +250,7 @@ def _estimate(
     reported_value: str,
     context: CellContext | None,
     reporting: ReportingConfig,
-    metric_parameters: dict,
+    bootstrap: CellBootstrap,
 ) -> dict:
     values = clean(group["value"].tolist())
     gaps = int(group["value"].isna().sum())
@@ -187,7 +280,7 @@ def _estimate(
         reported_value=reported_value,
         context=context,
         reporting=reporting,
-        metric_parameters=metric_parameters,
+        bootstrap=bootstrap,
     )
     return {
         "estimate": estimate,
@@ -215,13 +308,119 @@ def _draw_units(generator, units: tuple) -> list:
     return [units[position] for position in positions]
 
 
+class CellBootstrap:
+    """The resamples of one grid row, computed once and read many times.
+
+    Every cell-scope number in the report comes from the same operation:
+    rebuild a cell from a drawn set of units and recompute a metric on it.
+    Done naively that operation runs once per *reported value*, and once
+    again for the paired difference, so a metric that returns four numbers is
+    computed four times on identical input and then twice more against the
+    baseline. On the pilot that was 212,000 computations per usecase where
+    19,200 carry all the information.
+
+    Two things make the saving exact rather than approximate.
+
+    A metric returns **all** of its reported values from one call, so caching
+    the call and reading four keys out of it is the same arithmetic as four
+    calls.
+
+    And the draw depends only on the unit set: the generator is seeded per
+    unit tuple, so a preset and the baseline that ran the same units get the
+    same draws, and the interval and the paired difference share them. When
+    the unit sets differ the tuples differ, each gets its own draws, and
+    nothing is reused across populations that are not the same.
+    """
+
+    def __init__(self, reporting: ReportingConfig, parameters: dict):
+        self._reporting = reporting
+        self._parameters = parameters
+        # Recomputing a metric is far more expensive than resampling a
+        # number, so the cell-scope path uses a smaller draw than the
+        # run-scope one and says so in the report rather than pretending to
+        # ten thousand.
+        self._draws = min(reporting.bootstrap.samples, 400)
+        self._drawn: dict[tuple, list[list]] = {}
+        self._values: dict[tuple, list[dict | None]] = {}
+        self._points: dict[tuple, dict | None] = {}
+
+    def units_of(self, context: CellContext | None) -> tuple:
+        return () if context is None else context.unit_keys()
+
+    def shared_units(
+        self, context: CellContext | None, other: CellContext | None
+    ) -> tuple:
+        """The units both cells ran, in the first one's order."""
+        if context is None or other is None:
+            return ()
+        theirs = set(self.units_of(other))
+        return tuple(
+            unit for unit in self.units_of(context) if unit in theirs
+        )
+
+    def drawn(self, units: tuple) -> list[list]:
+        """The resamples of *units*, the same list every time it is asked."""
+        if units not in self._drawn:
+            generator = np.random.default_rng(
+                self._reporting.bootstrap.seed
+            )
+            self._drawn[units] = [
+                _draw_units(generator, units) for _ in range(self._draws)
+            ]
+        return self._drawn[units]
+
+    def resampled_values(
+        self, context: CellContext, metric, units: tuple
+    ) -> list[dict | None]:
+        """*metric* on each resample of *units*, one mapping per draw.
+
+        None where the metric could not say anything about that resample,
+        which is ordinary: a rank correlation needs two comparable points.
+        """
+        key = (context.usecase_id, context.ablation_id, metric.id, units)
+        if key not in self._values:
+            parameters = self._parameters.get(metric.id, {})
+            computed: list[dict | None] = []
+            for chosen in self.drawn(units):
+                try:
+                    computed.append(
+                        metric.compute(
+                            context.restricted_to(chosen), parameters
+                        )
+                    )
+                except Exception:
+                    computed.append(None)
+            self._values[key] = computed
+        return self._values[key]
+
+    def on_units(
+        self, context: CellContext, metric, units: tuple
+    ) -> dict | None:
+        """*metric* on one named set of units, outside the resamples.
+
+        Cached like the resamples and for the same reason: the point estimate
+        of the paired difference is asked for once per reported value, and a
+        metric answers for all of them at once.
+        """
+        key = (context.usecase_id, context.ablation_id, metric.id, units)
+        if key not in self._points:
+            try:
+                self._points[key] = metric.compute(
+                    context.restricted_to(list(units)),
+                    self._parameters.get(metric.id, {}),
+                )
+            except Exception:
+                self._points[key] = None
+        return self._points[key]
+
+
 def _cell_paired_difference(
     metric,
     reported_value: str,
     context: CellContext | None,
     baseline_context: CellContext | None,
     reporting: ReportingConfig,
-    metric_parameters: dict,
+    bootstrap: CellBootstrap,
 ) -> dict:
     """The difference from the baseline for a metric that reduces a whole
     cell to one number, and an interval for that difference.
@@ -237,24 +436,14 @@ def _cell_paired_difference(
     metric, and drew the preset's own spread around a bare difference of two
     point estimates.
     """
-    if context is None or baseline_context is None:
-        return dict(_NO_PAIRED_DIFFERENCE)
-
-    shared = tuple(
-        unit
-        for unit in context.unit_keys()
-        if unit in set(baseline_context.unit_keys())
-    )
+    shared = bootstrap.shared_units(context, baseline_context)
     if not shared:
         return dict(_NO_PAIRED_DIFFERENCE)
 
-    point = _difference_on(
-        metric,
+    point = _subtract(
+        bootstrap.on_units(context, metric, shared),
+        bootstrap.on_units(baseline_context, metric, shared),
         reported_value,
-        context,
-        baseline_context,
-        list(shared),
-        metric_parameters,
     )
     if point is None:
         return dict(_NO_PAIRED_DIFFERENCE)
@@ -268,21 +457,14 @@ def _cell_paired_difference(
     if len(shared) < 2:
         return result
 
-    generator = np.random.default_rng(reporting.bootstrap.seed)
-    draws = min(reporting.bootstrap.samples, 400)
-    differences = []
-    for _ in range(draws):
-        chosen = _draw_units(generator, shared)
-        difference = _difference_on(
-            metric,
-            reported_value,
-            context,
-            baseline_context,
-            chosen,
-            metric_parameters,
-        )
-        if difference is not None:
-            differences.append(difference)
+    mine = bootstrap.resampled_values(context, metric, shared)
+    theirs = bootstrap.resampled_values(baseline_context, metric, shared)
+    differences = [
+        difference
+        for value, baseline in zip(mine, theirs)
+        if (difference := _subtract(value, baseline, reported_value))
+        is not None
+    ]
 
     if len(differences) < 2:
         return result
@@ -296,27 +478,17 @@ def _cell_paired_difference(
     return result
 
 
-def _difference_on(
-    metric,
-    reported_value: str,
-    context: CellContext,
-    baseline_context: CellContext,
-    chosen: list,
-    metric_parameters: dict,
+def _subtract(
+    values: dict | None, baseline: dict | None, reported_value: str
 ) -> float | None:
-    """Both presets recomputed on the same units, then subtracted."""
-    try:
-        value = metric.compute(
-            context.restricted_to(chosen), metric_parameters
-        ).get(reported_value)
-        baseline = metric.compute(
-            baseline_context.restricted_to(chosen), metric_parameters
-        ).get(reported_value)
-    except Exception:
+    """One reported value of two already computed cells, subtracted."""
+    if values is None or baseline is None:
         return None
-    if value is None or baseline is None:
+    mine = values.get(reported_value)
+    theirs = baseline.get(reported_value)
+    if mine is None or theirs is None:
         return None
-    return float(value) - float(baseline)
+    return float(mine) - float(theirs)
 
 
 def _cell_interval(
@@ -324,38 +496,28 @@ def _cell_interval(
     reported_value: str,
     context: CellContext | None,
     reporting: ReportingConfig,
-    metric_parameters: dict,
+    bootstrap: CellBootstrap,
 ) -> tuple[float | None, float | None]:
     """Bootstrap a cell-scope metric by resampling its generations.
 
     Recomputing the metric on each resample is the expensive but honest
     option: a pass@k interval taken over one number would be no interval at
-    all.
+    all. The resamples themselves come from the shared bootstrap, so the
+    cost is paid once per metric rather than once per reported value.
     """
     if context is None:
         return (None, None)
 
-    units = context.unit_keys()
+    units = bootstrap.units_of(context)
     if len(units) < 2:
         return (None, None)
 
-    generator = np.random.default_rng(reporting.bootstrap.seed)
-    # Recomputing a metric is far more expensive than resampling a number, so
-    # this uses a smaller draw than the run-scope path and says so in the
-    # report rather than pretending to ten thousand.
-    draws = min(reporting.bootstrap.samples, 400)
-    estimates = []
-    for _ in range(draws):
-        chosen = _draw_units(generator, units)
-        try:
-            values = metric.compute(
-                context.restricted_to(chosen), metric_parameters
-            )
-        except Exception:
-            continue
-        estimates.append(values.get(reported_value))
-
-    numbers = clean(estimates)
+    numbers = clean(
+        [
+            None if values is None else values.get(reported_value)
+            for values in bootstrap.resampled_values(context, metric, units)
+        ]
+    )
     if len(numbers) < 2:
         return (None, None)
     tail = (1.0 - reporting.bootstrap.confidence) / 2.0
@@ -379,7 +541,7 @@ def _difference_from_baseline(
     context,
     baseline_context,
     reporting: ReportingConfig,
-    metric_parameters: dict,
+    bootstrap: CellBootstrap,
 ) -> dict:
     """The paired difference, by whichever route this metric's shape allows.
 
@@ -400,7 +562,7 @@ def _difference_from_baseline(
         context=context,
         baseline_context=baseline_context,
         reporting=reporting,
-        metric_parameters=metric_parameters,
+        bootstrap=bootstrap,
     )
 
 

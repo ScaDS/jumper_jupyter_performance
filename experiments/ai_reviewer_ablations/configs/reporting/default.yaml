@@ -10,3 +10,8 @@ bootstrap:
   seed: 0
 
 figures: true
+
+# Usecases are summarised independently, so they parallelise exactly. 0 means
+# choose, and the choice stays modest because the report usually runs on a
+# shared login node. The numbers do not depend on it.
+workers: 0
