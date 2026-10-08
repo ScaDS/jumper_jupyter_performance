@@ -49,6 +49,15 @@ class MonitorHandler(BaseHTTPRequestHandler):
                     if one
                 ]
                 self._send_json(model.aggregate(self.results_root, names))
+            elif route.path == "/api/join":
+                self._send_json(
+                    model.join(
+                        self.results_root,
+                        mine=self._run_name(query, "mine"),
+                        theirs=self._run_name(query, "theirs"),
+                        variant=(query.get("variant") or [""])[0],
+                    )
+                )
             elif route.path == "/api/snapshot":
                 self._send_json(self._snapshot(query))
             elif route.path == "/api/record":
@@ -106,6 +115,18 @@ class MonitorHandler(BaseHTTPRequestHandler):
         if not candidate.is_dir():
             raise FileNotFoundError(f"no run {name!r}")
         return candidate
+
+    def _run_name(self, query: dict, field: str) -> str:
+        """A run named by one query field, checked the same way as `run`.
+
+        The join takes two names, and the model resolves them against the
+        results root itself, so what has to be rejected here is a name that
+        would leave it.
+        """
+        name = (query.get(field) or [""])[0]
+        if not name:
+            raise FileNotFoundError(f"no {field} run named")
+        return self._run_path({"run": [name]}).name
 
     # -- plumbing --------------------------------------------------------
 

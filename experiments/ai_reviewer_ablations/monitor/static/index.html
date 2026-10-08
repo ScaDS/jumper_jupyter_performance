@@ -89,6 +89,13 @@
       estimate on its own says nothing about whether two presets differ.
     </p>
     <p class="note">
+      <b>join</b> brings in a second run keyed on usecase, preset, metric and
+      reported value. Nothing is averaged: every value is a number one run
+      produced, a borrowed one is marked and names its run on hover. That is
+      why a join is allowed between runs that asked different questions,
+      where pooling would not be.
+    </p>
+    <p class="note">
       <b>results</b> shows each metric's own answer; <b>+inputs</b> adds the
       quantities it was computed from, which belong next to a rate rather
       than on their own line; <b>all</b> adds the reported values nothing

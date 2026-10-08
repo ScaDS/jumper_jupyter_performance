@@ -270,3 +270,11 @@ tr.gap td { color: var(--muted); }
   .path { max-width: 100%; }
   .bar { gap: 10px; }
 }
+
+/* A value the join took from the other run. Dotted rather than coloured:
+   provenance is not a verdict, and the status ramp is reserved. */
+.borrowed {
+  border-bottom: 1px dotted var(--muted);
+  cursor: help;
+}
+.borrowed::after { content: "*"; color: var(--muted); font-size: 11px; }

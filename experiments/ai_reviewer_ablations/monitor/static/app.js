@@ -7,6 +7,7 @@
 
 let snapshot = null;
 let colourByShard = false;
+let knownRuns = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -70,8 +71,13 @@ async function getJSON(url) {
   return body;
 }
 
+function currentRun() {
+  return $("run-select").value;
+}
+
 async function loadRuns() {
   const { runs } = await getJSON("/api/runs");
+  knownRuns = runs;
   const select = $("run-select");
   const chosen = select.value;
   const option = (run) =>
@@ -87,7 +93,13 @@ async function update() {
   button.textContent = "reading...";
   try {
     await loadRuns();
-    const run = $("run-select").value;
+    const run = currentRun();
+    if (joinState.rows && joinState.info && joinState.info.mine !== run) {
+      // A join is a statement about one run against another. Changing which
+      // run is being watched makes the old merge a statement about nothing.
+      joinState.rows = null;
+      joinState.info = null;
+    }
     snapshot = await getJSON(`/api/snapshot?run=${encodeURIComponent(run)}`);
     render();
   } catch (failure) {
@@ -503,13 +515,122 @@ function filterBar(rows) {
   ]);
 }
 
+// -- joining another run ------------------------------------------------
+
+// Taking a value from one run or the other is not pooling: nothing is
+// averaged and every row says where it came from, which is what makes it
+// allowed between runs that asked different questions.
+const JOIN_LABELS = {
+  mine_wins: "this run wins",
+  theirs_win: "the other run wins",
+  shared: "only where both measured",
+  missing_here: "only what this run is missing",
+};
+
+const joinState = { theirs: "", variant: "mine_wins", rows: null, info: null };
+
+function joinBar() {
+  const others = knownRuns
+    .map((one) => one.name)
+    .filter((name) => name !== currentRun());
+
+  const pick = el("select", {
+    onchange: (event) => { joinState.theirs = event.target.value; },
+  }, [
+    el("option", { value: "" }, "join another run..."),
+    ...others.map((name) => el("option", {
+      value: name,
+      selected: name === joinState.theirs ? "selected" : null,
+    }, name)),
+  ]);
+
+  const variant = el("select", {
+    onchange: (event) => {
+      joinState.variant = event.target.value;
+      if (joinState.rows) runJoin();
+    },
+  }, Object.entries(JOIN_LABELS).map(([id, label]) =>
+    el("option", {
+      value: id,
+      selected: id === joinState.variant ? "selected" : null,
+    }, label)));
+
+  const children = [
+    el("span", { class: "filters-label" }, "join:"),
+    pick,
+    variant,
+    el("button", { type: "button", onclick: runJoin }, "join"),
+  ];
+  if (joinState.rows) {
+    children.push(el("button", {
+      type: "button", class: "link", onclick: () => {
+        joinState.rows = null;
+        joinState.info = null;
+        renderSummary();
+      },
+    }, "clear"));
+  }
+  return el("div", { class: "filters" }, children);
+}
+
+function joinBanner() {
+  const info = joinState.info;
+  if (!info) return null;
+  const { comparable, differs } = info.compatibility;
+  const counts = info.counts;
+  const lines = [
+    `${counts.total} rows: ${counts.from_mine} from ${info.mine}, ` +
+    `${counts.from_theirs} from ${info.theirs}` +
+    (counts.empty ? `, ${counts.empty} measured by neither` : "") +
+    `. ${counts.in_both} measured by both.`,
+  ];
+  if (!comparable) {
+    // Allowed, and worth saying out loud: the runs asked different
+    // questions, so a row's meaning depends on which run it came from.
+    lines.push(
+      `These runs differ in ${differs.join(", ")}. Nothing is averaged - ` +
+      "each row is one run's own number - but read the source column.");
+  }
+  return el("p", { class: comparable ? "note" : "error" }, lines.join(" "));
+}
+
+async function runJoin() {
+  if (!joinState.theirs) {
+    joinState.rows = null;
+    joinState.info = null;
+    renderSummary();
+    return;
+  }
+  try {
+    const result = await getJSON("/api/join?" + new URLSearchParams({
+      mine: currentRun(),
+      theirs: joinState.theirs,
+      variant: joinState.variant,
+    }));
+    joinState.info = result;
+    joinState.rows = result.rows.map((row) => ({
+      ...row,
+      from_other: Boolean(row.source) && row.source !== result.mine,
+    }));
+  } catch (failure) {
+    joinState.rows = null;
+    joinState.info = null;
+    $("summary").replaceChildren(
+      el("p", { class: "error" }, failure.message));
+    return;
+  }
+  renderSummary();
+}
+
 function renderSummary(options = {}) {
-  const all = (snapshot && snapshot.results && snapshot.results.summary) || [];
+  const own = (snapshot && snapshot.results && snapshot.results.summary) || [];
+  const all = joinState.rows || own;
   const shown = applyFilters(all);
   const bar = filterBar(all);
   const counted = el("p", { class: "note counted" },
     `${shown.length} of ${all.length} rows`);
-  $("summary").replaceChildren(bar, counted, ...comparisonTables(shown));
+  $("summary").replaceChildren(
+    joinBar(), joinBanner(), bar, counted, ...comparisonTables(shown));
   if (options.keepOpen) {
     // Changing one checkbox re-renders the bar, which would otherwise shut
     // the menu after every single click.
@@ -558,23 +679,43 @@ function comparisonTables(rows) {
       // them, so a metric's values stay together.
       const keys = [];
       const cells = new Map();
+      const named = new Map();
       for (const row of mine) {
         const key = `${row.metric}.${row.reported_value}`;
         if (!cells.has(key)) { keys.push(key); cells.set(key, {}); }
         cells.get(key)[row.ablation] = row;
+        if (row.metric_name) named.set(key, row.metric_name);
       }
 
       out.push(el("h3", {}, CATEGORY_TITLES[category] || category));
       out.push(table(
-        [{ label: "metric" }, ...presets.map((p) => ({
-          label: p === baseline ? `${p} (baseline)` : p, num: true }))],
+        [{ label: "key" }, { label: "metric" },
+          ...presets.map((p) => ({
+            label: p === baseline ? `${p} (baseline)` : p, num: true }))],
         keys.map((key) => ({
           cells: [
             { node: el("code", {}, key) },
+            // The spreadsheet's own name, and only for a result: a
+            // denominator is not a row of that table, and neither is a
+            // metric the spreadsheet has no row for. Both read as a dash
+            // rather than as a repeat of the key.
+            { value: named.get(key) || "-",
+              class: named.get(key) ? "" : "empty" },
             ...presets.map((preset) => {
               const row = cells.get(key)[preset];
               if (!row) return { value: "-" };
               const shown = fixed(row.estimate);
+              if (row.from_other) {
+                // Borrowed from the joined run. Marked on the cell rather
+                // than stated once above it: a merged table whose numbers
+                // cannot be traced back is worse than two tables.
+                return {
+                  node: el("span", {
+                    class: "borrowed",
+                    title: `from ${row.source}`,
+                  }, shown),
+                };
+              }
               if (preset === baseline || !findsSomething(row)) {
                 return { value: shown };
               }

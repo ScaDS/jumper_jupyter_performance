@@ -343,3 +343,149 @@ def test_a_shard_that_died_in_the_current_attempt_is_still_lost(tmp_path):
     states = {entry["shard"]: entry["state"] for entry in snapshot["grid"]}
 
     assert states.get(1) == model.STATE_LOST
+
+
+# -- joining two runs ---------------------------------------------------
+
+SUMMARY_HEADER = (
+    "run_id,usecase,ablation,category,evaluation_method,metric,"
+    "reported_value,metric_name,value_kind,estimate,ci_low,ci_high,n,"
+    "paired_delta,paired_delta_ci_low,paired_delta_ci_high,paired_n,gaps\n"
+)
+
+
+def _summary(run, rows):
+    """rows: (ablation, metric, reported_value, estimate)."""
+    body = "".join(
+        f"{run.name},a/one,{ablation},analysis,judge,{metric},"
+        f"{reported},Some Name,result,{estimate},,,2,,,,2,0\n"
+        for ablation, metric, reported, estimate in rows
+    )
+    (run / "summary.csv").write_text(
+        SUMMARY_HEADER + body, encoding="utf-8"
+    )
+
+
+def _two_runs(tmp_path):
+    mine = _run(tmp_path, DEFINITION, "mine")
+    theirs = _run(tmp_path, DEFINITION, "theirs")
+    # One key only here, one only there, one in both, one measured by
+    # neither - the four cases a join has to decide.
+    _summary(mine, [
+        ("base", "m", "only_mine", "1.0"),
+        ("base", "m", "in_both", "10.0"),
+        ("base", "m", "only_theirs", ""),
+        ("base", "m", "neither", ""),
+    ])
+    _summary(theirs, [
+        ("base", "m", "only_theirs", "2.0"),
+        ("base", "m", "in_both", "99.0"),
+        ("base", "m", "only_mine", ""),
+        ("base", "m", "neither", ""),
+    ])
+    return mine, theirs
+
+
+def _by_value(result) -> dict:
+    return {row["reported_value"]: row for row in result["rows"]}
+
+
+def test_a_row_exists_but_holds_no_number_is_not_data(tmp_path):
+    # The distinction the whole join turns on: every run writes a row for
+    # every metric it was asked for, so presence of a key says nothing.
+    assert model.has_estimate({"estimate": "1.5"}) is True
+    assert model.has_estimate({"estimate": ""}) is False
+    assert model.has_estimate({"estimate": "not measured"}) is False
+    assert model.has_estimate(None) is False
+
+
+def test_this_run_wins_and_the_other_fills_the_gaps(tmp_path):
+    mine, theirs = _two_runs(tmp_path)
+
+    rows = _by_value(model.join(tmp_path, "mine", "theirs", "mine_wins"))
+
+    assert rows["only_mine"]["estimate"] == "1.0"
+    assert rows["only_mine"]["source"] == "mine"
+    assert rows["in_both"]["estimate"] == "10.0", "this run wins the overlap"
+    assert rows["only_theirs"]["estimate"] == "2.0", "the gap is filled"
+    assert rows["only_theirs"]["source"] == "theirs"
+    assert rows["neither"]["source"] == "", "and a gap nobody filled stays one"
+
+
+def test_the_other_run_can_win_instead(tmp_path):
+    _two_runs(tmp_path)
+
+    rows = _by_value(model.join(tmp_path, "mine", "theirs", "theirs_win"))
+
+    assert rows["in_both"]["estimate"] == "99.0"
+    assert rows["in_both"]["source"] == "theirs"
+    assert rows["only_mine"]["estimate"] == "1.0", "still falls back"
+
+
+def test_only_the_overlap(tmp_path):
+    _two_runs(tmp_path)
+
+    result = model.join(tmp_path, "mine", "theirs", "shared")
+
+    assert [row["reported_value"] for row in result["rows"]] == ["in_both"]
+    assert result["rows"][0]["in_both"] is True
+
+
+def test_only_what_this_run_is_missing(tmp_path):
+    _two_runs(tmp_path)
+
+    result = model.join(tmp_path, "mine", "theirs", "missing_here")
+
+    assert [row["reported_value"] for row in result["rows"]] == ["only_theirs"]
+    assert result["rows"][0]["source"] == "theirs"
+
+
+def test_every_row_says_which_run_it_came_from(tmp_path):
+    _two_runs(tmp_path)
+
+    result = model.join(tmp_path, "mine", "theirs")
+
+    for row in result["rows"]:
+        assert "source" in row
+    assert result["counts"]["from_mine"] == 2
+    assert result["counts"]["from_theirs"] == 1
+    assert result["counts"]["empty"] == 1
+    # Measured by both, not merely written by both: all four keys appear in
+    # both files and only one of them holds a number on each side.
+    assert result["counts"]["in_both"] == 1
+
+
+def test_joining_runs_that_asked_different_questions_is_allowed_but_said(
+    tmp_path,
+):
+    # Nothing is averaged, so the join is legal where pooling is not - and
+    # the caller is told, because a row's meaning depends on its run.
+    _two_runs(tmp_path)
+    (tmp_path / "theirs" / "meta.json").write_text(
+        json.dumps({**DEFINITION, "protocol": {"repetitions": 9}}),
+        encoding="utf-8",
+    )
+
+    result = model.join(tmp_path, "mine", "theirs")
+
+    assert result["compatibility"]["comparable"] is False
+    assert "protocol" in result["compatibility"]["differs"]
+    assert result["rows"], "and the table is still produced"
+
+
+def test_an_unknown_variant_falls_back_rather_than_failing(tmp_path):
+    _two_runs(tmp_path)
+
+    result = model.join(tmp_path, "mine", "theirs", "sideways")
+
+    assert result["variant"] == model.JOIN_MINE_WINS
+
+
+def test_joining_a_run_without_a_summary_yields_this_run_alone(tmp_path):
+    mine, _theirs = _two_runs(tmp_path)
+    (tmp_path / "theirs" / "summary.csv").unlink()
+
+    result = model.join(tmp_path, "mine", "theirs")
+
+    assert result["counts"]["from_theirs"] == 0
+    assert result["counts"]["from_mine"] == 2

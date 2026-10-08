@@ -684,16 +684,7 @@ def aggregate(results_root: Path, names: list[str]) -> dict:
     definitions, rows = [], []
     for name in names:
         run = root / name
-        meta = read_meta(run)
-        definitions.append(
-            {
-                "run_id": meta.get("run_id", name),
-                "name": name,
-                "ablations": meta.get("ablations") or {},
-                "protocol": as_mapping(meta.get("protocol")),
-                "usecases": sorted(as_mapping(meta.get("usecases"))),
-            }
-        )
+        definitions.append(_definition(run, name))
         for row in _load_csv(run / "summary.csv"):
             rows.append({**row, "run": name})
 
@@ -787,4 +778,169 @@ def _totals(grid: list[dict]) -> dict:
         "states": states,
         "records": sum(entry["records"] for entry in grid),
         "records_expected": sum(entry["records_expected"] for entry in grid),
+    }
+
+
+# -- joining two runs ---------------------------------------------------
+
+# Taking a value from one run or the other is not pooling: nothing is
+# averaged, and every row says which run it came from. That is what makes it
+# allowed between runs whose fingerprints differ, where an average would not
+# be - see monitor/PROTOCOL.md section 6.
+JOIN_MINE_WINS = "mine_wins"
+JOIN_THEIRS_WIN = "theirs_win"
+JOIN_SHARED = "shared"
+JOIN_MISSING_HERE = "missing_here"
+JOIN_VARIANTS = (
+    JOIN_MINE_WINS,
+    JOIN_THEIRS_WIN,
+    JOIN_SHARED,
+    JOIN_MISSING_HERE,
+)
+
+_JOIN_KEY = ("usecase", "ablation", "metric", "reported_value")
+_JOIN_CARRIED = (
+    "metric_name",
+    "value_kind",
+    "category",
+    "evaluation_method",
+    "estimate",
+    "ci_low",
+    "ci_high",
+    "n",
+    "paired_delta",
+    "paired_delta_ci_low",
+    "paired_delta_ci_high",
+    "paired_n",
+    "gaps",
+)
+
+
+def has_estimate(row: dict | None) -> bool:
+    """Whether a summary row carries a number rather than a blank.
+
+    The distinction the join turns on. A run writes a row for every metric it
+    was asked for, so a key being present says nothing: an unjudged metric
+    and a measured one differ only in whether the estimate parses.
+    """
+    if not row:
+        return False
+    try:
+        float(row.get("estimate", ""))
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def join(
+    results_root: Path,
+    mine: str,
+    theirs: str,
+    variant: str = JOIN_MINE_WINS,
+) -> dict:
+    """Two runs' summaries as one table, each row naming where it came from.
+
+    The four fields that say what a number is about are the key, so the same
+    cell measured in two runs meets. What happens where both have a value is
+    the variant's business, and every variant keeps the provenance: a merged
+    table whose rows cannot be traced back is worse than two tables.
+    """
+    if variant not in JOIN_VARIANTS:
+        variant = JOIN_MINE_WINS
+    root = Path(results_root)
+    left = _summary_by_key(root / mine)
+    right = _summary_by_key(root / theirs)
+
+    rows = []
+    for key in sorted(set(left) | set(right)):
+        row = _joined_row(
+            key, left.get(key), right.get(key), mine, theirs, variant
+        )
+        if row is not None:
+            rows.append(row)
+
+    return {
+        "mine": mine,
+        "theirs": theirs,
+        "variant": variant,
+        "variants": list(JOIN_VARIANTS),
+        "compatibility": comparable(
+            [_definition(root / name, name) for name in (mine, theirs)]
+        ),
+        "counts": {
+            "total": len(rows),
+            "from_mine": sum(1 for row in rows if row["source"] == mine),
+            "from_theirs": sum(1 for row in rows if row["source"] == theirs),
+            "empty": sum(1 for row in rows if not row["source"]),
+            # Measured by both, not merely present in both files. Counting
+            # keys here would report "352 in both" beside a `shared` table
+            # of none, which is the confusion has_estimate exists to avoid.
+            "in_both": sum(
+                1
+                for key in set(left) & set(right)
+                if has_estimate(left[key]) and has_estimate(right[key])
+            ),
+        },
+        "rows": rows,
+    }
+
+
+def _joined_row(
+    key: tuple,
+    ours: dict | None,
+    theirs_row: dict | None,
+    mine: str,
+    theirs: str,
+    variant: str,
+) -> dict | None:
+    """One row of the join, or None when this variant drops the key."""
+    we_have, they_have = has_estimate(ours), has_estimate(theirs_row)
+
+    if variant == JOIN_SHARED and not (we_have and they_have):
+        return None
+    if variant == JOIN_MISSING_HERE and (we_have or not they_have):
+        return None
+
+    if variant == JOIN_THEIRS_WIN:
+        if they_have:
+            chosen, source = theirs_row, theirs
+        else:
+            chosen, source = ours, (mine if we_have else "")
+    elif variant == JOIN_MISSING_HERE:
+        chosen, source = theirs_row, theirs
+    else:
+        # mine_wins and shared both prefer this run, which is the point of
+        # looking at it: the other run fills what this one has not measured.
+        if we_have:
+            chosen, source = ours, mine
+        else:
+            chosen, source = theirs_row, (theirs if they_have else "")
+
+    # Something has to describe the key even when neither run measured it,
+    # or the row would be blank where the filter expects a metric name.
+    labels = ours or theirs_row or {}
+    row = dict(zip(_JOIN_KEY, key))
+    row.update({field: labels.get(field, "") for field in _JOIN_CARRIED})
+    if chosen:
+        row.update({field: chosen.get(field, "") for field in _JOIN_CARRIED})
+    row["source"] = source
+    row["in_both"] = we_have and they_have
+    return row
+
+
+def _summary_by_key(run: Path) -> dict:
+    rows = {}
+    for row in _load_csv(run / "summary.csv"):
+        rows[tuple(row.get(field, "") for field in _JOIN_KEY)] = row
+    return rows
+
+
+def _definition(run: Path, name: str) -> dict:
+    meta = read_meta(run)
+    return {
+        "run_id": meta.get("run_id", name),
+        "name": name,
+        "ablations": meta.get("ablations") or {},
+        "protocol": as_mapping(meta.get("protocol")),
+        "usecases": sorted(as_mapping(meta.get("usecases"))),
     }

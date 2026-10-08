@@ -157,6 +157,23 @@ One row per `(run_id, usecase, ablation, metric, reported_value)`, with
 `paired_delta_ci_high`, `paired_n`, `gaps`. Two runs' rows join on those
 five columns - but see §6 before adding any of them together.
 
+Two columns describe the value rather than measure it:
+
+| Field | Meaning |
+|---|---|
+| `value_kind` | `result` for the metric's own answer, `input` for a quantity it was computed from |
+| `metric_name` | The source spreadsheet's name for this value, or empty |
+
+`metric_name` is empty for every `input`, and for a metric the spreadsheet
+has no row for. A reader shows the id as the key and this as the name,
+reading an empty one as a dash: the id is what the files are keyed by, and
+repeating it in a column headed "metric" would say nothing twice while
+hiding that the spreadsheet and the code disagree about what exists.
+
+It is deliberately **not** in `metric_units.csv`. It is a constant of the
+metric, and copying it onto each of a hundred thousand unit rows carries no
+information - a reader that needs it there joins on `metric`.
+
 ### `metric_units.csv`
 
 One row per `(run_id, usecase, ablation, metric, reported_value, repetition,
@@ -266,6 +283,34 @@ Equal fingerprint is the *permission* to pool, not the method: pooling joins
 `metric_units.csv` and recomputes the estimate and the interval on the
 combined units. Averaging two runs' `summary.csv` rows is not pooling, and
 there is no weighting that makes it one.
+
+### Joining is not pooling
+
+A **join** puts two runs' summary rows in one table keyed by
+`(usecase, ablation, metric, reported_value)` and, where both measured the
+same key, keeps one of the two numbers. Nothing is combined: every value in
+the result is a number one run actually produced, and every row carries the
+`source` run it came from.
+
+That is why a join is allowed where pooling is not. An average over two
+definitions is a number about neither; a borrowed value is still a number
+about the run that measured it, provided the reader can see which run that
+was. So the provenance is not optional - a merged table whose rows cannot be
+traced back is worse than two tables, and a reader that drops `source` has
+broken the only thing that made the merge honest.
+
+A row existing is not data. Every run writes a row for every metric it was
+asked for, so a key is present whether or not anything measured it; what
+decides is whether `estimate` parses as a number. The variants:
+
+| Variant | Keys kept | Value on overlap |
+|---|---|---|
+| `mine_wins` | both runs' | this run's |
+| `theirs_win` | both runs' | the other run's |
+| `shared` | measured by both | this run's |
+| `missing_here` | measured only there | the other run's |
+
+An unknown variant reads as `mine_wins` rather than failing, by R2.
 
 ## 7. What a reader must never do
 
