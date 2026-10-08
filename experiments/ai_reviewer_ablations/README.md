@@ -85,13 +85,18 @@ Then:
 ```bash
 python -m jumper_ablations.cli.export_judge   # packets for the judged metrics
 # ... an agent session judges them; see JUDGE_PROTOCOL.md
-python -m jumper_ablations.cli.evaluate       # metrics.csv
+python -m jumper_ablations.cli.evaluate       # metrics.csv + metric_units.csv
 python -m jumper_ablations.cli.report         # summary.csv + the two tables
+python -m jumper_ablations.cli.index          # runs_index.csv, across all runs
 ```
 
-The last three read an existing run (`target_run=<run id>`, or the newest by
-default) and never touch the reviewer. That split is deliberate: adding a
-metric costs a second, not a sweep.
+The first three read an existing run (`target_run=<run id>`, or the newest by
+default); `cli.index` reads all of them. None touches the reviewer. That
+split is deliberate: adding a metric costs a second, not a sweep.
+
+`metric_units.csv` is the grain that can be pooled across runs, and
+`runs_index.csv` says which runs may be - both are explained in
+`monitor/PROTOCOL.md`.
 
 ## What lives where
 

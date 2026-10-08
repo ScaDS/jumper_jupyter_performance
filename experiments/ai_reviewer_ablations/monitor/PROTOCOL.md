@@ -18,6 +18,7 @@ below that can be broken by a program is asserted there.
 
 ```
 <results_root>/
+├── runs_index.csv                every run, and which may be pooled
 └── <run_id>/                     one run
     ├── meta.json                 what this run was asked to do
     ├── strategies.yaml           the presets it measured
@@ -27,6 +28,7 @@ below that can be broken by a program is asserted there.
     ├── records/*.json            one per reviewer invocation
     ├── runs.csv, runs.jsonl      flat views of the records
     ├── metrics.csv               one row per metric value
+    ├── metric_units.csv          the same, at unit grain
     ├── summary.csv               one row per (usecase, preset, metric)
     ├── analysis_metrics.md       rendered tables
     ├── suggestions_metrics.md
@@ -150,10 +152,47 @@ The record id is also the file name and encodes the grid position:
 
 ### `summary.csv`
 
-One row per `(usecase, ablation, metric, reported_value)`, with `estimate`,
-`ci_low`, `ci_high`, `paired_delta`, `paired_delta_ci_low`,
-`paired_delta_ci_high`, `paired_n`, `gaps`. This is the aggregation key
-across runs: two runs' rows join on those four columns.
+One row per `(run_id, usecase, ablation, metric, reported_value)`, with
+`estimate`, `ci_low`, `ci_high`, `paired_delta`, `paired_delta_ci_low`,
+`paired_delta_ci_high`, `paired_n`, `gaps`. Two runs' rows join on those
+five columns - but see §6 before adding any of them together.
+
+### `metric_units.csv`
+
+One row per `(run_id, usecase, ablation, metric, reported_value, repetition,
+generation)`, with `value`, `scope`, `category`, `evaluation_method`, `note`.
+
+This file exists because `metrics.csv` holds two grains at once, and a reader
+that treats them alike will be wrong without looking wrong. A row whose
+`scope` is `run` is one reviewer invocation. A row whose `scope` is `cell`
+has already reduced every repetition to one number, and says how many in
+`sample_size`. In the pilot, 63 of 164 cell values differ from the mean of
+their own units - so concatenating cell rows from two runs weights them by
+nothing in particular, and the paired interval cannot be rebuilt from them at
+all, because the paired bootstrap resamples units.
+
+Pooling therefore reads this file, concatenates the units, and recomputes.
+
+A per-unit value of a cell-scope metric is an **input to that recomputation,
+never a number to report**: `pass_at_k` over a single generation is
+degenerate by construction, and so is any rate whose denominator is one
+suggestion.
+
+### `runs_index.csv`
+
+At the root rather than in a run. One row per run, with `run_id`,
+`fingerprint`, `created_at`, `schema_version`, `suite`, `usecases`,
+`ablations`, `generations_per_target`, `repetitions`, `benchmark_mode`,
+`shard_count`, `records`, `has_metrics`, `has_units`, `has_summary`, `path`.
+
+`fingerprint` is a digest of exactly the three `meta.json` fields of §6, so
+equal fingerprint means the runs asked the same question. It turns "which
+runs may be pooled" into a group-by instead of a walk that opens every run.
+
+Derived and disposable: rebuilt by `python -m jumper_ablations.cli.index`,
+never written by a job, so no shard contends for it. A reader treats it as a
+shortcut, not as truth - absent or stale, the per-run `meta.json` still
+decides, and R3 applies.
 
 ## 4. Progress is counted from records, not from passes
 
@@ -220,6 +259,13 @@ three fields of `meta.json`:
 Runs that differ in any of them are shown side by side and labelled, never
 pooled. A number averaged over two different definitions is not a number
 about anything, and the label is what stops someone reading it as one.
+
+`runs_index.csv` hashes those same three fields into `fingerprint`, so the
+test is a comparison of two strings rather than of two nested dictionaries.
+Equal fingerprint is the *permission* to pool, not the method: pooling joins
+`metric_units.csv` and recomputes the estimate and the interval on the
+combined units. Averaging two runs' `summary.csv` rows is not pooling, and
+there is no weighting that makes it one.
 
 ## 7. What a reader must never do
 
