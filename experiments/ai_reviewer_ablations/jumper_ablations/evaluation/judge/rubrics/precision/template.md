@@ -1,4 +1,4 @@
-# Rubric: factuality and groundedness
+# Rubric: precision
 
 Count claims in `output/analysis.md`. A **claim** is one assertion about the
 code, the measurements or the hardware that could be true or false. Restating

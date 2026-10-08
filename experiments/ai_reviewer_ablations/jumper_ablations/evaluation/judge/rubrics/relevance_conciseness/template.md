@@ -6,7 +6,7 @@ told explicitly **not** to propose code changes.
 Count, in `output/analysis.md`:
 
 - `total_claims` - assertions about the code, the measurements or the
-  hardware, as in the factuality rubric.
+  hardware, as in the precision rubric.
 - `relevant_claims` - those that bear on deciding what to optimize. A true
   observation that would not change the decision is not relevant.
 - `irrelevant_observations` - true things that do not bear on the decision:

@@ -25,7 +25,7 @@ from jumper_ablations.metrics.base import (
 from jumper_ablations.statistics import rate
 
 
-class FactualityVerdict(BaseModel):
+class PrecisionVerdict(BaseModel):
     total_claims: int = Field(ge=0)
     supported_claims: int = Field(ge=0)
     # Claims the sources actively disagree with.
@@ -35,7 +35,7 @@ class FactualityVerdict(BaseModel):
     examples: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _parts_fit_the_whole(self) -> "FactualityVerdict":
+    def _parts_fit_the_whole(self) -> "PrecisionVerdict":
         # Every claim is supported, contradicted or unfounded, so the three
         # counts partition the total. Without this a verdict that parses can
         # still produce a precision above one.
@@ -50,9 +50,9 @@ class FactualityVerdict(BaseModel):
         return self
 
 
-class FactualityGroundedness(JudgeMetric):
+class Precision(JudgeMetric):
     spec = MetricSpec(
-        id="factuality_groundedness",
+        id="precision",
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,
@@ -69,9 +69,9 @@ class FactualityGroundedness(JudgeMetric):
             "and how many contradict them or refer to nothing in them."
         ),
     )
-    verdict_model = FactualityVerdict
+    verdict_model = PrecisionVerdict
 
-    def from_verdict(self, verdict: FactualityVerdict, context) -> dict:
+    def from_verdict(self, verdict: PrecisionVerdict, context) -> dict:
         return {
             "supported_claim_precision": rate(
                 verdict.supported_claims,

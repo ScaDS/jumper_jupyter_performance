@@ -7,7 +7,7 @@ metrics:
   - id: bottleneck_identification
     enabled: true
     parameters: {}
-  - id: factuality_groundedness
+  - id: precision
     enabled: true
     parameters: {}
   - id: conditional_evidence_coverage

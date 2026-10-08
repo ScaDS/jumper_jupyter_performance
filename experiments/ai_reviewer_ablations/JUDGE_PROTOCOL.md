@@ -93,7 +93,7 @@ gap to how this unit is expected to score.
 **Withheld sources are the experiment, not a defect.** `enabled_sources.json`
 will often show sources switched off. That is what is being measured. Which
 rubric cares, and how, is stated in each `rubric.md`; in general the
-bottleneck and factuality rubrics score what the model did with what it had,
+bottleneck and precision rubrics score what the model did with what it had,
 and the coverage rubric deliberately does *not* forgive a missing fact,
 because the harness computes forgiveness itself from two denominators.
 

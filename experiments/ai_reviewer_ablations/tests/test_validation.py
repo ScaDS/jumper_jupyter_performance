@@ -15,8 +15,8 @@ from jumper_ablations.config.schema import (
     BootstrapConfig,
     ProtocolConfig,
 )
-from jumper_ablations.metrics.analysis.factuality_groundedness import (
-    FactualityVerdict,
+from jumper_ablations.metrics.analysis.precision import (
+    PrecisionVerdict,
 )
 from jumper_ablations.metrics.analysis.relevance_conciseness import (
     RelevanceVerdict,
@@ -36,7 +36,7 @@ from jumper_ablations.usecases.registry import ReferenceFact, UsecaseManifest
 def test_classified_claims_cannot_outnumber_the_claims():
     # 8 of 5 claims supported reports a precision of 1.6.
     with pytest.raises(ValidationError):
-        FactualityVerdict(
+        PrecisionVerdict(
             total_claims=5,
             supported_claims=8,
             contradictions=0,
@@ -45,7 +45,7 @@ def test_classified_claims_cannot_outnumber_the_claims():
 
 
 def test_the_three_claim_kinds_may_partition_the_total():
-    verdict = FactualityVerdict(
+    verdict = PrecisionVerdict(
         total_claims=5,
         supported_claims=3,
         contradictions=1,
