@@ -249,6 +249,7 @@ Four ways to look at a finished run, cheapest first:
 | One row per invocation | `results/<run>/runs.csv` - speedup, tokens, replay mode, degraded |
 | The tables | `results/<run>/analysis_metrics.md`, `suggestions_metrics.md` |
 | Figures, and the numbers behind them | `jupyter lab report.ipynb` - opens the newest run, or the one `JUMPER_ABLATION_RESULTS` names |
+| What one run found | `notebooks/<run>/` - headings and figures in the notebook, every explanation in `report.md` beside it under the same headings |
 
 Everything below `records/` is the raw material: one JSON per reviewer
 invocation holding the verbatim messages, the collected context, the
