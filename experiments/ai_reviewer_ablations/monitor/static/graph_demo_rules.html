@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strategy Rules Demo</title>
+<!--
+  TEMPORARY DEMO: two ways to show prompt rules - the `effect.overrides` of a
+  strategy - next to its context sources on the sources -> strategies ->
+  speedup graph. Pick one with ?variant=group|chips.
+  Rules and strategies come from jumper_extension/adapters/ai_reviewer
+  (strategy/strategies.yaml, prompts/*/spec.yaml, prompts/fragments).
+  Self-contained: the data is inlined, nothing is fetched. The values of
+  parallelization and r_clean are FAKE, as is the whole fake/gpu_stub usecase.
+-->
+<style>
+:root {
+  --surface: #ffffff;
+  --raised: #f5f6f8;
+  --ink: #1b1d21;
+  --muted: #6b7078;
+  --line: #d9dce1;
+  --accent: #3c5ccf;
+  --faster: #2f6db5;
+  --slower: #c4622d;
+  --neutral: #9aa0aa;
+  --fake: #b4731a;
+  --rule: #7b57b8;
+  --rule-tint: #f1ecf9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface: #16181d;
+    --raised: #1e2128;
+    --ink: #e8eaed;
+    --muted: #9aa0aa;
+    --line: #2f343d;
+    --accent: #7b93e8;
+    --faster: #6fa3e6;
+    --slower: #e08a5a;
+    --neutral: #6b7078;
+    --fake: #d9973d;
+    --rule: #a98ee0;
+    --rule-tint: #2a2338;
+  }
+}
+:root[data-theme="dark"] {
+  --surface: #16181d; --raised: #1e2128; --ink: #e8eaed; --muted: #9aa0aa;
+  --line: #2f343d; --accent: #7b93e8; --faster: #6fa3e6; --slower: #e08a5a;
+  --neutral: #6b7078; --fake: #d9973d; --rule: #a98ee0; --rule-tint: #2a2338;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 16px; background: var(--surface); color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 18px; margin: 0 0 4px; }
+.note { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
+nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+nav a {
+  font-size: 13px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px;
+  color: var(--ink); text-decoration: none; background: var(--surface);
+}
+nav a:hover { border-color: var(--accent); }
+nav a.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.controls {
+  display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center;
+  padding: 10px 12px; background: var(--raised); border: 1px solid var(--line);
+  border-radius: 8px; margin-bottom: 12px;
+}
+.controls .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.buttons button {
+  font: inherit; font-size: 13px; padding: 3px 10px; margin-right: 4px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+  color: var(--ink); cursor: pointer;
+}
+.buttons button:hover { border-color: var(--accent); }
+.usecase { display: inline-flex; align-items: center; gap: 6px; margin-right: 14px; cursor: pointer; }
+.badge {
+  font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line);
+  color: var(--muted);
+}
+.badge.fake { color: var(--fake); border-color: var(--fake); font-weight: 600; }
+.graph-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+svg { display: block; min-width: 820px; width: 100%; height: auto; }
+svg text { fill: var(--ink); font-size: 13px; }
+svg .muted { fill: var(--muted); font-size: 12px; }
+svg .column-title { fill: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+svg .group-title { fill: var(--muted); font-size: 11px; font-style: italic; }
+svg .fake-mark { fill: var(--fake); font-weight: 600; }
+.node .box { fill: var(--raised); stroke: var(--line); }
+.node .rule-box { fill: var(--rule-tint); stroke: var(--rule); }
+.node.hot .box, .node.hot .rule-box { stroke: var(--accent); stroke-width: 2; }
+.chip { cursor: default; }
+.chip rect { fill: var(--rule-tint); stroke: var(--rule); }
+.chip text { fill: var(--rule); font-size: 11px; }
+.chip:hover rect { stroke-width: 2; }
+.sign circle { fill: var(--surface); stroke: var(--rule); }
+.sign text { fill: var(--rule); font-size: 12px; font-weight: 700; }
+.edge { fill: none; transition: opacity .12s; }
+.dim { opacity: .1; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); margin: 8px 2px 16px; }
+.legend i { display: inline-block; width: 22px; height: 0; vertical-align: middle; margin-right: 6px; border-top: 3px solid; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 5px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; }
+tr.pooled td { font-weight: 600; }
+td .fake-mark { color: var(--fake); font-weight: 600; }
+.tooltip {
+  position: fixed; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.15); display: none; max-width: 300px;
+}
+.rule-card {
+  position: fixed; display: none; width: 340px; padding: 10px 12px 28px;
+  background: var(--surface); color: var(--ink); font-size: 12px;
+  border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.18);
+}
+.rule-card .rule-name { font-weight: 600; color: var(--rule); }
+.rule-card .rule-meta { color: var(--muted); margin: 2px 0 6px; }
+.rule-card .rule-text { white-space: pre-line; }
+.rule-card.collapsed .rule-text {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+.rule-card .expand {
+  position: absolute; right: 6px; bottom: 4px; width: 22px; height: 22px; padding: 0;
+  border: 0; background: none; cursor: pointer; color: var(--rule);
+}
+.rule-card .expand svg { min-width: 0; width: 22px; height: 22px; transition: transform .15s; }
+.rule-card:not(.collapsed) .expand svg { transform: rotate(180deg); }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Prompt rules on the speedup graph</h1>
+  <p class="note" id="description"></p>
+  <nav id="navigation"></nav>
+
+  <div class="controls">
+    <span class="label">Preset</span>
+    <span class="buttons" id="presets"></span>
+    <span class="label">Usecases</span>
+    <span id="usecases"></span>
+  </div>
+
+  <div class="graph-wrap"><svg id="graph" role="img" aria-label="Sources and prompt rules to strategies to speedup graph"></svg></div>
+  <div class="legend">
+    <span><i style="border-color:var(--neutral)"></i>source enabled</span>
+    <span><i style="border-color:var(--neutral);border-top-style:dashed"></i>source removed</span>
+    <span><i style="border-color:var(--rule)"></i>+ rule switched on</span>
+    <span><i style="border-color:var(--rule);border-top-style:dashed"></i>− rule switched off</span>
+    <span><i style="border-color:var(--faster)"></i>speedup &gt; 1</span>
+    <span><i style="border-color:var(--slower)"></i>speedup &lt; 1</span>
+    <span>rules equal to the shipped prompt are not drawn · hover a rule for its text · <span style="color:var(--fake);font-weight:600">*</span> = includes fake values</span>
+  </div>
+
+  <div class="table-wrap"><table id="table"></table></div>
+</main>
+<div class="tooltip" id="tooltip"></div>
+<div class="rule-card collapsed" id="rule-card">
+  <div class="rule-name" id="rule-name"></div>
+  <div class="rule-meta" id="rule-meta"></div>
+  <div class="rule-text" id="rule-text"></div>
+  <button type="button" class="expand" id="rule-expand" aria-label="Show the full rule text">
+    <svg viewBox="0 0 22 22" aria-hidden="true"><polyline points="5,8 11,14 17,8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+</div>
+
+<script>
+const SOURCES = ["code", "timing", "tags", "perf", "raw_perf", "hardware", "packages"];
+
+// The sources a strategy has when its effect.context is empty: the shipped
+// defaults of prompts/*/spec.yaml (raw_perf is off there).
+const DEFAULT_SOURCES = SOURCES.filter((source) => source !== "raw_perf");
+
+// Every rule a strategy in ai_reviewer/strategy/strategies.yaml overrides,
+// with its shipped state and text from prompts/*/spec.yaml and fragments/.
+const RULES = {
+  parallel_analysis_hint: {
+    prompt: "analyze",
+    enabled: false,
+    text: "Pay special attention to whether the workload under-uses available parallel "
+      + "hardware - an idle GPU or unused CPU cores.",
+  },
+  gpu_offload: {
+    prompt: "suggest",
+    enabled: false,
+    text: "If the hardware includes one or more GPUs and the code contains a workload that can be efficiently parallelized:\n"
+      + "  - Include at least one option that refactors the CPU implementation to run on the GPU, whichever fits the existing code with the least disruption.\n"
+      + "  - Prefer using preinstalled libraries (check the list of \"Available libraries\").\n"
+      + "Skip this if no GPU is available or the workload is not a good parallelization candidate (e.g. it is I/O-bound or inherently sequential).",
+  },
+  pep8_multiline: {
+    prompt: "suggest",
+    enabled: true,
+    text: "Write code as properly formatted multi-line Python with real newlines between statements "
+      + "(PEP 8 style), never as a semicolon-joined one-liner.",
+  },
+  r_style: {
+    prompt: "suggest",
+    enabled: false,
+    text: "Write the cell in idiomatic R - the language of the cell under review. Prefer vectorized "
+      + "base-R operations and R packages over a foreign ecosystem, and format the code as real "
+      + "multi-line R (one statement per line, `<-` for assignment), never a semicolon-joined one-liner.",
+  },
+};
+
+const RULE_GROUPS = [
+  { label: "analysis hints", rules: ["parallel_analysis_hint", "gpu_offload"] },
+  { label: "code style", rules: ["pep8_multiline", "r_style"] },
+];
+
+// Longer than this, the rule card starts collapsed with an expand chevron.
+const LONG_RULE = 140;
+
+const allSourcesExcept = (...removed) => SOURCES.filter((source) => !removed.includes(source));
+
+// The four context strategies of cell77_pilot, then the two strategies of
+// ai_reviewer/strategy/strategies.yaml that override prompt rules.
+const STRATEGIES = [
+  { id: "base", label: "base (baseline)", sources: SOURCES, overrides: {} },
+  { id: "code_only", label: "code_only", sources: ["code"], overrides: {} },
+  { id: "no_perf", label: "no_perf", sources: allSourcesExcept("perf"), overrides: {} },
+  { id: "no_timing", label: "no_timing", sources: allSourcesExcept("timing"), overrides: {} },
+  {
+    id: "parallelization",
+    label: "parallelization",
+    sources: DEFAULT_SOURCES,
+    overrides: { gpu_offload: true, parallel_analysis_hint: true },
+  },
+  {
+    id: "r_clean",
+    label: "r_clean",
+    sources: DEFAULT_SOURCES.filter((source) => source !== "packages"),
+    overrides: { pep8_multiline: false, r_style: true },
+  },
+];
+
+// Per-repetition geometric_mean_speedup. cell_77's four context strategies
+// are real (cell77_pilot); everything listed in fakeStrategies is invented.
+const USECASES = [
+  {
+    id: "minian/cell_77",
+    resourceClass: "cpu",
+    fake: false,
+    fakeStrategies: ["parallelization", "r_clean"],
+    values: {
+      base: [1.0950, 0.7036, 1.0700, 1.0444],
+      code_only: [0.9396, 0.2891, 0.1100, 0.9900, 1.0000],
+      no_perf: [1.0300, 1.0300, 1.0200],
+      no_timing: [0.9027, 1.0144, 1.0365, 0.7900, 0.9693],
+      parallelization: [1.12, 0.95, 1.20, 1.08, 1.15],
+      r_clean: [0.98, 1.02, 0.91, 1.00, 0.96],
+    },
+  },
+  {
+    id: "fake/gpu_stub",
+    resourceClass: "gpu",
+    fake: true,
+    fakeStrategies: STRATEGIES.map((strategy) => strategy.id),
+    values: {
+      base: [1.62, 1.48, 1.71, 1.55, 1.66],
+      code_only: [1.05, 0.92, 1.18, 1.01, 1.10],
+      no_perf: [1.21, 1.34, 1.15, 1.29, 1.26],
+      no_timing: [1.52, 1.44, 1.60, 1.49, 1.57],
+      parallelization: [1.85, 1.92, 1.70, 1.88, 1.79],
+      r_clean: [1.58, 1.61, 1.50, 1.63, 1.55],
+    },
+  },
+];
+
+const PRESETS = [
+  { label: "all", pick: () => true },
+  { label: "CPU-bound", pick: (usecase) => usecase.resourceClass === "cpu" },
+  { label: "GPU-bound", pick: (usecase) => usecase.resourceClass === "gpu" },
+  { label: "none", pick: () => false },
+];
+
+const VARIANTS = {
+  group: {
+    title: "Rules as group",
+    description: "Prompt rules sit under the sources as their own input group. Only rules that differ from the shipped prompt get an edge: + solid, − dashed.",
+    showRules: true,
+    chips: false,
+  },
+  chips: {
+    title: "Rule chips",
+    description: "Edges come from the sources only. A strategy's rule changes are chips inside its node.",
+    showRules: false,
+    chips: true,
+  },
+};
+
+const requestedVariant = new URLSearchParams(location.search).get("variant");
+const variantId = requestedVariant in VARIANTS ? requestedVariant : "group";
+const variant = VARIANTS[variantId];
+
+const selected = new Set(USECASES.map((usecase) => usecase.id));
+
+// -- statistics ---------------------------------------------------------
+
+const geometricMean = (values) =>
+  Math.exp(values.reduce((sum, value) => sum + Math.log(value), 0) / values.length);
+
+function seededRandom(seed) {
+  let current = seed >>> 0;
+  return () => {
+    current = (current + 0x6d2b79f5) >>> 0;
+    let mixed = Math.imul(current ^ (current >>> 15), 1 | current);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed);
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pooled(usecases, strategyId) {
+  const contributing = usecases.filter((usecase) => (usecase.values[strategyId] || []).length);
+  if (!contributing.length) return null;
+  const groups = contributing.map((usecase) => usecase.values[strategyId]);
+  const estimate = geometricMean(groups.map(geometricMean));
+  const random = seededRandom(1000);
+  const draws = [];
+  for (let iteration = 0; iteration < 2000; iteration++) {
+    const resampled = groups.map((values) =>
+      geometricMean(values.map(() => values[Math.floor(random() * values.length)])));
+    draws.push(geometricMean(resampled));
+  }
+  draws.sort((left, right) => left - right);
+  return {
+    estimate,
+    low: draws[Math.floor(draws.length * 0.025)],
+    high: draws[Math.floor(draws.length * 0.975)],
+    repetitions: groups.reduce((sum, values) => sum + values.length, 0),
+    fake: contributing.some((usecase) => usecase.fakeStrategies.includes(strategyId)),
+  };
+}
+
+// -- helpers ------------------------------------------------------------
+
+const deviations = (strategy) =>
+  Object.entries(strategy.overrides)
+    .filter(([rule, value]) => RULES[rule].enabled !== value)
+    .map(([rule, value]) => ({ rule, switchedOn: value === true }));
+
+const chipText = (deviation) => (deviation.switchedOn ? "+" : "−") + deviation.rule;
+
+const format = (value) => (value == null ? "-" : value.toFixed(2));
+const formatDelta = (value) =>
+  value == null ? "-" : (value >= 0 ? "+" : "−") + Math.abs(value * 100).toFixed(0) + "%";
+const speedupColor = (value) =>
+  value == null ? "var(--neutral)"
+    : Math.abs(value - 1) < 0.02 ? "var(--neutral)"
+    : value > 1 ? "var(--faster)" : "var(--slower)";
+
+const svgNamespace = "http://www.w3.org/2000/svg";
+function svgElement(name, attributes = {}, text) {
+  const element = document.createElementNS(svgNamespace, name);
+  for (const [key, value] of Object.entries(attributes)) {
+    if (value != null) element.setAttribute(key, value);
+  }
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+const tooltip = document.getElementById("tooltip");
+function showTooltip(event, html) {
+  tooltip.innerHTML = html;
+  tooltip.style.display = "block";
+  tooltip.style.left = Math.min(event.clientX + 14, window.innerWidth - 310) + "px";
+  tooltip.style.top = event.clientY + 14 + "px";
+}
+function hideTooltip() { tooltip.style.display = "none"; }
+
+// -- rule card: the rule's text, anchored to the hovered card or chip ----
+
+const ruleCard = document.getElementById("rule-card");
+const ruleExpand = document.getElementById("rule-expand");
+let ruleCardHideTimer = null;
+
+function showRuleCard(rule, anchor) {
+  clearTimeout(ruleCardHideTimer);
+  const definition = RULES[rule];
+  document.getElementById("rule-name").textContent = rule;
+  document.getElementById("rule-meta").textContent =
+    `${definition.prompt} prompt · shipped: ${definition.enabled ? "on" : "off"}`;
+  document.getElementById("rule-text").textContent = definition.text;
+  const long = definition.text.length > LONG_RULE;
+  ruleCard.classList.toggle("collapsed", long);
+  ruleExpand.hidden = !long;
+  ruleCard.style.paddingBottom = long ? "28px" : "10px";
+  ruleCard.style.display = "block";
+
+  const box = anchor.getBoundingClientRect();
+  const left = Math.min(box.left, window.innerWidth - ruleCard.offsetWidth - 8);
+  const below = box.bottom + 6;
+  const fitsBelow = below + ruleCard.offsetHeight < window.innerHeight;
+  ruleCard.style.left = Math.max(8, left) + "px";
+  ruleCard.style.top = (fitsBelow ? below : box.top - ruleCard.offsetHeight - 6) + "px";
+}
+
+function hideRuleCardSoon() {
+  clearTimeout(ruleCardHideTimer);
+  ruleCardHideTimer = setTimeout(() => { ruleCard.style.display = "none"; }, 250);
+}
+
+ruleCard.addEventListener("mouseenter", () => clearTimeout(ruleCardHideTimer));
+ruleCard.addEventListener("mouseleave", hideRuleCardSoon);
+ruleExpand.addEventListener("click", () => ruleCard.classList.toggle("collapsed"));
+
+const curve = (fromX, fromY, toX, toY) => {
+  const middle = (fromX + toX) / 2;
+  return `M${fromX},${fromY} C${middle},${fromY} ${middle},${toY} ${toX},${toY}`;
+};
+
+// Lays chips out left to right, wrapping at maxWidth.
+function layoutChips(deviationList, maxWidth) {
+  const chips = [];
+  let x = 0, line = 0;
+  for (const deviation of deviationList) {
+    const text = chipText(deviation);
+    const width = text.length * 6.3 + 12;
+    if (x > 0 && x + width > maxWidth) { x = 0; line += 1; }
+    chips.push({ text, rule: deviation.rule, x, line, width });
+    x += width + 4;
+  }
+  return { chips, lines: deviationList.length ? line + 1 : 0 };
+}
+
+// One drawing surface: edges below nodes, hover dims every edge whose keys
+// do not meet the hovered node's keys.
+function createCanvas(svg) {
+  svg.innerHTML = "";
+  const edgeLayer = svgElement("g");
+  const nodeLayer = svgElement("g");
+  svg.append(edgeLayer, nodeLayer);
+  const edges = [];
+
+  const highlight = (keys) => {
+    edges.forEach((edge) => {
+      edge.element.classList.toggle("dim", keys ? !keys.some((key) => edge.keys.includes(key)) : false);
+    });
+  };
+
+  const edge = ({ fromX, fromY, toX, toY, keys, stroke, width = 1.6, dashed = false, opacity, sign }) => {
+    const group = svgElement("g");
+    group.appendChild(svgElement("path", {
+      class: "edge",
+      d: curve(fromX, fromY, toX, toY),
+      stroke,
+      "stroke-width": width,
+      "stroke-dasharray": dashed ? "4 4" : null,
+      "stroke-linecap": "round",
+      opacity,
+    }));
+    if (sign) {
+      const middleX = (fromX + toX) / 2, middleY = (fromY + toY) / 2;
+      const badge = svgElement("g", { class: "sign" });
+      badge.appendChild(svgElement("circle", { cx: middleX, cy: middleY, r: 8 }));
+      badge.appendChild(svgElement("text", { x: middleX, y: middleY + 4, "text-anchor": "middle" }, sign));
+      group.appendChild(badge);
+    }
+    edgeLayer.appendChild(group);
+    edges.push({ element: group, keys });
+  };
+
+  const node = ({ x, y, width, height, lines, rule = null, keys, tooltipHtml, chips = [] }) => {
+    const group = svgElement("g", { class: "node", transform: `translate(${x},${y})` });
+    group.appendChild(svgElement("rect", { class: rule ? "rule-box" : "box", width, height, rx: 6 }));
+    lines.forEach((line, index) => {
+      const text = svgElement("text", { x: 10, y: 21 + index * 16, class: line.muted ? "muted" : null }, line.text);
+      if (line.fakeMark) text.appendChild(svgElement("tspan", { class: "fake-mark" }, " *"));
+      group.appendChild(text);
+    });
+    for (const chip of chips) {
+      const chipGroup = svgElement("g", { class: "chip", transform: `translate(${10 + chip.x},${chip.y})` });
+      chipGroup.appendChild(svgElement("rect", { width: chip.width, height: 16, rx: 8 }));
+      chipGroup.appendChild(svgElement("text", { x: 6, y: 12 }, chip.text));
+      chipGroup.addEventListener("mouseenter", () => { hideTooltip(); showRuleCard(chip.rule, chipGroup); });
+      chipGroup.addEventListener("mouseleave", hideRuleCardSoon);
+      group.appendChild(chipGroup);
+    }
+    group.addEventListener("mouseenter", () => {
+      group.classList.add("hot");
+      highlight(keys);
+      if (rule) showRuleCard(rule, group);
+    });
+    group.addEventListener("mousemove", (event) => {
+      if (!tooltipHtml || event.target.closest(".chip")) return;
+      showTooltip(event, tooltipHtml());
+    });
+    group.addEventListener("mouseleave", () => {
+      group.classList.remove("hot");
+      highlight(null);
+      hideTooltip();
+      if (rule) hideRuleCardSoon();
+    });
+    nodeLayer.appendChild(group);
+  };
+
+  const label = (x, y, text, className) => nodeLayer.appendChild(svgElement("text", { x, y, class: className }, text));
+
+  return { edge, node, label };
+}
+
+function strategyTooltip(strategy, usecases) {
+  const changes = deviations(strategy).map(chipText);
+  const rows = usecases.map((usecase) => {
+    const values = usecase.values[strategy.id];
+    const fakeMark = usecase.fakeStrategies.includes(strategy.id) ? " (fake)" : "";
+    return `${usecase.id}: ×${values ? format(geometricMean(values)) : "-"} (n=${values ? values.length : 0})${fakeMark}`;
+  });
+  return `<b>${strategy.label}</b><br>${strategy.sources.length}/7 sources`
+    + `<br>rules: ${changes.length ? changes.join(", ") : "shipped prompt"}`
+    + `<br>${rows.join("<br>")}`;
+}
+
+function speedupLines(strategy, result, baseline) {
+  if (!result) return [{ text: "no data" }];
+  const delta = baseline && strategy.id !== "base" ? `   Δ ${formatDelta(result.estimate / baseline - 1)}` : "";
+  return [
+    { text: `×${format(result.estimate)}${delta}`, fakeMark: result.fake },
+    { text: `95% CI ${format(result.low)}–${format(result.high)}`, muted: true },
+  ];
+}
+
+function speedupTooltip(strategy, result, usecases) {
+  if (!result) return "no data";
+  return `<b>${strategy.label}</b><br>pooled geomean ×${format(result.estimate)}`
+    + `<br>CI ${format(result.low)}–${format(result.high)}`
+    + `<br>${usecases.length} usecase(s), ${result.repetitions} repetitions`
+    + (result.fake ? "<br><b>includes fake values</b>" : "");
+}
+
+// Places nodes of the given heights evenly over [top, bottom].
+function distribute(heights, top, bottom, minimumGap = 22) {
+  const total = heights.reduce((sum, height) => sum + height, 0);
+  const available = Math.max(bottom - top, total + minimumGap * heights.length);
+  const gap = (available - total) / heights.length;
+  let cursor = top + gap / 2;
+  return heights.map((height) => {
+    const y = cursor;
+    cursor += height + gap;
+    return y;
+  });
+}
+
+// -- left column: sources and, for "Rules as group", rules --------------
+
+const NODE_HEIGHT = 32;
+
+function layoutInputs(showRules, x, width, top) {
+  const positions = { source: {}, rule: {}, titles: [] };
+  let cursor = top;
+  positions.titles.push({ x, y: cursor + 12, text: "sources", className: "column-title" });
+  cursor += 22;
+  for (const source of SOURCES) {
+    positions.source[source] = { x, y: cursor, width };
+    cursor += NODE_HEIGHT + 10;
+  }
+  if (showRules) {
+    cursor += 14;
+    positions.titles.push({ x, y: cursor + 12, text: "prompt rules", className: "column-title" });
+    cursor += 20;
+    for (const group of RULE_GROUPS) {
+      positions.titles.push({ x, y: cursor + 12, text: group.label, className: "group-title" });
+      cursor += 18;
+      for (const rule of group.rules) {
+        positions.rule[rule] = { x, y: cursor, width };
+        cursor += NODE_HEIGHT + 8;
+      }
+      cursor += 4;
+    }
+  }
+  positions.bottom = cursor;
+  return positions;
+}
+
+function drawInputs(canvas, positions) {
+  for (const title of positions.titles) canvas.label(title.x, title.y, title.text, title.className);
+  for (const [source, place] of Object.entries(positions.source)) {
+    canvas.node({
+      ...place,
+      height: NODE_HEIGHT,
+      lines: [{ text: source }],
+      keys: [`source:${source}`],
+      tooltipHtml: () => {
+        const without = STRATEGIES.filter((strategy) => !strategy.sources.includes(source)).map((strategy) => strategy.id);
+        return `<b>${source}</b><br>removed in: ${without.join(", ") || "none"}`;
+      },
+    });
+  }
+  for (const [rule, place] of Object.entries(positions.rule)) {
+    canvas.node({
+      ...place,
+      height: NODE_HEIGHT,
+      rule,
+      lines: [{ text: rule }],
+      keys: [`rule:${rule}`],
+    });
+  }
+}
+
+// -- graph --------------------------------------------------------------
+
+function renderGraph(svg, usecases, results, baseline) {
+  const canvas = createCanvas(svg);
+  const inputX = 20, inputWidth = 185;
+  const strategyX = 400, strategyWidth = 250;
+  const speedupX = 770, speedupWidth = 200;
+  const top = 12;
+
+  const inputs = layoutInputs(variant.showRules, inputX, inputWidth, top);
+  drawInputs(canvas, inputs);
+
+  const chipLayouts = STRATEGIES.map((strategy) =>
+    layoutChips(variant.chips ? deviations(strategy) : [], strategyWidth - 20));
+  const heights = chipLayouts.map((layout) => NODE_HEIGHT + (layout.lines ? layout.lines * 20 + 2 : 0));
+  const strategyYs = distribute(heights, top + 22, Math.max(inputs.bottom, 480));
+  canvas.label(strategyX, top + 12, "strategies", "column-title");
+  canvas.label(speedupX, top + 12, "speedup", "column-title");
+
+  STRATEGIES.forEach((strategy, index) => {
+    const y = strategyYs[index];
+    const center = y + heights[index] / 2;
+    const sourcePort = variant.showRules ? center - 6 : center;
+    const rulePort = variant.showRules ? center + 6 : center;
+
+    for (const [source, place] of Object.entries(inputs.source)) {
+      const enabled = strategy.sources.includes(source);
+      canvas.edge({
+        fromX: place.x + place.width,
+        fromY: place.y + NODE_HEIGHT / 2,
+        toX: strategyX,
+        toY: sourcePort,
+        keys: [`source:${source}`, `strategy:${strategy.id}`],
+        stroke: "var(--neutral)",
+        width: enabled ? 1.6 : 1,
+        dashed: !enabled,
+        opacity: enabled ? 0.7 : 0.45,
+      });
+    }
+    for (const deviation of deviations(strategy)) {
+      const place = inputs.rule[deviation.rule];
+      if (!place) continue;
+      canvas.edge({
+        fromX: place.x + place.width,
+        fromY: place.y + NODE_HEIGHT / 2,
+        toX: strategyX,
+        toY: rulePort,
+        keys: [`rule:${deviation.rule}`, `strategy:${strategy.id}`],
+        stroke: "var(--rule)",
+        width: 1.8,
+        dashed: !deviation.switchedOn,
+        sign: deviation.switchedOn ? "+" : "−",
+      });
+    }
+
+    const result = results[strategy.id];
+    canvas.edge({
+      fromX: strategyX + strategyWidth,
+      fromY: center,
+      toX: speedupX,
+      toY: center,
+      keys: [`strategy:${strategy.id}`],
+      stroke: speedupColor(result && result.estimate),
+      width: result ? Math.max(1.5, Math.min(14, result.estimate * 6)) : 1,
+    });
+
+    canvas.node({
+      x: strategyX,
+      y,
+      width: strategyWidth,
+      height: heights[index],
+      lines: [{ text: strategy.label }],
+      chips: chipLayouts[index].chips.map((chip) => ({ ...chip, y: NODE_HEIGHT - 4 + chip.line * 20 })),
+      keys: [`strategy:${strategy.id}`],
+      tooltipHtml: () => strategyTooltip(strategy, usecases),
+    });
+    canvas.node({
+      x: speedupX,
+      y: center - 25,
+      width: speedupWidth,
+      height: 50,
+      lines: speedupLines(strategy, result, baseline),
+      keys: [`strategy:${strategy.id}`],
+      tooltipHtml: () => speedupTooltip(strategy, result, usecases),
+    });
+  });
+
+  const bottom = Math.max(inputs.bottom, strategyYs.at(-1) + heights.at(-1) + 30);
+  svg.setAttribute("viewBox", `0 0 990 ${bottom + 10}`);
+}
+
+// -- page ---------------------------------------------------------------
+
+function renderNavigation() {
+  document.getElementById("title").textContent = variant.title;
+  document.getElementById("description").textContent = variant.description
+    + " Temporary demo: parallelization, r_clean and all of fake/gpu_stub are invented values.";
+  const navigation = document.getElementById("navigation");
+  for (const [id, entry] of Object.entries(VARIANTS)) {
+    const link = document.createElement("a");
+    link.href = `?variant=${id}`;
+    link.textContent = entry.title;
+    if (id === variantId) link.className = "active";
+    navigation.appendChild(link);
+  }
+}
+
+function renderControls() {
+  const presets = document.getElementById("presets");
+  presets.innerHTML = "";
+  for (const preset of PRESETS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = preset.label;
+    button.onclick = () => {
+      selected.clear();
+      USECASES.filter(preset.pick).forEach((usecase) => selected.add(usecase.id));
+      renderControls();
+      render();
+    };
+    presets.appendChild(button);
+  }
+
+  const container = document.getElementById("usecases");
+  container.innerHTML = "";
+  for (const usecase of USECASES) {
+    const label = document.createElement("label");
+    label.className = "usecase";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = selected.has(usecase.id);
+    checkbox.onchange = () => {
+      checkbox.checked ? selected.add(usecase.id) : selected.delete(usecase.id);
+      render();
+    };
+    const classBadge = document.createElement("span");
+    classBadge.className = "badge";
+    classBadge.textContent = usecase.resourceClass;
+    label.append(checkbox, usecase.id, classBadge);
+    if (usecase.fake) {
+      const fakeBadge = document.createElement("span");
+      fakeBadge.className = "badge fake";
+      fakeBadge.textContent = "FAKE";
+      label.appendChild(fakeBadge);
+    }
+    container.appendChild(label);
+  }
+}
+
+function renderTable(usecases, results, baseline) {
+  const table = document.getElementById("table");
+  const fakeMark = "<span class='fake-mark'>*</span>";
+  const header = `<tr><th>usecase</th>${STRATEGIES.map((strategy) => `<th>${strategy.id}</th>`).join("")}</tr>`;
+  const rows = usecases.map((usecase) =>
+    `<tr><td>${usecase.id}${usecase.fake ? " <span class='badge fake'>FAKE</span>" : ""}</td>${STRATEGIES.map((strategy) => {
+      const values = usecase.values[strategy.id];
+      const mark = usecase.fakeStrategies.includes(strategy.id) ? fakeMark : "";
+      return `<td>${values ? "×" + format(geometricMean(values)) + mark : "-"}</td>`;
+    }).join("")}</tr>`);
+  const pooledRow = usecases.length
+    ? `<tr class="pooled"><td>pooled (${usecases.length})</td>${STRATEGIES.map((strategy) => {
+        const result = results[strategy.id];
+        if (!result) return "<td>-</td>";
+        const delta = baseline && strategy.id !== "base"
+          ? ` <span style="color:var(--muted);font-weight:400">${formatDelta(result.estimate / baseline - 1)}</span>`
+          : "";
+        return `<td>×${format(result.estimate)}${result.fake ? fakeMark : ""}${delta}</td>`;
+      }).join("")}</tr>`
+    : "";
+  table.innerHTML = header + rows.join("") + pooledRow;
+}
+
+function render() {
+  const usecases = USECASES.filter((usecase) => selected.has(usecase.id));
+  const results = Object.fromEntries(STRATEGIES.map((strategy) => [strategy.id, pooled(usecases, strategy.id)]));
+  const baseline = results.base && results.base.estimate;
+  const svg = document.getElementById("graph");
+  if (!usecases.length) {
+    svg.innerHTML = "";
+    svg.setAttribute("viewBox", "0 0 990 200");
+    svg.appendChild(svgElement("text", { x: 495, y: 100, "text-anchor": "middle", class: "muted" }, "No usecase selected"));
+  } else {
+    renderGraph(svg, usecases, results, baseline);
+  }
+  renderTable(usecases, results, baseline);
+}
+
+renderNavigation();
+renderControls();
+render();
+</script>
+</body>
+</html>
