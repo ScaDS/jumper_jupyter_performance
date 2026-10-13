@@ -76,6 +76,11 @@ function currentRun() {
 }
 
 async function loadRuns() {
+  try {
+    catalogue = (await getJSON("/api/usecases")).usecases || {};
+  } catch (failure) {
+    catalogue = {};
+  }
   const { runs } = await getJSON("/api/runs");
   knownRuns = runs;
   const select = $("run-select");
@@ -100,7 +105,11 @@ async function update() {
       joinState.rows = null;
       joinState.info = null;
     }
+    combineState.key = "";
+    combineState.rows = null;
     snapshot = await getJSON(`/api/snapshot?run=${encodeURIComponent(run)}`);
+    const own = (snapshot.results && snapshot.results.summary) || [];
+    await refreshCombined(selectedUsecases());
     render();
   } catch (failure) {
     $("counters").replaceChildren(el("span", { class: "error" }, failure.message));
@@ -381,6 +390,7 @@ async function compare() {
 // particular run would otherwise blank the table rather than ignore itself.
 const filters = {
   show: "results",
+  combine: "side_by_side",
   usecase: new Set(),
   ablation: new Set(),
   evaluation_method: new Set(),
@@ -388,7 +398,6 @@ const filters = {
 };
 
 const FACETS = [
-  { key: "usecase", label: "usecase" },
   { key: "ablation", label: "preset" },
   { key: "evaluation_method", label: "method" },
   { key: "metric", label: "metric" },
@@ -403,6 +412,22 @@ const SHOW_MODES = [
   { id: "all", label: "all", hint: "and the rows nothing measured" },
 ];
 
+// One number per usecase, then the mean of those numbers. The usecase is
+// the unit of analysis, so a payload measured many times does not outvote
+// one measured twice.
+const COMBINE_MODES = [
+  {
+    id: "side_by_side",
+    label: "side by side",
+    hint: "one table per usecase, nothing combined",
+  },
+  {
+    id: "per_usecase",
+    label: "per usecase",
+    hint: "one table: the mean over the selected usecases, each weighing one",
+  },
+];
+
 function restoreFilters() {
   // A per-viewer convenience, so a chosen view survives a reload. It lives
   // in the browser, never in the run directory, and a browser that refuses
@@ -410,9 +435,13 @@ function restoreFilters() {
   try {
     const saved = JSON.parse(localStorage.getItem("monitor.filters") || "{}");
     if (SHOW_MODES.some((mode) => mode.id === saved.show)) filters.show = saved.show;
+    if (COMBINE_MODES.some((mode) => mode.id === saved.combine)) {
+      filters.combine = saved.combine;
+    }
     for (const facet of FACETS) {
       if (Array.isArray(saved[facet.key])) filters[facet.key] = new Set(saved[facet.key]);
     }
+    if (Array.isArray(saved.usecase)) filters.usecase = new Set(saved.usecase);
   } catch (failure) {
     // Private windows, cleared site data, storage disabled: not an error.
   }
@@ -422,6 +451,8 @@ function saveFilters() {
   try {
     localStorage.setItem("monitor.filters", JSON.stringify({
       show: filters.show,
+      combine: filters.combine,
+      usecase: [...filters.usecase],
       ...Object.fromEntries(FACETS.map((f) => [f.key, [...filters[f.key]]])),
     }));
   } catch (failure) {
@@ -477,6 +508,81 @@ function picker(facet, rows) {
         }),
         value,
       ]))),
+  ]);
+}
+
+let catalogue = {};
+
+function usecasePicker() {
+  const values = Object.keys(catalogue).sort();
+  const chosen = filters.usecase;
+  const selected = values.filter((value) => chosen.has(value));
+  const count = selected.length || values.length;
+
+  const options = values.map((value) =>
+    el("label", {}, [
+      el("input", {
+        type: "checkbox",
+        checked: chosen.has(value) ? "checked" : null,
+        onchange: (event) => {
+          if (event.target.checked) chosen.add(value);
+          else chosen.delete(value);
+          saveFilters();
+          recombine({ keepOpen: "usecase" });
+        },
+      }),
+      value,
+    ]));
+  options.push(el("button", {
+    type: "button",
+    class: "link",
+    onclick: () => {
+      chosen.clear();
+      saveFilters();
+      recombine({ keepOpen: "usecase" });
+    },
+  }, "all"));
+
+  return el("details", { class: "picker usecase-picker" }, [
+    el("summary", {}, `usecases  ${count} of ${values.length}`),
+    el("div", { class: "options" }, options),
+  ]);
+}
+
+function combinedRunsNote() {
+  const info = combineState.agreement;
+  if (filters.combine !== "per_usecase" || !info) return null;
+  const where = `From ${(combineState.runs || []).join(", ")}.`;
+  if (info.presets_agree) {
+    return el("p", { class: "note" },
+      `${where} The presets mean the same thing in each.`);
+  }
+  // Usecases and protocol are expected to differ - that is what averaging
+  // over usecases is for. A preset defined differently in two runs is not
+  // one preset, and a column headed with its name would compare two things.
+  return el("p", { class: "error" },
+    `${where} ${info.detail} - a column is not one condition.`);
+}
+
+function combineBar(rows) {
+  const modes = el("div", { class: "modes" }, COMBINE_MODES.map((mode) =>
+    el("label", { title: mode.hint }, [
+      el("input", {
+        type: "radio",
+        name: "combine",
+        checked: filters.combine === mode.id ? "checked" : null,
+        onchange: () => {
+          filters.combine = mode.id;
+          saveFilters();
+          recombine();
+        },
+      }),
+      mode.label,
+    ])));
+  return el("div", { class: "filters" }, [
+    usecasePicker(),
+    el("span", { class: "filters-label" }, "combine:"),
+    modes,
   ]);
 }
 
@@ -622,16 +728,75 @@ async function runJoin() {
   renderSummary();
 }
 
+const combineState = { key: "", rows: null, usecases: [] };
+
+async function refreshCombined(usecases) {
+  const key = usecases.join(",");
+  if (filters.combine !== "per_usecase") {
+    combineState.rows = null;
+    combineState.key = "";
+    return;
+  }
+  if (combineState.key === key && combineState.rows) return;
+  const result = await getJSON("/api/combined?" + new URLSearchParams({
+    usecases: usecases.join(","),
+  }));
+  combineState.key = key;
+  combineState.rows = result.rows;
+  combineState.usecases = result.usecases;
+  combineState.runs = result.runs || [];
+  combineState.agreement = result.agreement || null;
+}
+
+async function recombine(options = {}) {
+  const own = (snapshot && snapshot.results && snapshot.results.summary) || [];
+  try {
+    await refreshCombined(selectedUsecases());
+  } catch (failure) {
+    combineState.rows = null;
+    $("summary").replaceChildren(
+      el("p", { class: "error" }, failure.message));
+    return;
+  }
+  renderSummary(options);
+}
+
+function selectedUsecases() {
+  const known = Object.keys(catalogue);
+  const chosen = [...filters.usecase].filter((one) => known.includes(one));
+  return chosen.length ? chosen.sort() : known.sort();
+}
+
 function renderSummary(options = {}) {
   const own = (snapshot && snapshot.results && snapshot.results.summary) || [];
   const all = joinState.rows || own;
-  const shown = applyFilters(all);
-  const bar = filterBar(all);
+  const usecases = selectedUsecases();
+  const chosen = all.filter((row) => usecases.includes(row.usecase));
+
+  // Combining first, filtering second: the filters narrow which rows are
+  // read, and the combine mode decides what a row is. Doing it the other
+  // way round would average whatever the filter happened to leave.
+  const combined = filters.combine === "per_usecase"
+    ? (combineState.rows || [])
+    : chosen;
+  const shown = applyFilters(combined);
+
+  const combineRow = combineBar(all);
+  const bar = filterBar(combined);
   const counted = el("p", { class: "note counted" },
-    `${shown.length} of ${all.length} rows`);
+    filters.combine === "per_usecase"
+      ? `${shown.length} rows, averaged over ${usecases.length} usecase` +
+        `${usecases.length === 1 ? "" : "s"}, each weighing one`
+      : `${shown.length} of ${all.length} rows`);
+
   $("summary").replaceChildren(
-    joinBar(), joinBanner(), bar, counted, ...comparisonTables(shown));
-  if (options.keepOpen) {
+    joinBar(), joinBanner(), combineRow, combinedRunsNote(), bar, counted,
+    ...comparisonTables(shown));
+
+  if (options.keepOpen === "usecase") {
+    const menu = combineRow.querySelector("details.picker");
+    if (menu) menu.open = true;
+  } else if (options.keepOpen) {
     // Changing one checkbox re-renders the bar, which would otherwise shut
     // the menu after every single click.
     const index = FACETS.findIndex((facet) => facet.key === options.keepOpen);
@@ -705,6 +870,21 @@ function comparisonTables(rows) {
               const row = cells.get(key)[preset];
               if (!row) return { value: "-" };
               const shown = fixed(row.estimate);
+              if (row.per_usecase) {
+                // A combined cell carries the usecases it was made of, so
+                // the number can never be read without seeing whether the
+                // payloads agreed.
+                const parts = Object.entries(row.per_usecase)
+                  .map(([usecase, value]) => `${usecase}: ${fixed(value)}`);
+                return {
+                  node: el("span", {
+                    class: parts.length ? "combined-cell" : "",
+                    title: parts.length
+                      ? `k=${row.k}\n${parts.join("\n")}`
+                      : "no usecase measured this",
+                  }, shown),
+                };
+              }
               if (row.from_other) {
                 // Borrowed from the joined run. Marked on the cell rather
                 // than stated once above it: a merged table whose numbers

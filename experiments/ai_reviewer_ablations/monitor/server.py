@@ -58,6 +58,23 @@ class MonitorHandler(BaseHTTPRequestHandler):
                         variant=(query.get("variant") or [""])[0],
                     )
                 )
+            elif route.path == "/api/usecases":
+                self._send_json(
+                    {"usecases": model.usecase_catalogue(self.results_root)}
+                )
+            elif route.path == "/api/combined":
+                names = [
+                    one
+                    for one in (query.get("usecases") or [""])[0].split(",")
+                    if one
+                ]
+                rows, runs, agreement = model.rows_for_usecases(
+                    self.results_root, names or None
+                )
+                combined = model.per_usecase(rows, names or None)
+                combined["runs"] = runs
+                combined["agreement"] = agreement
+                self._send_json(combined)
             elif route.path == "/api/snapshot":
                 self._send_json(self._snapshot(query))
             elif route.path == "/api/record":

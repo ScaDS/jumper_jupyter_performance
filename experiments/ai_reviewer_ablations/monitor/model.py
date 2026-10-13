@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import csv
 import json
+import math
+import random
 import re
 from datetime import datetime
 from pathlib import Path
@@ -944,3 +946,212 @@ def _definition(run: Path, name: str) -> dict:
         "protocol": as_mapping(meta.get("protocol")),
         "usecases": sorted(as_mapping(meta.get("usecases"))),
     }
+
+
+# -- averaging over usecases --------------------------------------------
+
+# One number per usecase, then the mean of those numbers: the usecase is the
+# unit of analysis, so a payload measured five times does not outvote one
+# measured twice. The alternative - throwing every unit into one pool - would
+# answer a different question and needs the harness to recompute each metric
+# on the pooled units, so it is deliberately not offered here.
+COMBINE_GEOMETRIC = "geometric"
+COMBINE_ARITHMETIC = "arithmetic"
+
+# Below this many usecases a bootstrap over them says nothing: resampling two
+# values with replacement yields three distinct samples, and the percentiles
+# of those are a restatement of the two values rather than an interval.
+MINIMUM_FOR_INTERVAL = 3
+
+_RESAMPLES = 2000
+_COMBINED_KEY = ("ablation", "metric", "reported_value")
+_COMBINED_CARRIED = (
+    "metric_name",
+    "value_kind",
+    "combine",
+    "category",
+    "evaluation_method",
+)
+
+
+def combine_values(values: list, how: str) -> float | None:
+    """The mean of one metric's per-usecase values.
+
+    Geometric for a ratio of runtimes, because the arithmetic mean of ratios
+    is biased upwards - twice as fast and twice as slow average to 1.0, not
+    to 1.25. A non-positive value has no logarithm, so a geometric mean over
+    one is refused rather than silently dropped.
+    """
+    numbers = [value for value in values if value is not None]
+    if not numbers:
+        return None
+    if how == COMBINE_GEOMETRIC:
+        if any(number <= 0 for number in numbers):
+            return None
+        return math.exp(sum(math.log(number) for number in numbers) / len(numbers))
+    return sum(numbers) / len(numbers)
+
+
+def _interval(values: list, how: str, seed: int = 0) -> tuple:
+    """A percentile interval for the combined value, over the usecases.
+
+    What it measures is how much the usecases disagree, not the total
+    uncertainty: each usecase's own interval is not propagated. With fewer
+    than MINIMUM_FOR_INTERVAL usecases there is nothing to resample.
+    """
+    numbers = [value for value in values if value is not None]
+    if len(numbers) < MINIMUM_FOR_INTERVAL:
+        return (None, None)
+    generator = random.Random(seed)
+    drawn = []
+    for _ in range(_RESAMPLES):
+        sample = [generator.choice(numbers) for _ in numbers]
+        combined = combine_values(sample, how)
+        if combined is not None:
+            drawn.append(combined)
+    if len(drawn) < 2:
+        return (None, None)
+    drawn.sort()
+    low = drawn[int(0.025 * (len(drawn) - 1))]
+    high = drawn[int(0.975 * (len(drawn) - 1))]
+    return (low, high)
+
+
+def read_summary(run: Path) -> list[dict]:
+    """A run's summary rows, or none when it has not been scored."""
+    return _load_csv(Path(run) / "summary.csv")
+
+
+def usecase_catalogue(results_root: Path) -> dict:
+    """Every scored usecase under *results_root*, and which run holds it.
+
+    A usecase usually has a run to itself - one payload, one sweep - so the
+    thing a reader selects is the usecase, and which run supplied it is an
+    implementation detail of where it was written.
+    """
+    found: dict[str, list[str]] = {}
+    for run in sorted(Path(results_root).glob("*")):
+        if not run.is_dir() or run.name.startswith("."):
+            continue
+        for row in read_summary(run):
+            usecase = row.get("usecase")
+            if usecase and run.name not in found.setdefault(usecase, []):
+                found[usecase].append(run.name)
+    return found
+
+
+def rows_for_usecases(
+    results_root: Path, usecases: list[str] | None = None
+) -> tuple[list[dict], list[str], dict]:
+    """Summary rows for the chosen usecases, wherever they were written.
+
+    Also reports whether the presets mean the same thing in every run that
+    contributed. Usecases and protocol are *expected* to differ here - that
+    is what averaging over usecases is for - but a preset that was defined
+    differently in two runs is not one preset, and averaging across that
+    would compare two things under one name.
+    """
+    root = Path(results_root)
+    catalogue = usecase_catalogue(root)
+    wanted = list(usecases) if usecases else sorted(catalogue)
+    runs, rows = [], []
+    for usecase in wanted:
+        for name in catalogue.get(usecase, []):
+            if name not in runs:
+                runs.append(name)
+    for name in runs:
+        for row in read_summary(root / name):
+            if row.get("usecase") in set(wanted):
+                rows.append({**row, "run_id": row.get("run_id") or name})
+
+    definitions = {
+        name: json.dumps(
+            read_meta(root / name).get("ablations") or {}, sort_keys=True
+        )
+        for name in runs
+    }
+    agree = len(set(definitions.values())) <= 1
+    return rows, runs, {
+        "presets_agree": agree,
+        "runs": runs,
+        "detail": (
+            ""
+            if agree
+            else "the preset definitions differ between these runs"
+        ),
+    }
+
+
+def per_usecase(rows: list[dict], usecases: list[str] | None = None) -> dict:
+    """Summary rows averaged over the usecases, one row per preset and value.
+
+    Everything needed is already in the rows: a usecase's value is a result
+    the harness computed and wrote. Combining them is arithmetic over stored
+    numbers, which is why this needs no recomputation and no harness.
+    """
+    wanted = set(usecases) if usecases else None
+    buckets: dict[tuple, dict] = {}
+    labels: dict[tuple, dict] = {}
+    for row in rows:
+        if wanted is not None and row.get("usecase") not in wanted:
+            continue
+        key = tuple(row.get(field, "") for field in _COMBINED_KEY)
+        labels.setdefault(
+            key, {field: row.get(field, "") for field in _COMBINED_CARRIED}
+        )
+        estimate = _as_number(row.get("estimate"))
+        delta = _as_number(row.get("paired_delta"))
+        if estimate is None and delta is None:
+            continue
+        entry = buckets.setdefault(key, {"estimates": {}, "deltas": {}})
+        usecase = row.get("usecase", "")
+        if estimate is not None:
+            entry["estimates"][usecase] = estimate
+        if delta is not None:
+            entry["deltas"][usecase] = delta
+
+    combined = []
+    for key in sorted(set(labels) | set(buckets)):
+        entry = buckets.get(key, {"estimates": {}, "deltas": {}})
+        how = labels[key].get("combine") or COMBINE_ARITHMETIC
+        estimates = list(entry["estimates"].values())
+        # A difference is a difference whatever the value is: averaging the
+        # per-usecase deltas geometrically would be a ratio of ratios, which
+        # is not what the rest of the report calls paired_delta.
+        deltas = list(entry["deltas"].values())
+        low, high = _interval(estimates, how)
+        delta_low, delta_high = _interval(deltas, COMBINE_ARITHMETIC, seed=1)
+        row = dict(zip(_COMBINED_KEY, key))
+        row.update(labels[key])
+        row.update(
+            {
+                "usecase": "",
+                "estimate": combine_values(estimates, how),
+                "ci_low": low,
+                "ci_high": high,
+                "paired_delta": combine_values(deltas, COMBINE_ARITHMETIC),
+                "paired_delta_ci_low": delta_low,
+                "paired_delta_ci_high": delta_high,
+                "usecases": sorted(entry["estimates"]),
+                "k": len(estimates),
+                "per_usecase": entry["estimates"],
+            }
+        )
+        combined.append(row)
+    return {
+        "mode": "per_usecase",
+        "usecases": sorted(
+            {row.get("usecase", "") for row in rows if row.get("usecase")}
+            if wanted is None
+            else wanted
+        ),
+        "minimum_for_interval": MINIMUM_FOR_INTERVAL,
+        "rows": combined,
+    }
+
+
+def _as_number(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None

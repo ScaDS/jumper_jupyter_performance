@@ -278,3 +278,12 @@ tr.gap td { color: var(--muted); }
   cursor: help;
 }
 .borrowed::after { content: "*"; color: var(--muted); font-size: 11px; }
+
+/* A value averaged over several usecases. Dotted like a borrowed one -
+   both mean "hover to see where this came from" - and never coloured:
+   agreement between payloads is not a status. */
+.combined-cell {
+  border-bottom: 1px dotted var(--accent);
+  cursor: help;
+}
+.usecase-picker > summary { font-weight: 600; }

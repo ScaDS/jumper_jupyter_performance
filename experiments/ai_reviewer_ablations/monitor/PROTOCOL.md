@@ -284,6 +284,39 @@ Equal fingerprint is the *permission* to pool, not the method: pooling joins
 combined units. Averaging two runs' `summary.csv` rows is not pooling, and
 there is no weighting that makes it one.
 
+### Averaging over usecases
+
+A reader may average several usecases into one number. The usecase is the
+unit of analysis: each payload weighs one, however many times it was
+measured, so a long sweep does not outvote a short one.
+
+Everything it needs is already in `summary.csv` - a usecase's value is a
+result the harness computed and wrote - so combining is arithmetic over
+stored numbers, needs no recomputation and writes nothing.
+
+| Field | Why the reader needs it |
+|---|---|
+| `combine` | `geometric` for a ratio of runtimes, `arithmetic` otherwise |
+
+The arithmetic mean of ratios is biased upwards: twice as fast and twice as
+slow average to 1.0, not to 1.25. A reader that guessed from the metric's
+name would get `correctness_conditioned_speedup` wrong, because that metric
+reports two speedups and a coverage side by side.
+
+Two qualifications a reader states rather than hides:
+
+- an interval over the usecases measures **how much the payloads disagree**,
+  not the total uncertainty - each usecase's own interval is not propagated;
+- below three usecases there is no interval, because resampling two values
+  with replacement yields three distinct samples whose percentiles restate
+  the two values.
+
+A usecase usually has a run to itself, so the rows come from several runs.
+Usecases and protocol are *expected* to differ there - that is what the
+average is over. The **preset definitions** must not: a preset defined
+differently in two runs is not one preset, and a column headed with its name
+would compare two things. A reader checks that and says so.
+
 ### Joining is not pooling
 
 A **join** puts two runs' summary rows in one table keyed by

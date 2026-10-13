@@ -489,3 +489,115 @@ def test_joining_a_run_without_a_summary_yields_this_run_alone(tmp_path):
 
     assert result["counts"]["from_theirs"] == 0
     assert result["counts"]["from_mine"] == 2
+
+
+# -- averaging over usecases --------------------------------------------
+
+
+def _across(values, combine="arithmetic", metric="m", reported="v"):
+    """One summary row per usecase, for the same reported value."""
+    return [
+        {
+            "usecase": usecase,
+            "ablation": "base",
+            "metric": metric,
+            "reported_value": reported,
+            "metric_name": "Name",
+            "value_kind": "result",
+            "combine": combine,
+            "category": "suggestions",
+            "evaluation_method": "deterministic",
+            "estimate": str(value),
+            "paired_delta": "",
+        }
+        for usecase, value in values.items()
+    ]
+
+
+def test_a_ratio_is_averaged_geometrically(tmp_path):
+    # Twice as fast on one payload and twice as slow on another is no change
+    # overall; the arithmetic mean would call it a 25% win.
+    combined = model.per_usecase(
+        _across({"a": 2.0, "b": 0.5}, combine="geometric")
+    )["rows"]
+
+    assert combined[0]["estimate"] == pytest.approx(1.0)
+
+
+def test_everything_else_is_averaged_arithmetically(tmp_path):
+    combined = model.per_usecase(_across({"a": 2.0, "b": 1.0}))["rows"]
+
+    assert combined[0]["estimate"] == pytest.approx(1.5)
+
+
+def test_each_usecase_weighs_the_same(tmp_path):
+    # The whole point of this mode: a payload measured many times does not
+    # outvote one measured twice, because the rows are already per usecase.
+    rows = _across({"a": 2.0, "b": 1.0, "c": 1.0})
+
+    combined = model.per_usecase(rows)["rows"][0]
+
+    assert combined["estimate"] == pytest.approx(4.0 / 3.0)
+    assert combined["k"] == 3
+
+
+def test_only_the_selected_usecases_are_averaged(tmp_path):
+    rows = _across({"a": 2.0, "b": 1.0, "c": 10.0})
+
+    combined = model.per_usecase(rows, usecases=["a", "b"])["rows"][0]
+
+    assert combined["estimate"] == pytest.approx(1.5)
+    assert combined["usecases"] == ["a", "b"]
+
+
+def test_two_usecases_get_a_value_but_no_interval(tmp_path):
+    # The mean of two numbers is a mean. A bootstrap over two numbers has
+    # three distinct samples, so its percentiles restate the two values.
+    combined = model.per_usecase(_across({"a": 2.0, "b": 1.0}))["rows"][0]
+
+    assert combined["estimate"] == pytest.approx(1.5)
+    assert combined["k"] == 2
+    assert combined["ci_low"] is None and combined["ci_high"] is None
+
+
+def test_three_usecases_get_an_interval(tmp_path):
+    combined = model.per_usecase(_across({"a": 1.0, "b": 2.0, "c": 3.0}))[
+        "rows"
+    ][0]
+
+    assert combined["ci_low"] is not None
+    assert combined["ci_low"] <= combined["estimate"] <= combined["ci_high"]
+
+
+def test_a_geometric_mean_refuses_a_non_positive_value(tmp_path):
+    # log(0) does not exist, and dropping the usecase silently would change
+    # which payloads the number is about.
+    combined = model.per_usecase(
+        _across({"a": 2.0, "b": 0.0}, combine="geometric")
+    )["rows"][0]
+
+    assert combined["estimate"] is None
+
+
+def test_the_paired_delta_is_averaged_as_a_difference(tmp_path):
+    # Even for a ratio: a mean of differences is what the rest of the report
+    # calls paired_delta, and a geometric mean of them would be a ratio of
+    # ratios instead.
+    rows = _across({"a": 2.0, "b": 0.5}, combine="geometric")
+    for row, delta in zip(rows, (1.0, -0.5)):
+        row["paired_delta"] = str(delta)
+
+    combined = model.per_usecase(rows)["rows"][0]
+
+    assert combined["paired_delta"] == pytest.approx(0.25)
+
+
+def test_a_value_no_usecase_measured_survives_as_a_gap(tmp_path):
+    rows = _across({"a": 1.0})
+    rows[0]["estimate"] = ""
+
+    combined = model.per_usecase(rows)["rows"][0]
+
+    assert combined["estimate"] is None
+    assert combined["k"] == 0
+    assert combined["metric_name"] == "Name", "the row still describes itself"
