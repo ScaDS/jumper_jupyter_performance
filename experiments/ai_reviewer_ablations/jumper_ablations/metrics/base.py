@@ -45,6 +45,14 @@ SCOPES = (SCOPE_RUN, SCOPE_CELL)
 KIND_RESULT = "result"
 KIND_INPUT = "input"
 
+# How a value combines when several usecases are averaged into one number.
+# A speedup is a ratio of runtimes, and the arithmetic mean of ratios is
+# biased upwards: twice as fast and twice as slow should average to 1.0, not
+# to 1.25. Everything else - fractions, scores, counts, seconds, tokens,
+# correlations - averages arithmetically.
+COMBINE_GEOMETRIC = "geometric"
+COMBINE_ARITHMETIC = "arithmetic"
+
 
 @dataclasses.dataclass(frozen=True)
 class MetricSpec:
@@ -64,6 +72,18 @@ class MetricSpec:
     # computed from rather than results themselves, named as the source
     # spreadsheet's Units column files them under "count".
     supporting_values: tuple[str, ...] = ()
+    # The subset of reported_values that are ratios of runtimes. Declared per
+    # value rather than per metric because a metric reports both kinds:
+    # correctness_conditioned_speedup returns two speedups and a coverage.
+    ratio_values: tuple[str, ...] = ()
+
+    def combine_of(self, reported_value: str) -> str:
+        """How to average this value over several usecases."""
+        return (
+            COMBINE_GEOMETRIC
+            if reported_value in self.ratio_values
+            else COMBINE_ARITHMETIC
+        )
 
     def name_of(self, reported_value: str) -> str:
         """The spreadsheet's name for this value, or "" when it has none.
@@ -95,12 +115,16 @@ class MetricSpec:
             raise ValueError(f"{self.id}: unknown scope {self.scope!r}")
         if not self.reported_values:
             raise ValueError(f"{self.id}: a metric has to report something")
-        unknown = set(self.supporting_values) - set(self.reported_values)
-        if unknown:
-            raise ValueError(
-                f"{self.id}: supporting values not reported: "
-                f"{', '.join(sorted(unknown))}"
-            )
+        for field, declared in (
+            ("supporting", self.supporting_values),
+            ("ratio", self.ratio_values),
+        ):
+            unknown = set(declared) - set(self.reported_values)
+            if unknown:
+                raise ValueError(
+                    f"{self.id}: {field} values not reported: "
+                    f"{', '.join(sorted(unknown))}"
+                )
         if not set(self.reported_values) - set(self.supporting_values):
             raise ValueError(
                 f"{self.id}: every reported value is supporting, so the "

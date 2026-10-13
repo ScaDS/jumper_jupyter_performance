@@ -43,6 +43,11 @@ class MeanMedianSpeedup(DeterministicMetric):
         supporting_values=(
             "measured_suggestions",
         ),
+        ratio_values=(
+            "mean_speedup",
+            "median_speedup",
+            "geometric_mean_speedup",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:
@@ -77,6 +82,11 @@ class MeanMedianCorrectSpeedup(DeterministicMetric):
         ),
         supporting_values=(
             "correct_suggestions",
+        ),
+        ratio_values=(
+            "mean_speedup",
+            "median_speedup",
+            "geometric_mean_speedup",
         ),
     )
 

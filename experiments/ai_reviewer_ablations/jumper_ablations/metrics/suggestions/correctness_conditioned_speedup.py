@@ -46,6 +46,10 @@ class CorrectnessConditionedSpeedup(DeterministicMetric):
             "correct_suggestions",
             "suggestions",
         ),
+        ratio_values=(
+            "geometric_mean_speedup",
+            "median_speedup",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:

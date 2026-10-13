@@ -44,6 +44,12 @@ class BestSpeedup(DeterministicMetric):
         supporting_values=(
             "generations_with_a_measurement",
         ),
+        ratio_values=(
+            "mean_best_speedup",
+            "median_best_speedup",
+            "mean_best_correct_speedup",
+            "median_best_correct_speedup",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:

@@ -52,6 +52,10 @@ SUMMARY_COLUMNS = (
     # Whether this row is the metric's answer or a quantity it was computed
     # from, so a reader can ask for results alone without knowing the names.
     "value_kind",
+    # How to average this value over several usecases. Carried so a reader
+    # combining them does not have to guess from the metric's name which of
+    # its values are ratios.
+    "combine",
     "estimate",
     "ci_low",
     "ci_high",
@@ -221,6 +225,7 @@ def _summarise_usecase(
                 "reported_value": reported_value,
                 "metric_name": metric.spec.name_of(reported_value),
                 "value_kind": metric.spec.kind_of(reported_value),
+                "combine": metric.spec.combine_of(reported_value),
                 "estimate": values.get("estimate"),
                 "ci_low": values.get("ci_low"),
                 "ci_high": values.get("ci_high"),
