@@ -839,7 +839,8 @@ def combine_values(values: list, how: str) -> float | None:
     if how == COMBINE_GEOMETRIC:
         if any(number <= 0 for number in numbers):
             return None
-        return math.exp(sum(math.log(number) for number in numbers) / len(numbers))
+        total = sum(math.log(number) for number in numbers)
+        return math.exp(total / len(numbers))
     return sum(numbers) / len(numbers)
 
 
