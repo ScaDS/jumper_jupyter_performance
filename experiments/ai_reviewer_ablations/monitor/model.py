@@ -963,7 +963,11 @@ COMBINE_ARITHMETIC = "arithmetic"
 # of those are a restatement of the two values rather than an interval.
 MINIMUM_FOR_INTERVAL = 3
 
-_RESAMPLES = 2000
+# The same draw count the harness uses for its cell-scope bootstrap, and
+# for the same reason: past a few hundred the interval stops moving and the
+# cost does not. At 2000 a table of 350 rows took 1.4 s, which is too slow
+# for something that recomputes on every click.
+_RESAMPLES = 400
 _COMBINED_KEY = ("ablation", "metric", "reported_value")
 _COMBINED_CARRIED = (
     "metric_name",
@@ -1002,13 +1006,27 @@ def _interval(values: list, how: str, seed: int = 0) -> tuple:
     numbers = [value for value in values if value is not None]
     if len(numbers) < MINIMUM_FOR_INTERVAL:
         return (None, None)
+
+    # A geometric mean is an arithmetic mean of logarithms, so the logarithm
+    # is taken once per usecase rather than once per resample. That is the
+    # whole difference between a table that redraws on a click and one that
+    # does not.
+    geometric = how == COMBINE_GEOMETRIC
+    if geometric:
+        if any(number <= 0 for number in numbers):
+            return (None, None)
+        numbers = [math.log(number) for number in numbers]
+
     generator = random.Random(seed)
+    size = len(numbers)
     drawn = []
     for _ in range(_RESAMPLES):
-        sample = [generator.choice(numbers) for _ in numbers]
-        combined = combine_values(sample, how)
-        if combined is not None:
-            drawn.append(combined)
+        total = 0.0
+        for _ in range(size):
+            total += numbers[generator.randrange(size)]
+        drawn.append(total / size)
+    if geometric:
+        drawn = [math.exp(one) for one in drawn]
     if len(drawn) < 2:
         return (None, None)
     drawn.sort()
@@ -1022,21 +1040,61 @@ def read_summary(run: Path) -> list[dict]:
     return _load_csv(Path(run) / "summary.csv")
 
 
-def usecase_catalogue(results_root: Path) -> dict:
+_SCORED_CACHE: dict = {}
+
+
+def _summary_signature(results_root: Path) -> tuple:
+    """What would make a cached read of the summaries wrong."""
+    stamps = []
+    for run in sorted(Path(results_root).glob("*")):
+        summary = run / "summary.csv"
+        try:
+            stamps.append((run.name, summary.stat().st_mtime_ns))
+        except OSError:
+            continue
+    return tuple(stamps)
+
+
+def scored_runs(results_root: Path) -> dict:
+    """Every scored run under *results_root*, with its summary rows.
+
+    One pass over the directory: the catalogue and the rows come out of the
+    same read, because doing it twice doubles the only part of this that
+    touches a shared filesystem.
+    """
+    root = Path(results_root)
+    signature = _summary_signature(root)
+    cached = _SCORED_CACHE.get(str(root))
+    if cached and cached[0] == signature:
+        return cached[1]
+
+    found = {}
+    for run in sorted(root.glob("*")):
+        if not run.is_dir() or run.name.startswith("."):
+            continue
+        rows = read_summary(run)
+        if rows:
+            found[run.name] = rows
+    _SCORED_CACHE[str(root)] = (signature, found)
+    return found
+
+
+def usecase_catalogue(
+    results_root: Path, scored: dict | None = None
+) -> dict:
     """Every scored usecase under *results_root*, and which run holds it.
 
     A usecase usually has a run to itself - one payload, one sweep - so the
     thing a reader selects is the usecase, and which run supplied it is an
     implementation detail of where it was written.
     """
+    scored = scored_runs(results_root) if scored is None else scored
     found: dict[str, list[str]] = {}
-    for run in sorted(Path(results_root).glob("*")):
-        if not run.is_dir() or run.name.startswith("."):
-            continue
-        for row in read_summary(run):
+    for name, rows in scored.items():
+        for row in rows:
             usecase = row.get("usecase")
-            if usecase and run.name not in found.setdefault(usecase, []):
-                found[usecase].append(run.name)
+            if usecase and name not in found.setdefault(usecase, []):
+                found[usecase].append(name)
     return found
 
 
@@ -1052,17 +1110,18 @@ def rows_for_usecases(
     would compare two things under one name.
     """
     root = Path(results_root)
-    catalogue = usecase_catalogue(root)
-    wanted = list(usecases) if usecases else sorted(catalogue)
+    scored = scored_runs(root)
+    catalogue = usecase_catalogue(root, scored)
+    wanted = set(usecases) if usecases else set(catalogue)
     runs, rows = [], []
-    for usecase in wanted:
-        for name in catalogue.get(usecase, []):
-            if name not in runs:
-                runs.append(name)
-    for name in runs:
-        for row in read_summary(root / name):
-            if row.get("usecase") in set(wanted):
-                rows.append({**row, "run_id": row.get("run_id") or name})
+    for name, rows_of_run in scored.items():
+        mine = [row for row in rows_of_run if row.get("usecase") in wanted]
+        if not mine:
+            continue
+        runs.append(name)
+        rows.extend(
+            {**row, "run_id": row.get("run_id") or name} for row in mine
+        )
 
     definitions = {
         name: json.dumps(
@@ -1103,16 +1162,22 @@ def per_usecase(rows: list[dict], usecases: list[str] | None = None) -> dict:
         delta = _as_number(row.get("paired_delta"))
         if estimate is None and delta is None:
             continue
-        entry = buckets.setdefault(key, {"estimates": {}, "deltas": {}})
+        entry = buckets.setdefault(
+            key, {"estimates": {}, "deltas": {}, "clashes": set()}
+        )
         usecase = row.get("usecase", "")
         if estimate is not None:
+            if usecase in entry["estimates"]:
+                entry["clashes"].add(usecase)
             entry["estimates"][usecase] = estimate
         if delta is not None:
             entry["deltas"][usecase] = delta
 
     combined = []
     for key in sorted(set(labels) | set(buckets)):
-        entry = buckets.get(key, {"estimates": {}, "deltas": {}})
+        entry = buckets.get(
+            key, {"estimates": {}, "deltas": {}, "clashes": set()}
+        )
         how = labels[key].get("combine") or COMBINE_ARITHMETIC
         estimates = list(entry["estimates"].values())
         # A difference is a difference whatever the value is: averaging the
@@ -1135,6 +1200,9 @@ def per_usecase(rows: list[dict], usecases: list[str] | None = None) -> dict:
                 "usecases": sorted(entry["estimates"]),
                 "k": len(estimates),
                 "per_usecase": entry["estimates"],
+                # A usecase measured by two runs: the reader is told rather
+                # than handed whichever the directory listed last.
+                "clashes": sorted(entry["clashes"]),
             }
         )
         combined.append(row)

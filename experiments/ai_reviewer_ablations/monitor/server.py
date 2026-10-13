@@ -74,6 +74,10 @@ class MonitorHandler(BaseHTTPRequestHandler):
                 combined = model.per_usecase(rows, names or None)
                 combined["runs"] = runs
                 combined["agreement"] = agreement
+                # The uncombined rows travel with them: the same selection
+                # feeds three table shapes, and fetching it once keeps them
+                # from disagreeing about which usecases are in view.
+                combined["source_rows"] = rows
                 self._send_json(combined)
             elif route.path == "/api/snapshot":
                 self._send_json(self._snapshot(query))

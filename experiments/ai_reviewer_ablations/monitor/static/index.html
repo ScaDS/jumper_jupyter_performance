@@ -82,69 +82,25 @@
 
     <h2>Metrics</h2>
     <p class="note">
-      One column per preset, so the question the experiment asks - what
-      changes when a source is removed - is answered by reading across a
-      row. A value is marked when the interval of its difference from the
-      baseline stays clear of zero; hover it for that difference. The point
-      estimate on its own says nothing about whether two presets differ.
+      A value is marked when the interval of its difference from the
+      baseline stays clear of zero. The point estimate alone says nothing
+      about whether two conditions differ.
     </p>
     <p class="note">
-      <b>usecases</b> picks what the table is about; <b>combine</b> decides
-      whether they are shown apart or averaged. Under <b>per usecase</b> each
-      payload weighs one, however many times it was measured, and a speedup
-      is averaged geometrically because it is a ratio. Hover a combined value
-      for what each usecase said; an interval appears from three usecases on,
-      and it measures how much they disagree, not the total uncertainty.
+      <b>usecases</b> picks what the table is about, across every run that
+      measured them. <b>combine</b> puts presets or usecases in the columns,
+      or averages the usecases into one column set.
     </p>
-
-    <h3>What each variant does</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>key state</th>
-          <th>this wins</th>
-          <th>other wins</th>
-          <th>only both</th>
-          <th>missing here</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>only here</td>
-          <td>1.0 from here</td>
-          <td>1.0 from here</td>
-          <td>dropped</td>
-          <td>dropped</td>
-        </tr>
-        <tr>
-          <td>only there</td>
-          <td>2.0 from there</td>
-          <td>2.0 from there</td>
-          <td>dropped</td>
-          <td>2.0 from there</td>
-        </tr>
-        <tr>
-          <td>both measured</td>
-          <td>10.0 from here</td>
-          <td>99.0 from there</td>
-          <td>10.0 from here</td>
-          <td>dropped</td>
-        </tr>
-        <tr>
-          <td>neither measured</td>
-          <td>empty row</td>
-          <td>empty row</td>
-          <td>dropped</td>
-          <td>dropped</td>
-        </tr>
-      </tbody>
-    </table>
     <p class="note">
-      <b>results</b> shows each metric's own answer; <b>+inputs</b> adds the
-      quantities it was computed from, which belong next to a rate rather
-      than on their own line; <b>all</b> adds the reported values nothing
-      measured. Every menu takes several values at once, and no selection in
-      a menu means that menu is not filtering.
+      Averaging gives each usecase weight one, geometrically for a speedup
+      because it is a ratio. Hover a combined value for what each usecase
+      said; an interval appears from three usecases on and measures how much
+      they disagree.
+    </p>
+    <p class="note">
+      <b>results</b> shows each metric's own answer, <b>+inputs</b> adds the
+      quantities it was computed from, <b>all</b> adds what nothing measured.
+      Every menu takes several values, and an empty menu is not filtering.
     </p>
     <div id="summary"></div>
 

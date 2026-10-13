@@ -311,7 +311,10 @@ Two qualifications a reader states rather than hides:
   with replacement yields three distinct samples whose percentiles restate
   the two values.
 
-A usecase usually has a run to itself, so the rows come from several runs.
+A usecase usually has a run to itself, so the rows come from several runs,
+and a reader collects them by usecase rather than by run. A usecase that two
+runs both measured is named, not resolved: taking whichever was read last
+would make the number depend on directory order.
 Usecases and protocol are *expected* to differ there - that is what the
 average is over. The **preset definitions** must not: a preset defined
 differently in two runs is not one preset, and a column headed with its name

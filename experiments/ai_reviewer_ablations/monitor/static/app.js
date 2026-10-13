@@ -418,12 +418,17 @@ const SHOW_MODES = [
 const COMBINE_MODES = [
   {
     id: "side_by_side",
-    label: "side by side",
-    hint: "one table per usecase, nothing combined",
+    label: "presets in columns",
+    hint: "one table per usecase; read across for the effect of an ablation",
+  },
+  {
+    id: "by_usecase",
+    label: "usecases in columns",
+    hint: "one table per preset; read across to compare the payloads",
   },
   {
     id: "per_usecase",
-    label: "per usecase",
+    label: "averaged",
     hint: "one table: the mean over the selected usecases, each weighing one",
   },
 ];
@@ -551,8 +556,16 @@ function usecasePicker() {
 
 function combinedRunsNote() {
   const info = combineState.agreement;
-  if (filters.combine !== "per_usecase" || !info) return null;
-  const where = `From ${(combineState.runs || []).join(", ")}.`;
+  if (!info || (combineState.runs || []).length < 2) return null;
+  const where = `From ${(combineState.runs || []).length} runs.`;
+  const clashing = [
+    ...new Set((combineState.rows || []).flatMap((row) => row.clashes || [])),
+  ];
+  if (clashing.length) {
+    return el("p", { class: "error" },
+      `${clashing.join(", ")} measured by more than one run - pick which, ` +
+      "or the number depends on which was read last.");
+  }
   if (info.presets_agree) {
     return el("p", { class: "note" },
       `${where} The presets mean the same thing in each.`);
@@ -732,11 +745,6 @@ const combineState = { key: "", rows: null, usecases: [] };
 
 async function refreshCombined(usecases) {
   const key = usecases.join(",");
-  if (filters.combine !== "per_usecase") {
-    combineState.rows = null;
-    combineState.key = "";
-    return;
-  }
   if (combineState.key === key && combineState.rows) return;
   const result = await getJSON("/api/combined?" + new URLSearchParams({
     usecases: usecases.join(","),
@@ -746,6 +754,7 @@ async function refreshCombined(usecases) {
   combineState.usecases = result.usecases;
   combineState.runs = result.runs || [];
   combineState.agreement = result.agreement || null;
+  combineState.source = result.source_rows || [];
 }
 
 async function recombine(options = {}) {
@@ -776,9 +785,16 @@ function renderSummary(options = {}) {
   // Combining first, filtering second: the filters narrow which rows are
   // read, and the combine mode decides what a row is. Doing it the other
   // way round would average whatever the filter happened to leave.
+  //
+  // All three shapes come from the same selection. Only the averaged one
+  // uses the combined rows; the other two transpose the sources.
+  const sources = combineState.source && combineState.source.length
+    ? combineState.source
+    : chosen;
+  const axis = filters.combine === "by_usecase" ? "usecase" : "ablation";
   const combined = filters.combine === "per_usecase"
     ? (combineState.rows || [])
-    : chosen;
+    : sources;
   const shown = applyFilters(combined);
 
   const combineRow = combineBar(all);
@@ -787,11 +803,12 @@ function renderSummary(options = {}) {
     filters.combine === "per_usecase"
       ? `${shown.length} rows, averaged over ${usecases.length} usecase` +
         `${usecases.length === 1 ? "" : "s"}, each weighing one`
-      : `${shown.length} of ${all.length} rows`);
+      : `${shown.length} rows over ${usecases.length} usecase` +
+        `${usecases.length === 1 ? "" : "s"}`);
 
   $("summary").replaceChildren(
-    joinBar(), joinBanner(), combineRow, combinedRunsNote(), bar, counted,
-    ...comparisonTables(shown));
+    combineRow, combinedRunsNote(), bar, counted,
+    ...comparisonTables(shown, axis));
 
   if (options.keepOpen === "usecase") {
     const menu = combineRow.querySelector("details.picker");
@@ -821,23 +838,29 @@ function findsSomething(row) {
     ((low > 0 && high > 0) || (low < 0 && high < 0));
 }
 
-function comparisonTables(rows) {
+function comparisonTables(rows, axis = "ablation") {
   if (!rows || !rows.length) {
     return [el("p", { class: "empty" }, "no summary.csv yet - run cli.report")];
   }
 
   const baseline = rows.find((row) => row.ablation === "base")
     ? "base" : rows[0].ablation;
+  const byPreset = axis === "ablation";
+  // Whichever axis is not in the columns groups the tables.
+  const group = byPreset ? "usecase" : "ablation";
+
   const presets = [...new Set(rows.map((row) => row.ablation))]
     .sort((a, b) => (a === baseline ? -1 : b === baseline ? 1 : a < b ? -1 : 1));
   const usecases = [...new Set(rows.map((row) => row.usecase))].sort();
+  const columns = byPreset ? presets : usecases;
+  const groups = byPreset ? usecases : presets;
 
   const out = [];
-  for (const usecase of usecases) {
-    if (usecases.length > 1) out.push(el("h3", {}, usecase));
+  for (const heading of groups) {
+    if (groups.length > 1 || !byPreset) out.push(el("h3", {}, heading || "all"));
     for (const category of ["analysis", "suggestions"]) {
       const mine = rows.filter((row) =>
-        row.usecase === usecase && row.category === category);
+        row[group] === heading && row.category === category);
       if (!mine.length) continue;
 
       // One row per reported value, in the order the metrics registered
@@ -848,15 +871,16 @@ function comparisonTables(rows) {
       for (const row of mine) {
         const key = `${row.metric}.${row.reported_value}`;
         if (!cells.has(key)) { keys.push(key); cells.set(key, {}); }
-        cells.get(key)[row.ablation] = row;
+        cells.get(key)[byPreset ? row.ablation : row.usecase] = row;
         if (row.metric_name) named.set(key, row.metric_name);
       }
 
       out.push(el("h3", {}, CATEGORY_TITLES[category] || category));
       out.push(table(
         [{ label: "key" }, { label: "metric" },
-          ...presets.map((p) => ({
-            label: p === baseline ? `${p} (baseline)` : p, num: true }))],
+          ...columns.map((one) => ({
+            label: byPreset && one === baseline ? `${one} (baseline)` : one,
+            num: true }))],
         keys.map((key) => ({
           cells: [
             { node: el("code", {}, key) },
@@ -866,8 +890,8 @@ function comparisonTables(rows) {
             // rather than as a repeat of the key.
             { value: named.get(key) || "-",
               class: named.get(key) ? "" : "empty" },
-            ...presets.map((preset) => {
-              const row = cells.get(key)[preset];
+            ...columns.map((column) => {
+              const row = cells.get(key)[column];
               if (!row) return { value: "-" };
               const shown = fixed(row.estimate);
               if (row.per_usecase) {
@@ -896,7 +920,7 @@ function comparisonTables(rows) {
                   }, shown),
                 };
               }
-              if (preset === baseline || !findsSomething(row)) {
+              if ((byPreset && column === baseline) || !findsSomething(row)) {
                 return { value: shown };
               }
               // Marked where the interval of the difference from the
