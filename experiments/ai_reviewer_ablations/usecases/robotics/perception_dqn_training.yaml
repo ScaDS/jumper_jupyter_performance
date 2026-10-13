@@ -1,5 +1,5 @@
 description: >-
-  50 CarRacing episodes of up to 1000 steps, where each step encodes a 96x96
+  5 CarRacing episodes of up to 1000 steps, where each step encodes a 96x96
   frame into 11 hand-made features with a pure-Python ray cast, stores the raw
   frames in a memory-mapped replay buffer and takes one gradient step on a tiny
   MLP.
@@ -60,9 +60,47 @@ reference_facts:
       act ends in .item() on the argmax and store_experience moves features
       back with .cpu(), so every step round-trips between device and host.
 
-# NOT YET WRITTEN, and not to be guessed - see the note in
-# feedforward_training_with_checkpointing.yaml.
-#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
-#   - {id: cpu_bound,    source: tags,   weight: 2, fact: "..."}
-#   - {id: gpu_underuse, source: perf,   weight: 2, fact: "..."}
-#   - {id: disk_write,   source: perf,   weight: 1, fact: "..."}
+  # Transcribed from a measured `base` record (run robotics_facts_dqn, one
+  # capella GPU: a quarter of a node, 16 cores and one H100, at five
+  # episodes). Written as thresholds rather than as the numbers that were
+  # observed, so that another allocation does not falsify them: utilisation
+  # figures are shares of what the job had.
+  #
+  # Each states only what its own source shows; the reason behind a number
+  # belongs to a `code` fact above, so that a preset without telemetry gets no
+  # credit for it.
+  - id: duration
+    source: timing
+    weight: 1
+    tolerance: 0.5
+    fact: >-
+      The cell runs for over a minute (about 77 s measured).
+  - id: gpu_allocated_unused
+    source: tags
+    weight: 2
+    fact: >-
+      The collector tags the cell gpu-allocated-but-not-used: a GPU is held
+      for the whole cell and does no measurable work.
+  - id: gpu_idle
+    source: perf
+    weight: 2
+    fact: >-
+      GPU utilisation stays around 1% for the whole cell, with under one
+      gigabyte of GPU memory in use.
+  - id: cpu_busy
+    source: perf
+    weight: 2
+    fact: >-
+      CPU utilisation averages about two thirds of the allocation and peaks
+      near three quarters, so the host, not the device, does the work.
+  - id: memory_growth
+    source: perf
+    weight: 1
+    fact: >-
+      Resident memory climbs steadily for the whole cell (from about 1.4 to
+      about 2 GB) instead of levelling off.
+
+# There is deliberately no disk-write fact here, although the code writes
+# every transition to a memory-mapped buffer: the measured run shows no
+# write traffic, since those pages stay in the page cache, and a fact the
+# telemetry cannot show would credit presets for what nobody measured.

@@ -9,6 +9,14 @@ preconditions:
   - A CUDA device is available (the payload calls .to('cuda') unconditionally)
   - ../model_checkpoints/e01/simple_nn/ is writable
 
+# The payload checkpoints into ../model_checkpoints, which from the shared
+# family directory is one path for every pass: concurrent passes would
+# overwrite each other's best_model.pt between its save and its reload. A
+# private directory moves `..` into the pass. Nothing is read, so nothing is
+# seeded.
+workspace:
+  mode: per_pass
+
 benchmark:
   # `fork` would inherit a live CUDA context into the child, which CUDA does
   # not support; keep this usecase on the full replay.
@@ -60,13 +68,41 @@ reference_facts:
       more forward passes happen in the same cell after training, so they are
       included in whatever the cell is timed at.
 
-# NOT YET WRITTEN, and not to be guessed: every fact above has source `code`,
-# so conditional and global evidence coverage are identical for this usecase
-# and the coverage metrics say nothing about removing telemetry. Transcribe the
-# facts below from a measured `base` record - records/<id>.json carries
-# inputs.context_payload with timing_info, perf_tags and perf_summary - and
-# move them up:
-#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
-#   - {id: workload_tag, source: tags,   weight: 2, fact: "..."}
-#   - {id: gpu_underuse, source: perf,   weight: 2, fact: "..."}
-#   - {id: device_class, source: hardware, weight: 1, fact: "..."}
+  # Transcribed from a measured `base` record (run robotics_facts, one capella
+  # GPU: a quarter of a node, 16 cores and one H100). Written as thresholds
+  # rather than as the numbers that were observed, so that another allocation
+  # does not falsify them: utilisation figures are shares of what the job had.
+  #
+  # Each states only what its own source shows; the reason behind a number
+  # belongs to a `code` fact above, so that a preset without telemetry gets no
+  # credit for it.
+  - id: duration
+    source: timing
+    weight: 1
+    tolerance: 0.5
+    fact: >-
+      The cell runs for roughly twenty seconds (about 22 s measured).
+  - id: gpu_underuse
+    source: perf
+    weight: 2
+    fact: >-
+      GPU utilisation averages around a quarter and never reaches half, while
+      GPU memory stays under one gigabyte, so the device is mostly idle.
+  - id: one_core_busy
+    source: perf
+    weight: 1
+    fact: >-
+      CPU utilisation stays near one core's worth of the allocation (about 6%
+      of sixteen cores) for the whole cell.
+  - id: early_write_burst
+    source: perf
+    weight: 1
+    fact: >-
+      Disk writes come as a burst of a few hundred MB/s in the first seconds of
+      the cell and are near zero for the rest of it.
+
+# There is deliberately no `tags`-sourced fact here. The measured run tagged
+# this payload `normal`, which is the collector saying it found nothing
+# remarkable - inventing a tag fact to give `no_tags` something to lose would
+# make the coverage difference an artefact of this file rather than a
+# measurement.

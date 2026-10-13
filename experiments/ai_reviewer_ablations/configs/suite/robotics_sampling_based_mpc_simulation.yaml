@@ -1,0 +1,18 @@
+# One robotics payload against the four presets of the cell_77 pilot.
+#
+#   sbatch --array=0-3 scripts/capella.sbatch suite=robotics_sampling_based_mpc_simulation protocol=pilot
+#
+# Many small GPU kernels in a Python horizon loop, with MuJoCo rendering.
+#
+# A suite per payload rather than one for the family, so that each gets its
+# own run, its own allocation and its own cost; robotics.yaml keeps the full
+# nine-preset grid for the main run.
+id: robotics_sampling_based_mpc_simulation
+description: robotics/sampling_based_mpc_simulation against the four most informative presets.
+usecases:
+  - robotics/sampling_based_mpc_simulation
+ablations:
+  - base
+  - code_only
+  - no_timing
+  - no_perf

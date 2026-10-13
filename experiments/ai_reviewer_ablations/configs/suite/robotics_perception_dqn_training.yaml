@@ -1,0 +1,18 @@
+# One robotics payload against the four presets of the cell_77 pilot.
+#
+#   sbatch --array=0-3 scripts/capella.sbatch suite=robotics_perception_dqn_training protocol=pilot
+#
+# CPU perception, a small GPU MLP and Box2D simulation; by far the longest payload.
+#
+# A suite per payload rather than one for the family, so that each gets its
+# own run, its own allocation and its own cost; robotics.yaml keeps the full
+# nine-preset grid for the main run.
+id: robotics_perception_dqn_training
+description: robotics/perception_dqn_training against the four most informative presets.
+usecases:
+  - robotics/perception_dqn_training
+ablations:
+  - base
+  - code_only
+  - no_timing
+  - no_perf

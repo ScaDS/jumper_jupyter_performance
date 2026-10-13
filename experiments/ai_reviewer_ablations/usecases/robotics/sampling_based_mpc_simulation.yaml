@@ -55,8 +55,41 @@ reference_facts:
       render_episode calls env.render() on every step and accumulates all 1000
       MuJoCo frames in a list before showing them.
 
-# NOT YET WRITTEN, and not to be guessed - see the note in
-# feedforward_training_with_checkpointing.yaml.
-#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
-#   - {id: workload_tag, source: tags,   weight: 2, fact: "..."}
-#   - {id: gpu_underuse, source: perf,   weight: 2, fact: "..."}
+  # Transcribed from a measured `base` record (run robotics_facts, one capella
+  # GPU: a quarter of a node, 16 cores and one H100). Written as thresholds
+  # rather than as the numbers that were observed, so that another allocation
+  # does not falsify them: utilisation figures are shares of what the job had.
+  #
+  # Each states only what its own source shows; the reason behind a number
+  # belongs to a `code` fact above, so that a preset without telemetry gets no
+  # credit for it.
+  - id: duration
+    source: timing
+    weight: 1
+    tolerance: 0.5
+    fact: >-
+      The cell runs for roughly twenty seconds (about 23 s measured).
+  - id: gpu_underuse
+    source: perf
+    weight: 2
+    fact: >-
+      GPU utilisation averages around a quarter and stays under about 30%,
+      with under one gigabyte of GPU memory in use.
+  - id: cpu_partly_busy
+    source: perf
+    weight: 1
+    fact: >-
+      CPU utilisation averages about a third of the allocation and peaks at
+      about half, so the host is busier than the device.
+  - id: memory_growth
+    source: perf
+    weight: 1
+    fact: >-
+      Resident memory keeps climbing slowly after the initial jump, for the
+      whole length of the cell, instead of levelling off.
+
+# There is deliberately no `tags`-sourced fact here. The measured run tagged
+# this payload `normal`, which is the collector saying it found nothing
+# remarkable - inventing a tag fact to give `no_tags` something to lose would
+# make the coverage difference an artefact of this file rather than a
+# measurement.

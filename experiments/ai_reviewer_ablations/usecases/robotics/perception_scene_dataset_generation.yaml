@@ -7,6 +7,13 @@ preconditions:
   - object_detection_data/ is writable
   - OpenCV has a working mp4v or MJPG video writer
 
+# The payload writes its videos, ground truth and background images into
+# object_detection_data/ under the working directory, so concurrent passes
+# sharing the family directory would write over one another. Nothing is
+# read, so nothing is seeded.
+workspace:
+  mode: per_pass
+
 benchmark:
   replay_mode: full
   # The renderer holds an EGL context; do not fork it into a child.
@@ -47,8 +54,41 @@ reference_facts:
       The two scene configurations share no state and are generated one after
       the other.
 
-# NOT YET WRITTEN, and not to be guessed - see the note in
-# feedforward_training_with_checkpointing.yaml.
-#   - {id: duration,      source: timing, weight: 1, tolerance: ..., fact: "..."}
-#   - {id: workload_tag,  source: tags,   weight: 2, fact: "..."}
-#   - {id: memory_growth, source: perf,   weight: 2, fact: "..."}
+  # Transcribed from a measured `base` record (run robotics_facts, one capella
+  # GPU: a quarter of a node, 16 cores and one H100). Written as thresholds
+  # rather than as the numbers that were observed, so that another allocation
+  # does not falsify them: utilisation figures are shares of what the job had.
+  #
+  # Each states only what its own source shows; the reason behind a number
+  # belongs to a `code` fact above, so that a preset without telemetry gets no
+  # credit for it.
+  - id: duration
+    source: timing
+    weight: 1
+    tolerance: 0.5
+    fact: >-
+      The cell runs for only a few seconds (about 3 s measured).
+  - id: gpu_idle
+    source: perf
+    weight: 2
+    fact: >-
+      No GPU utilisation or GPU memory is measured during the cell, although a
+      GPU is allocated.
+  - id: cpu_underused
+    source: perf
+    weight: 1
+    fact: >-
+      CPU utilisation peaks at roughly a tenth of the allocation, so most of
+      the cores are idle.
+  - id: memory_growth
+    source: perf
+    weight: 2
+    fact: >-
+      Resident memory climbs throughout the cell, by close to a factor of two
+      (from about 0.4 to about 0.7 GB), rather than levelling off.
+
+# There is deliberately no `tags`-sourced fact here. The measured run tagged
+# this payload `normal`, which is the collector saying it found nothing
+# remarkable - inventing a tag fact to give `no_tags` something to lose would
+# make the coverage difference an artefact of this file rather than a
+# measurement.

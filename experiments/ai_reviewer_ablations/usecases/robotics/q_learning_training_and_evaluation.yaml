@@ -55,8 +55,36 @@ reference_facts:
       Nothing in the payload is vectorised, threaded or offloaded; episodes are
       independent of one another but are walked strictly in sequence.
 
-# NOT YET WRITTEN, and not to be guessed - see the note in
-# feedforward_training_with_checkpointing.yaml.
-#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
-#   - {id: cpu_bound,    source: tags,   weight: 2, fact: "..."}
-#   - {id: gpu_idle,     source: perf,   weight: 1, fact: "..."}
+  # Transcribed from a measured `base` record (run robotics_facts_q_learning,
+  # one romeo node; the collector sees all 128 cores although the job holds
+  # 64). Written as thresholds rather than as the numbers that were observed,
+  # so that another allocation does not falsify them: utilisation figures are
+  # shares of what the collector saw.
+  #
+  # Each states only what its own source shows; the reason behind a number
+  # belongs to a `code` fact above, so that a preset without telemetry gets no
+  # credit for it.
+  - id: duration
+    source: timing
+    weight: 1
+    tolerance: 0.5
+    fact: >-
+      The cell runs for several seconds (about 7 s measured).
+  - id: one_core_busy
+    source: perf
+    weight: 2
+    fact: >-
+      CPU utilisation stays around 1% of the node - one core's worth of over a
+      hundred - for the whole cell, so almost the entire machine is idle.
+  - id: flat_small_memory
+    source: perf
+    weight: 1
+    fact: >-
+      Resident memory stays flat at about a quarter of a gigabyte, so memory
+      plays no part in the cost.
+
+# There is deliberately no `tags`-sourced fact here. The measured run tagged
+# this payload `normal`, which is the collector saying it found nothing
+# remarkable - inventing a tag fact to give `no_tags` something to lose would
+# make the coverage difference an artefact of this file rather than a
+# measurement.

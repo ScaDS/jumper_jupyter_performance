@@ -4,7 +4,24 @@ description: >-
 
 preconditions:
   - A CUDA device is available, or the payload silently falls back to CPU
-  - ./data holds the MNIST download, or the prefix can fetch it
+  - >-
+    The MNIST download lives at ${workspace}/data/MNIST; fetch it once into
+    the shared family directory, since compute nodes may not reach the mirror
+
+# A benchmark replay executes the prefix in a fresh temporary directory, so
+# root='./data' would download MNIST again for every measurement - or fail
+# where the node has no route out. The notebook reads the root from
+# MNIST_ROOT and falls back to ./data when it is unset, so it still runs by
+# hand. Each pass gets its own directory, seeded with a link to the one
+# download: concurrent passes then never race on extracting it.
+workspace:
+  mode: per_pass
+  seed:
+    data:
+      - MNIST
+
+environment:
+  MNIST_ROOT: ${workspace}/data
 
 benchmark:
   # CUDA contexts do not survive fork; keep this usecase on the full replay.
@@ -53,10 +70,36 @@ reference_facts:
       MNIST is 60000 28x28 images, small enough to hold on the device for the
       whole run, so the per-batch host work is avoidable rather than inherent.
 
-# NOT YET WRITTEN, and not to be guessed - see the note in
-# feedforward_training_with_checkpointing.yaml. Every fact above is
-# code-derived, so the two coverage numbers coincide until telemetry facts are
-# transcribed from a measured `base` record:
-#   - {id: duration,     source: timing, weight: 1, tolerance: ..., fact: "..."}
-#   - {id: workload_tag, source: tags,   weight: 2, fact: "..."}
-#   - {id: gpu_underuse, source: perf,   weight: 2, fact: "..."}
+  # Transcribed from a measured `base` record (run robotics_facts, one capella
+  # GPU: a quarter of a node, 16 cores and one H100). Written as thresholds
+  # rather than as the numbers that were observed, so that another allocation
+  # does not falsify them: utilisation figures are shares of what the job had.
+  #
+  # Each states only what its own source shows; the reason behind a number
+  # belongs to a `code` fact above, so that a preset without telemetry gets no
+  # credit for it.
+  - id: duration
+    source: timing
+    weight: 1
+    tolerance: 0.5
+    fact: >-
+      The cell runs for roughly three minutes (about 170 s measured), long
+      enough that its cost is worth reducing.
+  - id: gpu_underuse
+    source: perf
+    weight: 2
+    fact: >-
+      GPU utilisation stays below about 10% for the whole cell and GPU memory
+      under one gigabyte, so the device is idle almost all of the time.
+  - id: one_core_busy
+    source: perf
+    weight: 1
+    fact: >-
+      CPU utilisation stays near one core's worth of the allocation (about 7%
+      of sixteen cores), so neither the host nor the device is saturated.
+
+# There is deliberately no `tags`-sourced fact here. The measured run tagged
+# this payload `normal`, which is the collector saying it found nothing
+# remarkable - inventing a tag fact to give `no_tags` something to lose would
+# make the coverage difference an artefact of this file rather than a
+# measurement.

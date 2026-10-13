@@ -1,0 +1,18 @@
+# One robotics payload against the four presets of the cell_77 pilot.
+#
+#   sbatch --array=0-3 scripts/capella.sbatch suite=robotics_perception_scene_dataset_generation protocol=pilot
+#
+# MuJoCo offscreen rendering, video encoding and disk I/O.
+#
+# A suite per payload rather than one for the family, so that each gets its
+# own run, its own allocation and its own cost; robotics.yaml keeps the full
+# nine-preset grid for the main run.
+id: robotics_perception_scene_dataset_generation
+description: robotics/perception_scene_dataset_generation against the four most informative presets.
+usecases:
+  - robotics/perception_scene_dataset_generation
+ablations:
+  - base
+  - code_only
+  - no_timing
+  - no_perf
