@@ -56,7 +56,6 @@ body {
 }
 main { max-width: 1100px; margin: 0 auto; }
 h1 { font-size: 18px; margin: 0 0 4px; }
-.note { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
 nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 nav a {
   font-size: 13px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px;
@@ -70,13 +69,30 @@ nav a.active { background: var(--accent); border-color: var(--accent); color: #f
   border-radius: 8px; margin-bottom: 12px;
 }
 .controls .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-.buttons button {
-  font: inherit; font-size: 13px; padding: 3px 10px; margin-right: 4px;
+.controls select, .dropdown summary {
+  font: inherit; font-size: 13px; padding: 3px 28px 3px 10px; min-width: 150px;
   border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
   color: var(--ink); cursor: pointer;
 }
-.buttons button:hover { border-color: var(--accent); }
-.usecase { display: inline-flex; align-items: center; gap: 6px; margin-right: 14px; cursor: pointer; }
+.controls select:hover, .dropdown summary:hover, .dropdown[open] summary { border-color: var(--accent); }
+.dropdown { position: relative; }
+.dropdown summary { list-style: none; position: relative; user-select: none; }
+.dropdown summary::-webkit-details-marker { display: none; }
+.dropdown summary svg {
+  position: absolute; right: 6px; top: 50%; width: 14px; height: 14px; margin-top: -7px;
+  color: var(--muted); transition: transform .15s;
+}
+.dropdown[open] summary svg { transform: rotate(180deg); }
+.dropdown-panel {
+  position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; min-width: 100%;
+  padding: 6px 0; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.15);
+}
+.usecase {
+  display: flex; align-items: center; gap: 6px; padding: 4px 12px;
+  white-space: nowrap; cursor: pointer;
+}
+.usecase:hover { background: var(--raised); }
 .badge {
   font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line);
   color: var(--muted);
@@ -136,14 +152,16 @@ td .fake-mark { color: var(--fake); font-weight: 600; }
 <body>
 <main>
   <h1 id="title">Prompt rules on the speedup graph</h1>
-  <p class="note" id="description"></p>
   <nav id="navigation"></nav>
 
   <div class="controls">
-    <span class="label">Preset</span>
-    <span class="buttons" id="presets"></span>
+    <label class="label" for="preset">Preset</label>
+    <select id="preset"></select>
     <span class="label">Usecases</span>
-    <span id="usecases"></span>
+    <details class="dropdown" id="usecase-dropdown">
+      <summary><span id="usecase-summary"></span><svg viewBox="0 0 14 14" aria-hidden="true"><polyline points="3,5 7,9 11,5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+      <div class="dropdown-panel" id="usecases"></div>
+    </details>
   </div>
 
   <div class="graph-wrap"><svg id="graph" role="img" aria-label="Sources and prompt rules to strategies to speedup graph"></svg></div>
@@ -282,13 +300,11 @@ const PRESETS = [
 const VARIANTS = {
   group: {
     title: "Rules as group",
-    description: "Prompt rules sit under the sources as their own input group. Only rules that differ from the shipped prompt get an edge: + solid, − dashed.",
     showRules: true,
     chips: false,
   },
   chips: {
     title: "Rule chips",
-    description: "Edges come from the sources only. A strategy's rule changes are chips inside its node.",
     showRules: false,
     chips: true,
   },
@@ -697,8 +713,6 @@ function renderGraph(svg, usecases, results, baseline) {
 
 function renderNavigation() {
   document.getElementById("title").textContent = variant.title;
-  document.getElementById("description").textContent = variant.description
-    + " Temporary demo: parallelization, r_clean and all of fake/gpu_stub are invented values.";
   const navigation = document.getElementById("navigation");
   for (const [id, entry] of Object.entries(VARIANTS)) {
     const link = document.createElement("a");
@@ -709,21 +723,40 @@ function renderNavigation() {
   }
 }
 
-function renderControls() {
-  const presets = document.getElementById("presets");
-  presets.innerHTML = "";
-  for (const preset of PRESETS) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = preset.label;
-    button.onclick = () => {
-      selected.clear();
-      USECASES.filter(preset.pick).forEach((usecase) => selected.add(usecase.id));
-      renderControls();
-      render();
-    };
-    presets.appendChild(button);
+// The preset whose pick equals the current selection, or "custom".
+function matchingPreset() {
+  const match = PRESETS.find((preset) =>
+    USECASES.every((usecase) => preset.pick(usecase) === selected.has(usecase.id)));
+  return match ? match.label : "custom";
+}
+
+function syncSelectionLabels() {
+  const presetSelect = document.getElementById("preset");
+  const current = matchingPreset();
+  presetSelect.innerHTML = "";
+  for (const label of [...PRESETS.map((preset) => preset.label), "custom"]) {
+    if (label === "custom" && current !== "custom") continue;
+    const option = document.createElement("option");
+    option.value = label;
+    option.textContent = label;
+    if (label === "custom") option.disabled = true;
+    presetSelect.appendChild(option);
   }
+  presetSelect.value = current;
+  document.getElementById("usecase-summary").textContent =
+    `${selected.size} of ${USECASES.length} selected`;
+}
+
+function renderControls() {
+  const presetSelect = document.getElementById("preset");
+  presetSelect.onchange = () => {
+    const preset = PRESETS.find((entry) => entry.label === presetSelect.value);
+    if (!preset) return;
+    selected.clear();
+    USECASES.filter(preset.pick).forEach((usecase) => selected.add(usecase.id));
+    renderControls();
+    render();
+  };
 
   const container = document.getElementById("usecases");
   container.innerHTML = "";
@@ -735,6 +768,7 @@ function renderControls() {
     checkbox.checked = selected.has(usecase.id);
     checkbox.onchange = () => {
       checkbox.checked ? selected.add(usecase.id) : selected.delete(usecase.id);
+      syncSelectionLabels();
       render();
     };
     const classBadge = document.createElement("span");
@@ -749,7 +783,14 @@ function renderControls() {
     }
     container.appendChild(label);
   }
+  syncSelectionLabels();
 }
+
+// A click anywhere outside the usecase dropdown closes it.
+document.addEventListener("click", (event) => {
+  const dropdown = document.getElementById("usecase-dropdown");
+  if (dropdown.open && !dropdown.contains(event.target)) dropdown.open = false;
+});
 
 function renderTable(usecases, results, baseline) {
   const table = document.getElementById("table");
