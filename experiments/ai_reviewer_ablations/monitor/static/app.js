@@ -99,12 +99,6 @@ async function update() {
   try {
     await loadRuns();
     const run = currentRun();
-    if (joinState.rows && joinState.info && joinState.info.mine !== run) {
-      // A join is a statement about one run against another. Changing which
-      // run is being watched makes the old merge a statement about nothing.
-      joinState.rows = null;
-      joinState.info = null;
-    }
     combineState.key = "";
     combineState.rows = null;
     snapshot = await getJSON(`/api/snapshot?run=${encodeURIComponent(run)}`);
@@ -634,113 +628,6 @@ function filterBar(rows) {
   ]);
 }
 
-// -- joining another run ------------------------------------------------
-
-// Taking a value from one run or the other is not pooling: nothing is
-// averaged and every row says where it came from, which is what makes it
-// allowed between runs that asked different questions.
-const JOIN_LABELS = {
-  mine_wins: "this run wins",
-  theirs_win: "the other run wins",
-  shared: "only where both measured",
-  missing_here: "only what this run is missing",
-};
-
-const joinState = { theirs: "", variant: "mine_wins", rows: null, info: null };
-
-function joinBar() {
-  const others = knownRuns
-    .map((one) => one.name)
-    .filter((name) => name !== currentRun());
-
-  const pick = el("select", {
-    onchange: (event) => { joinState.theirs = event.target.value; },
-  }, [
-    el("option", { value: "" }, "join another run..."),
-    ...others.map((name) => el("option", {
-      value: name,
-      selected: name === joinState.theirs ? "selected" : null,
-    }, name)),
-  ]);
-
-  const variant = el("select", {
-    onchange: (event) => {
-      joinState.variant = event.target.value;
-      if (joinState.rows) runJoin();
-    },
-  }, Object.entries(JOIN_LABELS).map(([id, label]) =>
-    el("option", {
-      value: id,
-      selected: id === joinState.variant ? "selected" : null,
-    }, label)));
-
-  const children = [
-    el("span", { class: "filters-label" }, "join:"),
-    pick,
-    variant,
-    el("button", { type: "button", onclick: runJoin }, "join"),
-  ];
-  if (joinState.rows) {
-    children.push(el("button", {
-      type: "button", class: "link", onclick: () => {
-        joinState.rows = null;
-        joinState.info = null;
-        renderSummary();
-      },
-    }, "clear"));
-  }
-  return el("div", { class: "filters" }, children);
-}
-
-function joinBanner() {
-  const info = joinState.info;
-  if (!info) return null;
-  const { comparable, differs } = info.compatibility;
-  const counts = info.counts;
-  const lines = [
-    `${counts.total} rows: ${counts.from_mine} from ${info.mine}, ` +
-    `${counts.from_theirs} from ${info.theirs}` +
-    (counts.empty ? `, ${counts.empty} measured by neither` : "") +
-    `. ${counts.in_both} measured by both.`,
-  ];
-  if (!comparable) {
-    // Allowed, and worth saying out loud: the runs asked different
-    // questions, so a row's meaning depends on which run it came from.
-    lines.push(
-      `These runs differ in ${differs.join(", ")}. Nothing is averaged - ` +
-      "each row is one run's own number - but read the source column.");
-  }
-  return el("p", { class: comparable ? "note" : "error" }, lines.join(" "));
-}
-
-async function runJoin() {
-  if (!joinState.theirs) {
-    joinState.rows = null;
-    joinState.info = null;
-    renderSummary();
-    return;
-  }
-  try {
-    const result = await getJSON("/api/join?" + new URLSearchParams({
-      mine: currentRun(),
-      theirs: joinState.theirs,
-      variant: joinState.variant,
-    }));
-    joinState.info = result;
-    joinState.rows = result.rows.map((row) => ({
-      ...row,
-      from_other: Boolean(row.source) && row.source !== result.mine,
-    }));
-  } catch (failure) {
-    joinState.rows = null;
-    joinState.info = null;
-    $("summary").replaceChildren(
-      el("p", { class: "error" }, failure.message));
-    return;
-  }
-  renderSummary();
-}
-
 const combineState = { key: "", rows: null, usecases: [] };
 
 async function refreshCombined(usecases) {
@@ -778,7 +665,7 @@ function selectedUsecases() {
 
 function renderSummary(options = {}) {
   const own = (snapshot && snapshot.results && snapshot.results.summary) || [];
-  const all = joinState.rows || own;
+  const all = own;
   const usecases = selectedUsecases();
   const chosen = all.filter((row) => usecases.includes(row.usecase));
 
@@ -906,17 +793,6 @@ function comparisonTables(rows, axis = "ablation") {
                     title: parts.length
                       ? `k=${row.k}\n${parts.join("\n")}`
                       : "no usecase measured this",
-                  }, shown),
-                };
-              }
-              if (row.from_other) {
-                // Borrowed from the joined run. Marked on the cell rather
-                // than stated once above it: a merged table whose numbers
-                // cannot be traced back is worse than two tables.
-                return {
-                  node: el("span", {
-                    class: "borrowed",
-                    title: `from ${row.source}`,
                   }, shown),
                 };
               }

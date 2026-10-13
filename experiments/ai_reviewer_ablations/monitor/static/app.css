@@ -271,17 +271,10 @@ tr.gap td { color: var(--muted); }
   .bar { gap: 10px; }
 }
 
-/* A value the join took from the other run. Dotted rather than coloured:
-   provenance is not a verdict, and the status ramp is reserved. */
-.borrowed {
-  border-bottom: 1px dotted var(--muted);
-  cursor: help;
-}
-.borrowed::after { content: "*"; color: var(--muted); font-size: 11px; }
 
-/* A value averaged over several usecases. Dotted like a borrowed one -
-   both mean "hover to see where this came from" - and never coloured:
-   agreement between payloads is not a status. */
+/* A value averaged over several usecases: dotted to say "hover to see what
+   each payload said", and never coloured, because agreement between
+   payloads is not a status. */
 .combined-cell {
   border-bottom: 1px dotted var(--accent);
   cursor: help;

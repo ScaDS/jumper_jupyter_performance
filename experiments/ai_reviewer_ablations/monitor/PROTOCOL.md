@@ -320,34 +320,6 @@ average is over. The **preset definitions** must not: a preset defined
 differently in two runs is not one preset, and a column headed with its name
 would compare two things. A reader checks that and says so.
 
-### Joining is not pooling
-
-A **join** puts two runs' summary rows in one table keyed by
-`(usecase, ablation, metric, reported_value)` and, where both measured the
-same key, keeps one of the two numbers. Nothing is combined: every value in
-the result is a number one run actually produced, and every row carries the
-`source` run it came from.
-
-That is why a join is allowed where pooling is not. An average over two
-definitions is a number about neither; a borrowed value is still a number
-about the run that measured it, provided the reader can see which run that
-was. So the provenance is not optional - a merged table whose rows cannot be
-traced back is worse than two tables, and a reader that drops `source` has
-broken the only thing that made the merge honest.
-
-A row existing is not data. Every run writes a row for every metric it was
-asked for, so a key is present whether or not anything measured it; what
-decides is whether `estimate` parses as a number. The variants:
-
-| Variant | Keys kept | Value on overlap |
-|---|---|---|
-| `mine_wins` | both runs' | this run's |
-| `theirs_win` | both runs' | the other run's |
-| `shared` | measured by both | this run's |
-| `missing_here` | measured only there | the other run's |
-
-An unknown variant reads as `mine_wins` rather than failing, by R2.
-
 ## 7. What a reader must never do
 
 | | Why |
