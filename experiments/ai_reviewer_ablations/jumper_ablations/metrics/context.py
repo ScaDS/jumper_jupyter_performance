@@ -18,6 +18,7 @@ from jumper_ablations.records.schema import (
     RunRecord,
 )
 from jumper_ablations.usecases.registry import Usecase
+from jumper_ablations.verification.schema import UsecaseVerification
 
 logger = logging.getLogger("jumper_ablations")
 
@@ -71,6 +72,8 @@ class CellContext:
     ablation_id: str
     records: tuple[RunRecord, ...]
     usecase: Usecase | None = None
+    # What cli.verify measured for this usecase; None when it was never run.
+    verification: UsecaseVerification | None = None
 
     @property
     def unit_id(self) -> str:
@@ -180,6 +183,7 @@ class CellContext:
                 record for key in keys for record in self.unit(key)
             ),
             usecase=self.usecase,
+            verification=self.verification,
         )
 
 
@@ -241,6 +245,7 @@ def drop_empty_context(records: list[RunRecord]) -> list[RunRecord]:
 def build_cell_contexts(
     records: list[RunRecord],
     usecases: dict | None = None,
+    verifications: dict | None = None,
 ) -> list[CellContext]:
     """Group records into grid cells, in a stable order."""
     grouped: dict[tuple[str, str], list[RunRecord]] = {}
@@ -263,6 +268,7 @@ def build_cell_contexts(
                 ablation_id=ablation_id,
                 records=tuple(rows),
                 usecase=(usecases or {}).get(usecase_id),
+                verification=(verifications or {}).get(usecase_id),
             )
         )
     return contexts

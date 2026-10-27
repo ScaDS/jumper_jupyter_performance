@@ -60,7 +60,8 @@ python -m jumper_ablations.cli.run suite=harness_selftest \
 
 Suites that ship: `context_sources` (the minian pair against every context
 ablation), `robotics` (the six robotics payloads), `prompt_rules` (prompt
-items, full context), `fact_sheet` (see below), `harness_selftest`, and
+items, full context), `kernelbench` (three KernelBench tasks, one per level),
+`ecco` (three scaled ECCO pairs), `fact_sheet` (see below), `harness_selftest`, and
 `smoke`.
 
 Before the first real sweep, collect the material for the reference facts:
@@ -83,6 +84,7 @@ and the setup that produced it are never separated.
 Then:
 
 ```bash
+python -m jumper_ablations.cli.verify         # KernelBench / ECCO protocol, where the usecase has one
 python -m jumper_ablations.cli.export_judge   # packets for the judged metrics
 # ... an agent session judges them; see JUDGE_PROTOCOL.md
 python -m jumper_ablations.cli.evaluate       # metrics.csv + metric_units.csv
@@ -90,7 +92,16 @@ python -m jumper_ablations.cli.report         # summary.csv + the two tables
 python -m jumper_ablations.cli.index          # runs_index.csv, across all runs
 ```
 
-The first three read an existing run (`target_run=<run id>`, or the newest by
+`cli.verify` re-measures the suggestions of every usecase whose manifest has
+a `verification` block the way its source paper does - per-call CUDA timing
+and `allclose` for KernelBench, one fresh process per program against the
+human fast solution and the CodeNet submissions for ECCO - and writes
+`results/<run id>/verification/`. It never calls the model, but it runs
+code, so it belongs on the node the usecase runs on. The metrics it feeds
+abstain everywhere else; `docs/paper_metrics_mapping.md` maps them to the
+papers.
+
+All but `cli.index` read an existing run (`target_run=<run id>`, or the newest by
 default); `cli.index` reads all of them. None touches the reviewer. That
 split is deliberate: adding a metric costs a second, not a sweep.
 

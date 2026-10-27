@@ -12,3 +12,6 @@ workspace/
 slurm_logs/
 # Monitor caches.
 monitor/__pycache__/
+# CodeNet submissions for the ECCO percentiles, fetched by
+# scripts/fetch_codenet_submissions.py; thousands of files per problem.
+usecases/ecco/*/submissions/

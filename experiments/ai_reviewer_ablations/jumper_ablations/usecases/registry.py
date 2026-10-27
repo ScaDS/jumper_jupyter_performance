@@ -106,6 +106,31 @@ class UsecaseBenchmark(BaseModel):
     extra_replay_modes: list[str] = Field(default_factory=list)
 
 
+class UsecaseVerification(BaseModel):
+    """How cli.verify re-measures this usecase the way its source paper did.
+
+    ``kernelbench`` times the suggested ``Model`` per call and checks it with
+    ``allclose`` on fresh random inputs, against the original Model in eager
+    mode and under ``torch.compile``. ``ecco`` runs every program in a fresh
+    process over the notebook's scaled inputs, against the human fast
+    solution and the population of CodeNet submissions. Paths are relative to
+    the directory the manifest sits in.
+    """
+
+    kind: Literal["kernelbench", "ecco"]
+    timeout_s: float = Field(default=600.0, gt=0.0)
+    # kernelbench: timed calls per model, and inputs the outputs are compared on.
+    trials: int = Field(default=100, gt=0)
+    warmup: int = Field(default=3, ge=0)
+    correctness_trials: int = Field(default=5, gt=0)
+    atol: float = 1e-2
+    rtol: float = 1e-2
+    # ecco: the human fast solution, and the CodeNet submissions to rank against.
+    reference_solution: str = ""
+    submissions: str = ""
+    parallel_submissions: int = Field(default=8, gt=0)
+
+
 class UsecaseManifest(BaseModel):
     """Everything about a usecase that the notebook cannot state itself."""
 
@@ -125,6 +150,9 @@ class UsecaseManifest(BaseModel):
     benchmark: UsecaseBenchmark = Field(default_factory=UsecaseBenchmark)
     workspace: UsecaseWorkspace = Field(default_factory=UsecaseWorkspace)
     reference_facts: list[ReferenceFact] = Field(default_factory=list)
+    # Where the payload was taken from, as links a reader can open.
+    dataset: dict = Field(default_factory=dict)
+    verification: UsecaseVerification | None = None
 
     @model_validator(mode="after")
     def _fact_ids_are_unique(self) -> "UsecaseManifest":

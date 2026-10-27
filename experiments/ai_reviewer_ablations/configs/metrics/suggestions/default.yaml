@@ -47,3 +47,29 @@ metrics:
   - id: resource_effect_agreement
     enabled: true
     parameters: {}
+  # The paper metrics. Each reads what cli.verify measured and abstains on a
+  # usecase it did not verify; docs/paper_metrics_mapping.md maps them.
+  - id: memory_reduction
+    enabled: true
+    parameters: {}
+  - id: reference_speedup
+    enabled: true
+    parameters: {}
+  - id: reference_memory_reduction
+    enabled: true
+    parameters: {}
+  - id: runtime_percentile
+    enabled: true
+    parameters: {}
+  - id: memory_percentile
+    enabled: true
+    parameters: {}
+  - id: allclose_correctness
+    enabled: true
+    parameters: {}
+  - id: fast_p
+    enabled: true
+    parameters: {}
+  - id: compile_speedup
+    enabled: true
+    parameters: {}

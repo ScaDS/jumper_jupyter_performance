@@ -1,0 +1,11 @@
+defaults:
+  - base
+id: no_perf_and_raw_perf
+name: Base without any sampled metrics
+description: >-
+  Drops both the summarised CPU/GPU/memory numbers and the raw arrays behind
+  them, so no_perf and no_raw_perf cannot each lean on the other.
+effect:
+  context:
+    perf: false
+    raw_perf: false

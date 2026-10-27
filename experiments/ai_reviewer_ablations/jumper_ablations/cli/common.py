@@ -18,6 +18,7 @@ from jumper_ablations.metrics.context import (
 from jumper_ablations.records.store import load_records
 from jumper_ablations.runner.run_directory import RunDirectory
 from jumper_ablations.usecases.registry import Usecase, discover_usecases
+from jumper_ablations.verification.schema import load_verification
 
 logger = logging.getLogger("jumper_ablations")
 
@@ -58,7 +59,11 @@ def load_contexts(config: ExperimentConfig, run: RunDirectory):
     return (
         records,
         build_run_contexts(records, usecases),
-        build_cell_contexts(records, usecases),
+        build_cell_contexts(
+            records,
+            usecases,
+            load_verification(run.path),
+        ),
     )
 
 
