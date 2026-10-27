@@ -1,0 +1,9 @@
+# The pilot, for the suites taken from papers: kernelbench and ecco.
+#
+# Same sizing as pilot.yaml - five independent passes of one generation each,
+# three benchmark runs - so the interval widths it produces can size the real
+# N the same way. A separate name because these runs are followed by
+# cli.verify, and a run index should be able to tell them apart from the
+# minian and robotics pilots.
+defaults:
+  - pilot
