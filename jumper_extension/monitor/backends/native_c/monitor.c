@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/sysinfo.h>
 #include <sys/types.h>
@@ -42,6 +43,7 @@
 /* ------------------------------------------------------------------ */
 static volatile sig_atomic_t g_running      = 1;
 static int                   g_target_pid   = -1;
+static pid_t                 g_parent_pid   = -1;
 static uid_t                 g_target_uid   = 0;
 int                          g_num_cpus     = 0;
 int                          g_num_sys_cpus = 0;
@@ -422,7 +424,8 @@ int main(int argc, char **argv) {
             collectors_str = argv[++i];
     }
 
-    if (g_target_pid <= 0) g_target_pid = getppid();
+    g_parent_pid = getppid();
+    if (g_target_pid <= 0) g_target_pid = g_parent_pid;
 
     /* Elevate scheduling priority; silently ignore permission errors */
     if (setpriority(PRIO_PROCESS, 0, -10) != 0 && errno != EACCES) {}
@@ -482,6 +485,12 @@ int main(int argc, char **argv) {
     signal(SIGINT,  sig_handler);
     signal(SIGPIPE, SIG_IGN);
 
+    /* A parent killed with SIGKILL - a benchmark replay past its budget -
+     * never gets to stop us; without this the collector outlives it and
+     * keeps scanning /proc on the cores the next measurement needs. */
+    prctl(PR_SET_PDEATHSIG, SIGTERM);
+    if (getppid() != g_parent_pid) return 0;
+
     /* Setup phase — GPU init happens here */
     for (int c = 0; c < N_COLLECTORS; c++)
         if (g_collector_active[c]) g_registry[c]->setup();
@@ -515,6 +524,9 @@ int main(int argc, char **argv) {
         double dt  = now - prev_tick;
         prev_tick  = now;
         if (dt <= 0) dt = interval;
+
+        /* The target can die while its parent lives on. */
+        if (kill(g_target_pid, 0) != 0 && errno == ESRCH) break;
 
         emit_tick(now, dt);
     }
