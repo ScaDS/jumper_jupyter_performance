@@ -134,6 +134,7 @@ def bootstrap_cell(
     suite: str,
     run_id: str,
     sampling: dict | None = None,
+    timeout_factor: float | None = None,
 ) -> str:
     arguments = _python_literal(
         {
@@ -145,6 +146,7 @@ def bootstrap_cell(
             "suite": suite,
             "run_id": run_id,
             "sampling": dict(sampling or {}),
+            "timeout_factor": timeout_factor,
         }
     )
     return (

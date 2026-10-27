@@ -406,9 +406,17 @@ def bootstrap(
     suite: str = "",
     run_id: str = "",
     sampling: dict | None = None,
+    timeout_factor: float | None = None,
 ) -> None:
     """Open the kernel's session and install the observers."""
     global _SESSION
+    if timeout_factor is not None:
+        # The reviewer reads its benchmark defaults from this one composed
+        # config each time it wires a benchmark, so setting it here holds for
+        # every review and resume in the kernel.
+        from jumper_extension.config.loader import load_config
+
+        load_config().ai.benchmark.timeout_factor = timeout_factor
     _SESSION = AblationSession(
         run_directory=Path(run_directory),
         usecase=usecase,

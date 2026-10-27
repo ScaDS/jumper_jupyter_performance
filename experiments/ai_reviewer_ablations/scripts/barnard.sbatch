@@ -50,7 +50,9 @@ fi
 # The reviewer is useless without the endpoint, and a compute node's route to
 # it is not the login node's. Failing here costs seconds; failing after the
 # prefix has run costs the whole allocation.
-if ! curl -sf -o /dev/null --max-time 20 \
+# cli.verify measures stored suggestions and never calls the endpoint.
+if [[ "${ABLATIONS_COMMAND:-run}" != "verify" ]] && \
+        ! curl -sf -o /dev/null --max-time 20 \
         -H "Authorization: Bearer ${JUMPER_AI_API_KEY}" \
         https://llm.scads.ai/v1/models; then
     echo "llm.scads.ai is not reachable from $(hostname)" >&2

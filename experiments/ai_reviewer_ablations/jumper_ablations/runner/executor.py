@@ -246,6 +246,7 @@ def run_pass(
                 suite=config.suite.id,
                 run_id=config.run_id,
                 sampling=protocol.sampling.as_applied(0, repetition),
+                timeout_factor=protocol.benchmark.timeout_factor,
             )
         )
         if not result.ok:

@@ -82,6 +82,10 @@ class BenchmarkProtocol(BaseModel):
     # needs two.
     runs: int = Field(default=7, ge=2)
     fix_attempts: int = Field(default=3, ge=0)
+    # A variant is killed past this multiple of the original's duration. The
+    # magic has no flag for it, so the harness sets it in the kernel; None
+    # keeps the extension's own default.
+    timeout_factor: float | None = Field(default=None, gt=0)
     extra_replay_modes: list[str] = Field(default_factory=list)
 
 

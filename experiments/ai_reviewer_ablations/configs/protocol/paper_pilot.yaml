@@ -1,9 +1,19 @@
 # The pilot, for the suites taken from papers: kernelbench and ecco.
 #
-# Same sizing as pilot.yaml - five independent passes of one generation each,
-# three benchmark runs - so the interval widths it produces can size the real
-# N the same way. A separate name because these runs are followed by
-# cli.verify, and a run index should be able to tell them apart from the
-# minian and robotics pilots.
+# Sized so that the full datasets can later run with the same settings and
+# repetitions: 1 in reasonable time. Three passes per cell are enough to see
+# the spread the real N is sized from. One repair: in the ECCO smoke run both
+# measured speedups came from a repaired suggestion, and further rounds
+# mostly re-hit the timeout. A variant three times slower than the original
+# is useless either way, so it is killed there rather than at ten times.
+#
+# A separate name because these runs are followed by cli.verify, and a run
+# index should be able to tell them apart from the minian and robotics pilots.
 defaults:
   - pilot
+
+repetitions: 3
+
+benchmark:
+  fix_attempts: 1
+  timeout_factor: 3.0
