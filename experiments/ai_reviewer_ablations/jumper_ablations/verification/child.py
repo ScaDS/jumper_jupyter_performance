@@ -22,7 +22,9 @@ script run once per input.
 from __future__ import annotations
 
 import io
+import itertools
 import json
+import os
 import resource
 import sys
 import time
@@ -34,8 +36,25 @@ def _peak_memory_bytes() -> int:
     return int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024
 
 
+_SOURCE_NUMBERS = itertools.count()
+
+
+def _compile(code: str, stem: str):
+    """Compile *code* as if it came from a file, and write that file.
+
+    Code compiled from a string has no source file, and libraries that look
+    for one fail where a notebook cell would not: numba's ``cache=True``,
+    ``inspect.getsource``. The file goes into the working directory, which
+    run_child makes a temporary one per measurement.
+    """
+    path = os.path.abspath(f"{stem}_{next(_SOURCE_NUMBERS)}.py")
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(code)
+    return compile(code, path, "exec")
+
+
 def _execute(code: str, namespace: dict) -> None:
-    exec(compile(code, "<cell>", "exec"), namespace)
+    exec(_compile(code, "cell"), namespace)
 
 
 def _kernelbench(job: dict) -> dict:
@@ -119,7 +138,7 @@ def _kernelbench(job: dict) -> dict:
 
 
 def _run_script(code: str, text: str) -> str:
-    compiled = compile(code, "<solution>", "exec")
+    compiled = _compile(code, "solution")
     real_stdin, real_stdout = sys.stdin, sys.stdout
     sys.stdin = io.StringIO(text)
     sys.stdout = captured = io.StringIO()
@@ -141,8 +160,15 @@ def _ecco(job: dict) -> dict:
     if job["program_kind"] == "cell":
         _execute(job["program"], namespace)
         answers = namespace.get("answers")
+        # The reviewer is asked for the complete cell. One that rewrote the
+        # solution and dropped the lines running it is an incomplete
+        # suggestion, and fails like any other broken one.
         if answers is None:
-            return {"status": "unmeasurable", "error": "the cell defines no answers"}
+            return {
+                "status": "failed",
+                "correct": False,
+                "error": "incomplete cell: it defines no answers",
+            }
     else:
         answers = [_run_script(job["program"], text) for text in scaled_inputs]
     elapsed = time.perf_counter() - start

@@ -108,8 +108,8 @@ def test_ecco_references_and_suggestion(tmp_path):
         "answers = ['0' for text in scaled_inputs]",
         references,
     )
-    unmeasurable = measure_suggestion(usecase, "3", "result = 1", references)
+    incomplete = measure_suggestion(usecase, "3", "result = 1", references)
 
     assert right.ok and right.correct is True
     assert wrong.ok and wrong.correct is False
-    assert unmeasurable.status == "unmeasurable"
+    assert incomplete.status == "failed" and incomplete.correct is False
