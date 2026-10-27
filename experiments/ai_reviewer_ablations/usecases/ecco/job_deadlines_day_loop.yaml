@@ -1,0 +1,54 @@
+# ECCO edit/test row 418 (p02996): the slow submission is the
+# payload, the paired fast one is the human reference cli.verify compares to.
+payload_type: cpu_bound_python_loop
+description: >-
+  Whether N = 2 * 10^5 jobs can all meet their deadlines, over four scaled
+  inputs with deadlines up to ~4.4 * 10^7. The slow submission walks every day
+  from the last deadline down to zero with a max-heap.
+
+dataset:
+  name: ECCO
+  config: edit
+  split: test
+  row: 418
+  problem: p02996
+  huggingface: https://huggingface.co/datasets/CodeEff/ECCO/viewer/edit/test?row=418
+  problem_statement: https://huggingface.co/datasets/CodeEff/ECCO/viewer/generate/test?row=28
+  atcoder: https://atcoder.jp/contests/abc131/tasks/abc131_d
+
+verification:
+  # ECCO's protocol on our scaled inputs: one fresh process per program, the
+  # human fast solution as the source of expected answers and of the
+  # reference ratios, every accepted CPython 3 CodeNet submission as the
+  # Runtime % / Memory % spectrum (scripts/fetch_codenet_submissions.py).
+  kind: ecco
+  timeout_s: 120
+  reference_solution: job_deadlines_day_loop/human_fast.py
+  submissions: job_deadlines_day_loop/submissions
+  parallel_submissions: 8
+
+benchmark:
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: loop_over_value_range
+    source: code
+    weight: 2
+    fact: >-
+      The main loop iterates over every integer day from max_deadline down to
+      0, so the cost grows with the deadline values (up to 10^9) rather than
+      with the number of jobs.
+  - id: greedy_by_deadline_suffices
+    source: code
+    weight: 2
+    fact: >-
+      Sorting the jobs by deadline and checking the running sum of durations
+      against each deadline answers the question in O(N log N); the heap is
+      unnecessary.
+  - id: private_heap_helpers
+    source: code
+    weight: 1
+    fact: >-
+      The max-heap is built on heapq's private _siftdown_max/_siftup_max
+      helpers, called once per job and per working day.

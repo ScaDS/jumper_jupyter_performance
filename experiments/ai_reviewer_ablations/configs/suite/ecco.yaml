@@ -1,0 +1,25 @@
+# Three ECCO pairs, scaled within each problem's constraints so the slow
+# submission runs for 20-30 s, against the context ablations.
+#
+#   python scripts/fetch_codenet_submissions.py     # once, for the percentiles
+#   sbatch --array=0-3 scripts/romeo.sbatch suite=ecco protocol=pilot
+#
+# ECCO's own metrics (memory reduction, Runtime % / Memory %) and the ratios
+# against the human fast solution come from cli.verify; see
+# docs/paper_metrics_mapping.md.
+id: ecco
+description: Three scaled ECCO pairs against the context-source ablations.
+usecases:
+  - ecco/sequence_coloring_resort
+  - ecco/job_deadlines_day_loop
+  - ecco/subset_sum_mint_objects
+ablations:
+  - base
+  - code_only
+  - no_timing
+  - no_perf
+  - no_raw_perf
+  - no_perf_and_raw_perf
+  - no_tags
+  - no_hardware
+  - no_packages

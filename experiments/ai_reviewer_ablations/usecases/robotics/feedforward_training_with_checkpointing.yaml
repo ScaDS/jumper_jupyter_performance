@@ -92,8 +92,8 @@ reference_facts:
     source: perf
     weight: 1
     fact: >-
-      CPU utilisation stays near one core's worth of the allocation (about 6%
-      of sixteen cores) for the whole cell.
+      CPU utilisation stays near one core's worth of the allocation (well under a
+      tenth of its cores) for the whole cell.
   - id: early_write_burst
     source: perf
     weight: 1

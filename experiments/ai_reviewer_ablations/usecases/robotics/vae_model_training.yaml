@@ -95,8 +95,8 @@ reference_facts:
     source: perf
     weight: 1
     fact: >-
-      CPU utilisation stays near one core's worth of the allocation (about 7%
-      of sixteen cores), so neither the host nor the device is saturated.
+      CPU utilisation stays near one core's worth of the allocation (well under a
+      tenth of its cores), so neither the host nor the device is saturated.
 
 # There is deliberately no `tags`-sourced fact here. The measured run tagged
 # this payload `normal`, which is the collector saying it found nothing

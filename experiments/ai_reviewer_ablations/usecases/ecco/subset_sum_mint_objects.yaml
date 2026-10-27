@@ -1,0 +1,53 @@
+# ECCO edit/test row 738 (p02734): the slow submission is the
+# payload, the paired fast one is the human reference cli.verify compares to.
+payload_type: cpu_bound_python_loop
+description: >-
+  Sum over all segments of the number of subsequences summing to S, modulo
+  998244353, over three scaled inputs of N = S = 1100. The slow submission
+  stores three (N+1) x (S+3001) DP tables of Mint objects.
+
+dataset:
+  name: ECCO
+  config: edit
+  split: test
+  row: 738
+  problem: p02734
+  huggingface: https://huggingface.co/datasets/CodeEff/ECCO/viewer/edit/test?row=738
+  problem_statement: https://huggingface.co/datasets/CodeEff/ECCO/viewer/generate/test?row=13
+  atcoder: https://atcoder.jp/contests/abc159/tasks/abc159_f
+
+verification:
+  # ECCO's protocol on our scaled inputs: one fresh process per program, the
+  # human fast solution as the source of expected answers and of the
+  # reference ratios, every accepted CPython 3 CodeNet submission as the
+  # Runtime % / Memory % spectrum (scripts/fetch_codenet_submissions.py).
+  kind: ecco
+  timeout_s: 120
+  reference_solution: subset_sum_mint_objects/human_fast.py
+  submissions: subset_sum_mint_objects/submissions
+  parallel_submissions: 8
+
+benchmark:
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: mint_object_tables
+    source: code
+    weight: 2
+    fact: >-
+      Each DP cell is a Mint instance, so three (N+1) x (S+3001) tables hold
+      about fifteen million Python objects and every addition goes through
+      __iadd__/__mul__ method calls.
+  - id: oversized_width
+    source: code
+    weight: 1
+    fact: >-
+      The tables are S+3001 wide although only indices up to S are ever read
+      for the answer; the extra 3000 columns exist to absorb j+a overflow.
+  - id: full_tables_kept
+    source: code
+    weight: 1
+    fact: >-
+      All N+1 rows of every table are kept although row i+1 depends only on
+      row i, so memory grows with N * S instead of S.

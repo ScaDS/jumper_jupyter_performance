@@ -1,0 +1,54 @@
+# ECCO edit/test row 705 (p02973): the slow submission is the
+# payload, the paired fast one is the human reference cli.verify compares to.
+payload_type: cpu_bound_python_loop
+description: >-
+  Minimum number of colours so that equal colours form strictly increasing
+  subsequences, over four scaled inputs of N = 30000. The slow submission
+  keeps a fixed 10^5-slot list and sorts all of it after every element.
+
+dataset:
+  name: ECCO
+  config: edit
+  split: test
+  row: 705
+  problem: p02973
+  huggingface: https://huggingface.co/datasets/CodeEff/ECCO/viewer/edit/test?row=705
+  problem_statement: https://huggingface.co/datasets/CodeEff/ECCO/viewer/generate/test?row=26
+  atcoder: https://atcoder.jp/contests/abc134/tasks/abc134_e
+
+verification:
+  # ECCO's protocol on our scaled inputs: one fresh process per program, the
+  # human fast solution as the source of expected answers and of the
+  # reference ratios, every accepted CPython 3 CodeNet submission as the
+  # Runtime % / Memory % spectrum (scripts/fetch_codenet_submissions.py).
+  kind: ecco
+  timeout_s: 120
+  reference_solution: sequence_coloring_resort/human_fast.py
+  submissions: sequence_coloring_resort/submissions
+  parallel_submissions: 8
+
+benchmark:
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: resort_every_iteration
+    source: code
+    weight: 2
+    fact: >-
+      line.sort() runs on the full 10^5-element list once per input element,
+      so the loop is O(N * 10^5) although only one slot changed and the list
+      was already sorted.
+  - id: fixed_size_buffer
+    source: code
+    weight: 1
+    fact: >-
+      line is preallocated with 10^5 sentinel values regardless of N, so
+      bisect and sort work on the whole buffer rather than on the colours
+      actually in use.
+  - id: eval_parsing
+    source: code
+    weight: 1
+    fact: >-
+      Every value is parsed with int(eval(input())), paying for a Python eval
+      per line.

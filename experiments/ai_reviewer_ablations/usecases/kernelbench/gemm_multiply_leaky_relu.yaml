@@ -1,0 +1,53 @@
+# KernelBench level 2, task 12: a GEMM followed by two elementwise operators,
+# the textbook fusion case.
+payload_type: gpu_gemm_with_elementwise_epilogue
+description: >-
+  nn.Linear 8192 -> 8192 on a batch of 1024, then a scalar multiply and a
+  LeakyReLU, run as repeated forward passes of the unchanged KernelBench Model
+  on fixed inputs.
+
+preconditions:
+  - A CUDA device is available
+
+dataset:
+  name: KernelBench
+  level: 2
+  problem: 12_Gemm_Multiply_LeakyReLU
+  github: https://github.com/ScalingIntelligence/KernelBench/blob/main/KernelBench/level2/12_Gemm_Multiply_LeakyReLU.py
+  huggingface: https://huggingface.co/datasets/ScalingIntelligence/KernelBench/viewer/default/level_2?row=3
+
+verification:
+  # Per-call timing and allclose correctness exactly as KernelBench measures
+  # them: CUDA events over `trials` calls after `warmup`, and outputs within
+  # atol/rtol on `correctness_trials` fresh random inputs.
+  kind: kernelbench
+  trials: 100
+  warmup: 3
+  correctness_trials: 5
+  atol: 1.0e-2
+  rtol: 1.0e-2
+
+benchmark:
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: unfused_epilogue
+    source: code
+    weight: 2
+    fact: >-
+      The multiply and the LeakyReLU run as two separate elementwise kernels
+      after the GEMM, each reading and writing the full 1024 x 8192 output,
+      instead of being fused into the GEMM epilogue.
+  - id: gemm_dominates
+    source: code
+    weight: 2
+    fact: >-
+      The 1024 x 8192 x 8192 matrix multiply is the dominant cost of a forward
+      pass; it runs in float32 without TF32 or lower-precision tensor cores.
+  - id: loop_invariant_forward
+    source: code
+    weight: 1
+    fact: >-
+      The loop repeats the same forward pass on the same input, so every
+      iteration after the first recomputes an identical output.

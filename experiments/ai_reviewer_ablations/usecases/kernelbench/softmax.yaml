@@ -1,0 +1,53 @@
+# KernelBench level 1, task 23: one operator, no fusion opportunity, so any
+# speedup has to come from the kernel itself or from the loop around it.
+payload_type: gpu_memory_bound_operator
+description: >-
+  A row softmax over a 4096 x 393216 float32 tensor (6.4 GB), run as repeated
+  forward passes of the unchanged KernelBench Model on fixed inputs.
+
+preconditions:
+  - A CUDA device with at least 20 GB free; the input alone is 6.4 GB
+
+dataset:
+  name: KernelBench
+  level: 1
+  problem: 23_Softmax
+  github: https://github.com/ScalingIntelligence/KernelBench/blob/main/KernelBench/level1/23_Softmax.py
+  huggingface: https://huggingface.co/datasets/ScalingIntelligence/KernelBench/viewer/default/level_1?row=15
+
+verification:
+  # Per-call timing and allclose correctness exactly as KernelBench measures
+  # them: CUDA events over `trials` calls after `warmup`, and outputs within
+  # atol/rtol on `correctness_trials` fresh random inputs.
+  kind: kernelbench
+  trials: 100
+  warmup: 3
+  correctness_trials: 5
+  atol: 1.0e-2
+  rtol: 1.0e-2
+
+benchmark:
+  # A live CUDA context rules out forking the prefix.
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: memory_bound_operator
+    source: code
+    weight: 2
+    fact: >-
+      The forward pass is a single torch.softmax over dim=1 of a 4096 x 393216
+      float32 tensor; it does almost no arithmetic per byte, so it is bound by
+      memory bandwidth rather than by compute.
+  - id: loop_invariant_forward
+    source: code
+    weight: 2
+    fact: >-
+      The loop repeats the same forward pass on the same input, so every
+      iteration after the first recomputes an identical output.
+  - id: float32_traffic
+    source: code
+    weight: 1
+    fact: >-
+      Input and output are float32, so each pass reads and writes 6.4 GB; a
+      lower precision would halve that traffic at the cost of exactness.

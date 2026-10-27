@@ -1,0 +1,24 @@
+# Three KernelBench tasks, one per level, against the context ablations.
+#
+#   sbatch --array=0-3 scripts/capella.sbatch suite=kernelbench protocol=pilot
+#
+# The paper's own metrics (fast_p, speedup over torch.compile, allclose
+# correctness) are computed from cli.verify, which times the suggested Model
+# per call the way KernelBench does; docs/paper_metrics_mapping.md has the
+# correspondence.
+id: kernelbench
+description: KernelBench L1/L2/L3 against the context-source ablations.
+usecases:
+  - kernelbench/softmax
+  - kernelbench/gemm_multiply_leaky_relu
+  - kernelbench/mini_gpt_block
+ablations:
+  - base
+  - code_only
+  - no_timing
+  - no_perf
+  - no_raw_perf
+  - no_perf_and_raw_perf
+  - no_tags
+  - no_hardware
+  - no_packages

@@ -1,0 +1,60 @@
+# KernelBench level 3, task 44: a whole minGPT transformer block, where the
+# hand-written attention is the obvious target.
+payload_type: gpu_transformer_block
+description: >-
+  One minGPT transformer block (LayerNorm, explicit causal self-attention,
+  LayerNorm, MLP with a hand-written GELU) on a 128 x 512 x 768 batch, run as
+  repeated forward passes of the unchanged KernelBench Model on fixed inputs.
+
+preconditions:
+  - A CUDA device with at least 40 GB free; the attention matrix alone is 1 GB
+
+dataset:
+  name: KernelBench
+  level: 3
+  problem: 44_MiniGPTBlock
+  github: https://github.com/ScalingIntelligence/KernelBench/blob/main/KernelBench/level3/44_MiniGPTBlock.py
+  huggingface: https://huggingface.co/datasets/ScalingIntelligence/KernelBench/viewer/default/level_3?row=37
+
+verification:
+  # Per-call timing and allclose correctness exactly as KernelBench measures
+  # them: CUDA events over `trials` calls after `warmup`, and outputs within
+  # atol/rtol on `correctness_trials` fresh random inputs.
+  kind: kernelbench
+  trials: 100
+  warmup: 3
+  correctness_trials: 5
+  atol: 1.0e-2
+  rtol: 1.0e-2
+
+benchmark:
+  replay_mode: full
+  extra_replay_modes: []
+
+reference_facts:
+  - id: explicit_attention
+    source: code
+    weight: 2
+    fact: >-
+      CausalSelfAttention materialises the full 128 x 8 x 512 x 512 attention
+      matrix and applies masked_fill, softmax and dropout to it as separate
+      kernels, instead of a fused scaled_dot_product_attention.
+  - id: handwritten_gelu
+    source: code
+    weight: 1
+    fact: >-
+      NewGELU is composed of five elementwise operations (pow, multiply, add,
+      tanh, multiply), each a separate kernel over the 128 x 512 x 3072 MLP
+      activation.
+  - id: noop_dropout
+    source: code
+    weight: 1
+    fact: >-
+      Both dropout probabilities are 0.0, so every Dropout module computes
+      nothing useful, and the model is never put into eval mode.
+  - id: loop_invariant_forward
+    source: code
+    weight: 1
+    fact: >-
+      The loop repeats the same forward pass on the same input, so every
+      iteration after the first recomputes an identical output.
