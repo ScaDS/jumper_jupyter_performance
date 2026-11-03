@@ -385,7 +385,12 @@ th:hover .key-resize::after,
 .metric-table.resizing { cursor: col-resize; user-select: none; }
 
 /* The family: the whole metric's name, said once on its first row. */
-.metric-family { color: var(--muted); font-size: 12px; }
+.metric-family { color: var(--muted); font-size: 12px; padding-right: 6px; }
+/* As wide as its longest name and no wider: the table's slack goes to the
+   columns after it, so metric sits right next to the family. */
+.metric-table thead th:nth-child(2) { width: 1%; padding-right: 6px; }
+.metric-table tr.metric-row > td:nth-child(3),
+.metric-table thead th:nth-child(3) { padding-left: 6px; }
 
 /* The metric's name opens its formula. */
 .metric-trigger {
