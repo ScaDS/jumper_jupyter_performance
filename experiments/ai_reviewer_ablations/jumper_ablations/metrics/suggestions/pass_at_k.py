@@ -26,6 +26,10 @@ class PassAtK(DeterministicMetric):
     spec = MetricSpec(
         id="pass_at_k",
         display_name="pass@1 / pass@k",
+        value_names={
+            "pass_at_1": "First option correct",
+            "pass_at_k": "Any option correct",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

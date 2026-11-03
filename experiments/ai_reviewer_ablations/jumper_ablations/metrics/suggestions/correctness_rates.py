@@ -29,6 +29,12 @@ class CorrectnessRates(DeterministicMetric):
     spec = MetricSpec(
         id="correctness_rates",
         display_name="Correctness Status Rates",
+        value_names={
+            "verified_rate": "Correct output",
+            "differs_rate": "Wrong output",
+            "unverified_rate": "Not comparable",
+            "failed_rate": "Did not run",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

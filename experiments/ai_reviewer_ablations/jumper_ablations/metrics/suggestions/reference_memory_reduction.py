@@ -27,6 +27,9 @@ class ReferenceMemoryReduction(DeterministicMetric):
     spec = MetricSpec(
         id="reference_memory_reduction",
         display_name="Memory Reduction over Human Fast Solution",
+        value_names={
+            "geometric_mean_reference_memory_reduction": "Memory reduction vs human",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

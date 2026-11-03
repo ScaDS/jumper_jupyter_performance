@@ -384,6 +384,9 @@ th:hover .key-resize::after,
 .key-resize:focus-visible { outline: none; }
 .metric-table.resizing { cursor: col-resize; user-select: none; }
 
+/* The family: the whole metric's name, said once on its first row. */
+.metric-family { color: var(--muted); font-size: 12px; }
+
 /* The metric's name opens its formula. */
 .metric-trigger {
   font: inherit;

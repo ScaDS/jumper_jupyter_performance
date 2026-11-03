@@ -26,6 +26,11 @@ class MeanMedianSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="mean_median_speedup",
         display_name="Mean / Median Suggestion Speedup",
+        value_names={
+            "mean_speedup": "Mean speedup",
+            "median_speedup": "Median speedup",
+            "geometric_mean_speedup": "Geo-mean speedup",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,
@@ -67,6 +72,11 @@ class MeanMedianCorrectSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="mean_median_correct_speedup",
         display_name="Mean / Median Suggestion Speedup",
+        value_names={
+            "mean_speedup": "Mean speedup, correct",
+            "median_speedup": "Median speedup, correct",
+            "geometric_mean_speedup": "Geo-mean speedup, correct",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

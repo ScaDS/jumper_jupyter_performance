@@ -36,6 +36,12 @@ class Repairs(DeterministicMetric):
     spec = MetricSpec(
         id="repairs",
         display_name="Repairs",
+        value_names={
+            "attempts_per_suggestion": "Repairs per suggestion",
+            "repaired_share": "Needed repair",
+            "repair_success_rate": "Repair succeeded",
+            "idea_change_rate": "Repair changed the code",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

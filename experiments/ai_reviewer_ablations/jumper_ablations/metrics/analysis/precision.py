@@ -54,6 +54,11 @@ class Precision(JudgeMetric):
     spec = MetricSpec(
         id="precision",
         display_name="Precision",
+        value_names={
+            "supported_claim_precision": "Supported claims",
+            "contradiction_rate": "Contradicted claims",
+            "hallucination_rate": "Unfounded claims",
+        },
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

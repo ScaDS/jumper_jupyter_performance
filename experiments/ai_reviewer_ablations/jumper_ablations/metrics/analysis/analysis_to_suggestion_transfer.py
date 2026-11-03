@@ -58,6 +58,11 @@ class AnalysisToSuggestionTransfer(JudgeMetric):
     spec = MetricSpec(
         id="analysis_to_suggestion_transfer",
         display_name="Analysis-to-Suggestion Transfer",
+        value_names={
+            "bottleneck_aligned_rate": "Address the bottleneck",
+            "fully_constrained_suggestion_rate": "Keep every constraint",
+            "preserved_constraint_rate": "Constraints kept",
+        },
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

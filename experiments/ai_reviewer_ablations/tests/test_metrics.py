@@ -94,3 +94,33 @@ def test_end_to_end_cost_reads_the_recorded_calls(cell):
     assert values["mean_review_latency_s"] == pytest.approx(5.0)
     assert values["mean_total_tokens"] == pytest.approx(430.0)
     assert values["mean_benchmark_wall_s"] == pytest.approx(12.0)
+
+
+def test_every_result_has_a_short_name():
+    # The monitor's metric column is this name; a result without one shows
+    # its key there instead, and a supporting quantity never gets one.
+    from jumper_ablations.metrics.registry import all_metrics
+
+    unnamed = [
+        f"{metric_id}.{value}"
+        for metric_id, metric in all_metrics().items()
+        for value in metric.spec.reported_values
+        if metric.spec.kind_of(value) == "result"
+        and not metric.spec.value_name_of(value)
+    ]
+    assert not unnamed, unnamed
+
+
+def test_a_name_for_an_unreported_value_is_refused():
+    from jumper_ablations.metrics.base import MetricSpec
+
+    with pytest.raises(ValueError, match="named values not reported"):
+        MetricSpec(
+            id="example",
+            category="suggestions",
+            evaluation_method="deterministic",
+            scope="cell",
+            reported_values=("rate",),
+            description="",
+            value_names={"missing": "Missing"},
+        )

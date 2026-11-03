@@ -87,6 +87,9 @@ class ResourceEffectAgreement(JudgeMetric):
     spec = MetricSpec(
         id="resource_effect_agreement",
         display_name="Resource-Effect Agreement",
+        value_names={
+            "agreement_rate": "Effect as described",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

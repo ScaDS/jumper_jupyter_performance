@@ -26,6 +26,12 @@ class BestSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="best_speedup",
         display_name="Best Suggestion Speedup",
+        value_names={
+            "mean_best_speedup": "Mean best speedup",
+            "median_best_speedup": "Median best speedup",
+            "mean_best_correct_speedup": "Mean best speedup, correct",
+            "median_best_correct_speedup": "Median best speedup, correct",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

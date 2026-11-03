@@ -49,6 +49,9 @@ SUMMARY_COLUMNS = (
     # here and not in the per-unit file: it is a constant of the metric, and
     # repeating it on every one of a hundred thousand rows says nothing more.
     "metric_name",
+    # The short name of this one value, empty for a supporting quantity.
+    # metric_name names the metric, which reports several values.
+    "value_name",
     # Whether this row is the metric's answer or a quantity it was computed
     # from, so a reader can ask for results alone without knowing the names.
     "value_kind",
@@ -224,6 +227,7 @@ def _summarise_usecase(
                 "metric": metric_id,
                 "reported_value": reported_value,
                 "metric_name": metric.spec.name_of(reported_value),
+                "value_name": metric.spec.value_name_of(reported_value),
                 "value_kind": metric.spec.kind_of(reported_value),
                 "combine": metric.spec.combine_of(reported_value),
                 "estimate": values.get("estimate"),

@@ -23,6 +23,11 @@ class RequestedVersusReturned(DeterministicMetric):
     spec = MetricSpec(
         id="requested_vs_returned",
         display_name="Requested vs Returned Suggestions",
+        value_names={
+            "mean_returned": "Options returned",
+            "mean_shortfall": "Options missing",
+            "compliance_rate": "Returned as many as asked",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

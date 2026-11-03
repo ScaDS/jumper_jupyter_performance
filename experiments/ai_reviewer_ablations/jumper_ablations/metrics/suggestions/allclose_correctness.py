@@ -29,6 +29,9 @@ class AllcloseCorrectness(DeterministicMetric):
     spec = MetricSpec(
         id="allclose_correctness",
         display_name="Correctness (allclose)",
+        value_names={
+            "allclose_rate": "Correct, allclose",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

@@ -741,13 +741,14 @@ const metricHelp = (() => {
     return REFERENCE_GROUPS.find((one) => one.id === referenceOf(key));
   }
 
-  function content(key, name) {
+  function content(key, name, family) {
     if (typeset.has(key)) return typeset.get(key).cloneNode(true);
     const help = HELP[key];
     const formula = (tex) => node("div", "formula", `\\[${tex}\\]`);
     return node("div", "", [
       node("header", "", [
         node("span", "reference-chip", groupOf(key).title),
+        family ? node("div", "popup-source", family) : null,
         node("div", "popup-name", name || key),
         node("div", "popup-key", key),
         node("div", "popup-source", help.source),
@@ -788,7 +789,7 @@ const metricHelp = (() => {
     anchor = target;
     if (!popup.isConnected) document.body.append(popup);
     popup.className = `metric-popup reference-${referenceOf(key)}`;
-    const body = content(key, target.textContent);
+    const body = content(key, target.textContent, target.dataset.family);
     popup.replaceChildren(body);
     popup.scrollTop = 0;
     popup.hidden = false;

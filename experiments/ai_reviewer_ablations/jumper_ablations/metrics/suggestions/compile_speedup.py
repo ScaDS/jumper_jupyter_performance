@@ -29,6 +29,10 @@ class CompileSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="compile_speedup",
         display_name="Speedup vs torch.compile",
+        value_names={
+            "geometric_mean_compile_speedup": "Speedup vs torch.compile",
+            "geometric_mean_eager_speedup": "Speedup vs eager",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

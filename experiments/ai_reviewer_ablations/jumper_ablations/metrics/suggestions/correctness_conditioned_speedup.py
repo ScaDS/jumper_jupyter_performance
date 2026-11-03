@@ -27,6 +27,11 @@ class CorrectnessConditionedSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="correctness_conditioned_speedup",
         display_name="Correctness-Conditioned Speedup / Coverage",
+        value_names={
+            "geometric_mean_speedup": "Geo-mean speedup, correct",
+            "median_speedup": "Median speedup, correct",
+            "coverage": "Correct share",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

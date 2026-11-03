@@ -30,6 +30,9 @@ class MemoryReduction(DeterministicMetric):
     spec = MetricSpec(
         id="memory_reduction",
         display_name="Memory Reduction",
+        value_names={
+            "geometric_mean_memory_reduction": "Memory reduction",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

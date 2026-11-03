@@ -25,6 +25,10 @@ class RankQuality(DeterministicMetric):
     spec = MetricSpec(
         id="rank_quality",
         display_name="Rank Quality",
+        value_names={
+            "first_is_fastest_rate": "First option fastest",
+            "mean_rank_correlation": "Order matches speed",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

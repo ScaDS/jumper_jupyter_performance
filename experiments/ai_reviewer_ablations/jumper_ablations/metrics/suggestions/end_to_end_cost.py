@@ -26,6 +26,14 @@ class EndToEndCost(DeterministicMetric):
     spec = MetricSpec(
         id="end_to_end_cost",
         display_name="End-to-End Cost",
+        value_names={
+            "mean_review_latency_s": "Review time, s",
+            "mean_input_tokens": "Input tokens",
+            "mean_output_tokens": "Output tokens",
+            "mean_total_tokens": "Tokens per review",
+            "mean_benchmark_wall_s": "Benchmark time, s",
+            "mean_repair_calls": "Repair calls",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

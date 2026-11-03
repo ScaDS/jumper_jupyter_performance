@@ -27,6 +27,9 @@ class MemoryPercentile(DeterministicMetric):
     spec = MetricSpec(
         id="memory_percentile",
         display_name="Memory %",
+        value_names={
+            "mean_memory_percentile": "Heavier humans, %",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

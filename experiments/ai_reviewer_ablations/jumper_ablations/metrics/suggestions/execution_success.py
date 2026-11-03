@@ -26,6 +26,11 @@ class ExecutionSuccess(DeterministicMetric):
     spec = MetricSpec(
         id="execution_success",
         display_name="Execution Success Before / After Repair",
+        value_names={
+            "pre_repair_success_rate": "Ran first time",
+            "post_repair_success_rate": "Ran after repair",
+            "repair_uplift": "Gain from repair",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

@@ -818,6 +818,7 @@ _RESAMPLES = 400
 _COMBINED_KEY = ("ablation", "metric", "reported_value")
 _COMBINED_CARRIED = (
     "metric_name",
+    "value_name",
     "value_kind",
     "combine",
     "category",

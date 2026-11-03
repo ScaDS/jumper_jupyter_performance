@@ -37,6 +37,12 @@ class FastP(DeterministicMetric):
     spec = MetricSpec(
         id="fast_p",
         display_name="fast_p",
+        value_names={
+            "fast_0": "Correct",
+            "fast_1": "Correct and faster",
+            "fast_1_5": "Correct and over 1.5x faster",
+            "fast_2": "Correct and over 2x faster",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

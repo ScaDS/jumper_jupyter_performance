@@ -757,15 +757,25 @@ function comparisonTables(rows, axis = "ablation") {
       const keys = [];
       const cells = new Map();
       const named = new Map();
+      const families = new Map();
       for (const row of mine) {
         const key = `${row.metric}.${row.reported_value}`;
         if (!cells.has(key)) { keys.push(key); cells.set(key, {}); }
         cells.get(key)[byPreset ? row.ablation : row.usecase] = row;
-        if (row.metric_name) named.set(key, row.metric_name);
+        if (row.value_name) named.set(key, row.value_name);
+        if (row.metric_name) families.set(row.metric, row.metric_name);
       }
 
       out.push(el("h3", {}, CATEGORY_TITLES[category] || category));
-      out.push(metricTable({ keys, cells, named, columns, baseline, byPreset }));
+      out.push(metricTable({
+        keys,
+        cells,
+        named,
+        families,
+        columns,
+        baseline,
+        byPreset,
+      }));
     }
   }
   return out;
@@ -848,7 +858,15 @@ function ablationDigest(rowCells, ablations) {
   ]);
 }
 
-function metricTable({ keys, cells, named, columns, baseline, byPreset }) {
+// A summary written before value_name existed, and every supporting
+// quantity, has no short name: its reported value, spelled out, reads
+// better than a dash.
+function spelledOut(key) {
+  const words = key.split(".")[1].replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function metricTable({ keys, cells, named, families, columns, baseline, byPreset }) {
   // Only presets fold: the baseline stays, the ablations hide behind one
   // column. Usecases in the columns are not variations of one of them.
   const foldable = byPreset && columns.includes(baseline) && columns.length > 1;
@@ -856,7 +874,7 @@ function metricTable({ keys, cells, named, columns, baseline, byPreset }) {
   const open = !foldable || metricView.ablationsOpen;
   const leading = foldable ? [baseline] : columns;
   const trailing = foldable && open ? ablations : [];
-  const width = 2 + leading.length + (foldable ? 1 : 0) + trailing.length;
+  const width = 3 + leading.length + (foldable ? 1 : 0) + trailing.length;
 
   const handle = el("button", {
     type: "button",
@@ -881,29 +899,33 @@ function metricTable({ keys, cells, named, columns, baseline, byPreset }) {
     byPreset && column === baseline ? `${column} (baseline)` : column;
   const head = el("tr", {}, [
     el("th", {}, [el("span", { class: "key-head" }, "key"), handle]),
+    el("th", {}, "family"),
     el("th", {}, "metric"),
     ...leading.map((column) => el("th", { class: "num" }, label(column))),
     foldable ? el("th", { class: "fold" }, toggle) : null,
     ...trailing.map((column) => el("th", { class: "num" }, label(column))),
   ]);
 
-  const row = (key) => {
-    const name = named.get(key);
+  const row = (key, index, shown) => {
+    const name = named.get(key) || spelledOut(key);
+    const metric = key.split(".")[0];
+    const family = families.get(metric) || "";
+    // The family - the spreadsheet's name for the whole metric - is said
+    // once, on the first of its rows; repeated on each it is noise.
+    const previous = index > 0 ? shown[index - 1].split(".")[0] : null;
     const values = cells.get(key);
     return el("tr", { class: `metric-row reference-${metricHelp.referenceOf(key)}` }, [
       el("td", { title: key }, el("code", { class: "key-clip" }, key)),
-      // The spreadsheet's own name, and only for a result: a
-      // denominator is not a row of that table, and neither is a
-      // metric the spreadsheet has no row for. Both read as a dash
-      // rather than as a repeat of the key.
-      el("td", { class: name ? "" : "empty" }, name && metricHelp.has(key)
+      el("td", { class: "metric-family" }, previous === metric ? "" : family),
+      el("td", {}, metricHelp.has(key)
         ? el("button", {
             type: "button",
             class: "metric-trigger",
             "data-metric": key,
+            "data-family": family,
             "aria-describedby": "metric-popup",
           }, name)
-        : name || "-"),
+        : name),
       ...leading.map((column) => el("td", { class: "num" },
         metricValue(values[column], column, baseline, byPreset))),
       foldable ? el("td", { class: "fold" }, open ? null : ablationDigest(values, ablations)) : null,

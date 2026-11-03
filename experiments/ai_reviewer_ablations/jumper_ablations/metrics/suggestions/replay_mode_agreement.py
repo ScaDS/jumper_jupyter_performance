@@ -30,6 +30,12 @@ class ReplayModeAgreement(DeterministicMetric):
     spec = MetricSpec(
         id="replay_mode_agreement",
         display_name="Replay-Mode Agreement",
+        value_names={
+            "correctness_agreement": "Same correctness",
+            "mean_speedup_dispersion": "Speedup spread",
+            "mean_rank_correlation": "Same speed order",
+            "fallback_rate": "Fell back to full replay",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

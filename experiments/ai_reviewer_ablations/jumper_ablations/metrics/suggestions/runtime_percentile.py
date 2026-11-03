@@ -48,6 +48,9 @@ class RuntimePercentile(DeterministicMetric):
     spec = MetricSpec(
         id="runtime_percentile",
         display_name="Runtime %",
+        value_names={
+            "mean_runtime_percentile": "Slower humans, %",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

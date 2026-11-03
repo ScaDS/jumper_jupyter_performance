@@ -42,6 +42,13 @@ class BottleneckIdentification(JudgeMetric):
     spec = MetricSpec(
         id="bottleneck_identification",
         display_name="Bottleneck Identification",
+        value_names={
+            "resource_score": "Resource, 0-2",
+            "code_region_score": "Code region, 0-2",
+            "causal_explanation_score": "Cause, 0-2",
+            "total_score": "Total, 0-6",
+            "normalised_score": "Total, 0-1",
+        },
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

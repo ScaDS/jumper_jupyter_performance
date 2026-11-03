@@ -68,6 +68,10 @@ class MetricSpec:
     # recognises; the id is what the files are keyed by. Only a result
     # carries it: a denominator is not a row of that table.
     display_name: str = ""
+    # A short name for each result value. display_name names the metric,
+    # which reports several numbers; this names the one number a table row
+    # shows. Left out of the hash: a dict has none.
+    value_names: dict = dataclasses.field(default_factory=dict, hash=False)
     # The subset of reported_values that are the quantities the results were
     # computed from rather than results themselves, named as the source
     # spreadsheet's Units column files them under "count".
@@ -96,6 +100,12 @@ class MetricSpec:
             return ""
         return self.display_name
 
+    def value_name_of(self, reported_value: str) -> str:
+        """The short name of this value, or "" for a supporting quantity."""
+        if self.kind_of(reported_value) != KIND_RESULT:
+            return ""
+        return self.value_names.get(reported_value, "")
+
     def kind_of(self, reported_value: str) -> str:
         return (
             KIND_INPUT
@@ -118,6 +128,7 @@ class MetricSpec:
         for field, declared in (
             ("supporting", self.supporting_values),
             ("ratio", self.ratio_values),
+            ("named", tuple(self.value_names)),
         ):
             unknown = set(declared) - set(self.reported_values)
             if unknown:

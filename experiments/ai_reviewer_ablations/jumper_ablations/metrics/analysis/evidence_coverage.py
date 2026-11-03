@@ -94,6 +94,9 @@ class ConditionalEvidenceCoverage(JudgeMetric):
     spec = MetricSpec(
         id="conditional_evidence_coverage",
         display_name="Conditional Evidence Coverage",
+        value_names={
+            "weighted_recall": "Facts covered, of reachable",
+        },
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,
@@ -126,6 +129,9 @@ class GlobalEvidenceCoverage(JudgeMetric):
     spec = MetricSpec(
         id="global_evidence_coverage",
         display_name="Global Evidence Coverage",
+        value_names={
+            "weighted_recall": "Facts covered, of all",
+        },
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,

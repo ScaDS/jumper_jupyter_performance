@@ -29,6 +29,9 @@ class ReferenceSpeedup(DeterministicMetric):
     spec = MetricSpec(
         id="reference_speedup",
         display_name="Speedup over Human Fast Solution",
+        value_names={
+            "geometric_mean_reference_speedup": "Speedup vs human",
+        },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,

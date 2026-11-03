@@ -47,6 +47,9 @@ class RelevanceConciseness(JudgeMetric):
     spec = MetricSpec(
         id="relevance_conciseness",
         display_name="Relevance / Conciseness",
+        value_names={
+            "relevant_claim_fraction": "Relevant claims",
+        },
         category=CATEGORY_ANALYSIS,
         evaluation_method=METHOD_JUDGE,
         scope=SCOPE_RUN,
