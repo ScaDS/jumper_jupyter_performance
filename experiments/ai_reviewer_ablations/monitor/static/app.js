@@ -693,9 +693,12 @@ function renderSummary(options = {}) {
       : `${shown.length} rows over ${usecases.length} usecase` +
         `${usecases.length === 1 ? "" : "s"}`);
 
-  $("summary").replaceChildren(
+  // combinedRunsNote is null when there is nothing to say, and
+  // replaceChildren would print that as the text "null".
+  $("summary").replaceChildren(...[
     combineRow, combinedRunsNote(), bar, counted,
-    ...comparisonTables(shown, axis));
+    ...comparisonTables(shown, axis),
+  ].filter(Boolean));
   // Fading needs the laid-out width of each key, so it follows the insert.
   setKeyWidth(metricView.keyWidth);
 
