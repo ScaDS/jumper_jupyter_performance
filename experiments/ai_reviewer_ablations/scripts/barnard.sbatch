@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G
 #SBATCH --time=24:00:00
-#SBATCH --output=slurm-%j.out
+#SBATCH --output=slurm_logs/%x-%j.out
 
 # One sweep of the ablation harness on Barnard, sized like ECCO's judge.
 #

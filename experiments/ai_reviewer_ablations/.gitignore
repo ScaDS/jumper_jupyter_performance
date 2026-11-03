@@ -8,8 +8,9 @@ strategies/strategies.yaml
 workspace/
 # pytest
 .pytest_cache/
-# Slurm job logs from scripts/romeo.sbatch.
+# Slurm job logs from scripts/*.sbatch; a stray one lands in the submit dir.
 slurm_logs/
+slurm-*.out
 # Monitor caches.
 monitor/__pycache__/
 # CodeNet submissions for the ECCO percentiles, fetched by

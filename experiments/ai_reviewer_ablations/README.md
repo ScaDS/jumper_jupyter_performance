@@ -77,6 +77,21 @@ evidence coverage return the same number for every preset that keeps `code`
 on - so the pair cannot show what removing telemetry costs. The suite's own
 comments say where to read the telemetry from and how to phrase it.
 
+On the cluster, the same tokens go through one of `scripts/*.sbatch`
+(`romeo` for CPU, `capella` for GPU, `barnard` for ECCO), always submitted
+from this directory:
+
+```bash
+sbatch scripts/capella.sbatch suite=robotics protocol=pilot
+```
+
+The job log goes to `slurm_logs/<job name>-<job id>.out`. The path is relative
+to the submit directory, and Slurm does not create it: submitted from anywhere
+else, the job starts but its log is lost. `slurm_logs/` is a symlink into the
+workspace beside `results/` and is ignored by git; a `slurm-*.out` in this
+directory means a job was submitted without these scripts, and it belongs in
+`slurm_logs/` too.
+
 Everything lands in `results/<run id>/`, and Hydra's own record of the fully
 composed config is written to `results/<run id>/.hydra/config.yaml` - a result
 and the setup that produced it are never separated.
