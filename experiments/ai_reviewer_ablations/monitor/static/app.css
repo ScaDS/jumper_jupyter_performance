@@ -21,6 +21,16 @@
   --shard-3: #ffca3a;
   --shard-4: #ff924c;
   --shard-5: #c05299;
+
+  /* Reference programs of the metric table: what a number is measured
+     against. Off the status ramp, so a hue never reads as good or bad. */
+  --reference-original: #2f6690;
+  --reference-original-soft: #e4eef6;
+  --reference-human: #6a4bbd;
+  --reference-human-soft: #eeeafa;
+  --reference-none: #5d636c;
+  --reference-none-soft: #eef0f3;
+  --popup-shadow: 0 10px 30px rgba(20, 24, 33, .18);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,6 +46,13 @@
     --pending: #4a4f58;
     --warn: #d9973d;
     --bad: #e0685d;
+    --reference-original: #7fb2da;
+    --reference-original-soft: #15263a;
+    --reference-human: #a993f0;
+    --reference-human-soft: #241d3d;
+    --reference-none: #a3a9b3;
+    --reference-none-soft: #23262d;
+    --popup-shadow: 0 10px 30px rgba(0, 0, 0, .55);
   }
 }
 
@@ -280,3 +297,163 @@ tr.gap td { color: var(--muted); }
   cursor: help;
 }
 .usecase-picker > summary { font-weight: 600; }
+
+/* -- metric table ------------------------------------------------------- */
+
+.reference-original { --reference: var(--reference-original); --reference-soft: var(--reference-original-soft); }
+.reference-human { --reference: var(--reference-human); --reference-soft: var(--reference-human-soft); }
+.reference-none { --reference: var(--reference-none); --reference-soft: var(--reference-none-soft); }
+
+.metric-scroll { overflow-x: auto; }
+.metric-table th, .metric-table td { white-space: nowrap; }
+.metric-table th { position: relative; }
+
+/* A band names the reference program of the rows under it; the numbers
+   carry its colour, the rest of the row does not. */
+.metric-table tr.reference-band td {
+  background: var(--reference-soft);
+  color: var(--reference);
+  font-weight: 600;
+  font-size: 12px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+.metric-table tr.reference-band:hover { background: none; }
+.metric-table tr.reference-original td.num,
+.metric-table tr.reference-human td.num { color: var(--reference); }
+
+/* The key column: clipped to --key-width, set on #summary, with the end
+   of a long key fading out under the edge. A stated width keeps the
+   table's slack out of this column, so metric starts right after it. */
+#summary { --key-width: 90px; }
+.metric-table thead th:first-child { width: calc(var(--key-width) + 27px); }
+.metric-table tr > :first-child { padding-right: 18px; }
+.metric-table tr.metric-row > td:nth-child(2),
+.metric-table thead th:nth-child(2) { padding-left: 6px; }
+.key-head { display: block; width: var(--key-width); }
+.key-clip {
+  display: block;
+  width: var(--key-width);
+  overflow: hidden;
+  color: var(--muted);
+}
+.key-clip.overflows {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+}
+.key-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -5px;
+  width: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+}
+.key-resize::after {
+  content: "";
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  left: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity .12s;
+}
+th:hover .key-resize::after,
+.key-resize:focus-visible::after,
+.metric-table.resizing .key-resize::after { opacity: 1; }
+.key-resize:focus-visible { outline: none; }
+.metric-table.resizing { cursor: col-resize; user-select: none; }
+
+/* The metric's name opens its formula. */
+.metric-trigger {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--muted);
+  text-underline-offset: 3px;
+}
+.metric-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The folded ablations: one narrow column with a button and, per row,
+   how many of them differ from the baseline. */
+.metric-table th.fold, .metric-table td.fold { padding-left: 4px; padding-right: 4px; text-align: center; }
+.ablation-toggle {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--accent);
+  background: none;
+  border: 1px dashed var(--line);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.ablation-toggle:hover { border-style: solid; }
+.digest { font-size: 11px; color: var(--muted); }
+.digest .up, .digest .down { font-weight: 700; color: var(--reference, var(--ink)); }
+
+/* -- formula popup ------------------------------------------------------ */
+
+.metric-popup[hidden] { display: none; }
+.metric-popup {
+  position: fixed;
+  z-index: 20;
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(380px, calc(100vh - 32px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--reference, var(--accent));
+  border-radius: 8px;
+  box-shadow: var(--popup-shadow);
+  padding: 12px 14px 14px;
+  font-size: 13px;
+}
+.metric-popup header { display: grid; gap: 4px; margin-bottom: 8px; justify-items: start; }
+.reference-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--reference);
+  background: var(--reference-soft);
+}
+.popup-name { font-weight: 600; }
+.popup-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); word-break: break-all; }
+.popup-source { font-size: 12px; color: var(--muted); }
+.popup-label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 4px; }
+.metric-popup .formula {
+  font-size: 15px;
+  background: var(--raised);
+  border-radius: 6px;
+  padding: 10px 8px;
+  margin: 6px 0 10px;
+  overflow-x: auto;
+  text-align: center;
+}
+.metric-popup dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 4px 0 0; }
+.metric-popup dt { font-size: 14px; text-align: right; white-space: nowrap; color: var(--reference, var(--accent)); }
+.metric-popup dd { margin: 0; min-width: 0; }
+.popup-read { margin: 8px 0 0; font-size: 12px; }
+.popup-note { margin: 10px 0 0; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+@media (prefers-reduced-motion: no-preference) {
+  .metric-popup { animation: popup-in .12s ease-out; }
+  @keyframes popup-in { from { opacity: 0; } to { opacity: 1; } }
+}

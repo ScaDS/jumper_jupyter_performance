@@ -696,6 +696,8 @@ function renderSummary(options = {}) {
   $("summary").replaceChildren(
     combineRow, combinedRunsNote(), bar, counted,
     ...comparisonTables(shown, axis));
+  // Fading needs the laid-out width of each key, so it follows the insert.
+  setKeyWidth(metricView.keyWidth);
 
   if (options.keepOpen === "usecase") {
     const menu = combineRow.querySelector("details.picker");
@@ -763,61 +765,227 @@ function comparisonTables(rows, axis = "ablation") {
       }
 
       out.push(el("h3", {}, CATEGORY_TITLES[category] || category));
-      out.push(table(
-        [{ label: "key" }, { label: "metric" },
-          ...columns.map((one) => ({
-            label: byPreset && one === baseline ? `${one} (baseline)` : one,
-            num: true }))],
-        keys.map((key) => ({
-          cells: [
-            { node: el("code", {}, key) },
-            // The spreadsheet's own name, and only for a result: a
-            // denominator is not a row of that table, and neither is a
-            // metric the spreadsheet has no row for. Both read as a dash
-            // rather than as a repeat of the key.
-            { value: named.get(key) || "-",
-              class: named.get(key) ? "" : "empty" },
-            ...columns.map((column) => {
-              const row = cells.get(key)[column];
-              if (!row) return { value: "-" };
-              const shown = fixed(row.estimate);
-              if (row.per_usecase) {
-                // A combined cell carries the usecases it was made of, so
-                // the number can never be read without seeing whether the
-                // payloads agreed.
-                const parts = Object.entries(row.per_usecase)
-                  .map(([usecase, value]) => `${usecase}: ${fixed(value)}`);
-                return {
-                  node: el("span", {
-                    class: parts.length ? "combined-cell" : "",
-                    title: parts.length
-                      ? `k=${row.k}\n${parts.join("\n")}`
-                      : "no usecase measured this",
-                  }, shown),
-                };
-              }
-              if ((byPreset && column === baseline) || !findsSomething(row)) {
-                return { value: shown };
-              }
-              // Marked where the interval of the difference from the
-              // baseline stays clear of zero - the point estimate alone
-              // says nothing about whether the presets differ.
-              return {
-                node: el("b", {
-                  class: "finding-cell",
-                  title: `vs ${baseline}: ${fixed(row.paired_delta)} ` +
-                    `(${interval(row.paired_delta_ci_low,
-                                 row.paired_delta_ci_high)}, ` +
-                    `n=${row.paired_n})`,
-                }, shown),
-              };
-            }),
-          ],
-        })),
-      ));
+      out.push(metricTable({ keys, cells, named, columns, baseline, byPreset }));
     }
   }
   return out;
+}
+
+function metricValue(row, column, baseline, byPreset) {
+  if (!row) return "-";
+  const shown = fixed(row.estimate);
+  if (row.per_usecase) {
+    // A combined cell carries the usecases it was made of, so
+    // the number can never be read without seeing whether the
+    // payloads agreed.
+    const parts = Object.entries(row.per_usecase)
+      .map(([usecase, value]) => `${usecase}: ${fixed(value)}`);
+    return el("span", {
+      class: parts.length ? "combined-cell" : "",
+      title: parts.length
+        ? `k=${row.k}\n${parts.join("\n")}`
+        : "no usecase measured this",
+    }, shown);
+  }
+  if ((byPreset && column === baseline) || !findsSomething(row)) {
+    return shown;
+  }
+  // Marked where the interval of the difference from the
+  // baseline stays clear of zero - the point estimate alone
+  // says nothing about whether the presets differ.
+  return el("b", {
+    class: "finding-cell",
+    title: `vs ${baseline}: ${fixed(row.paired_delta)} ` +
+      `(${interval(row.paired_delta_ci_low,
+                   row.paired_delta_ci_high)}, ` +
+      `n=${row.paired_n})`,
+  }, shown);
+}
+
+// -- metric table -------------------------------------------------------
+
+// How the viewer left the metric tables: ablations folded or not, and how
+// wide the key column was dragged. A per-viewer convenience, like the
+// filters.
+const KEY_WIDTH_DEFAULT = 90;
+const metricView = { ablationsOpen: false, keyWidth: KEY_WIDTH_DEFAULT };
+
+function restoreMetricView() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("monitor.metricView") || "{}");
+    if (typeof saved.ablationsOpen === "boolean") {
+      metricView.ablationsOpen = saved.ablationsOpen;
+    }
+    if (Number.isFinite(saved.keyWidth)) metricView.keyWidth = saved.keyWidth;
+  } catch (failure) {
+    // See restoreFilters.
+  }
+}
+
+function saveMetricView() {
+  try {
+    localStorage.setItem("monitor.metricView", JSON.stringify(metricView));
+  } catch (failure) {
+    // See restoreFilters.
+  }
+}
+
+// What a folded set of ablations still says: how many of them differ from
+// the baseline, and in which direction.
+function ablationDigest(rowCells, ablations) {
+  const differing = ablations.filter((column) =>
+    rowCells[column] && findsSomething(rowCells[column]));
+  if (!differing.length) {
+    return el("span", { class: "digest", title: "no ablation differs from the baseline" }, "·");
+  }
+  const up = differing.filter((column) =>
+    parseFloat(rowCells[column].paired_delta_ci_low) > 0).length;
+  const down = differing.length - up;
+  return el("span", { class: "digest", title: `differ: ${differing.join(", ")}` }, [
+    up ? el("span", { class: "up" }, `▲${up}`) : null,
+    up && down ? " " : null,
+    down ? el("span", { class: "down" }, `▼${down}`) : null,
+  ]);
+}
+
+function metricTable({ keys, cells, named, columns, baseline, byPreset }) {
+  // Only presets fold: the baseline stays, the ablations hide behind one
+  // column. Usecases in the columns are not variations of one of them.
+  const foldable = byPreset && columns.includes(baseline) && columns.length > 1;
+  const ablations = foldable ? columns.filter((column) => column !== baseline) : [];
+  const open = !foldable || metricView.ablationsOpen;
+  const leading = foldable ? [baseline] : columns;
+  const trailing = foldable && open ? ablations : [];
+  const width = 2 + leading.length + (foldable ? 1 : 0) + trailing.length;
+
+  const handle = el("button", {
+    type: "button",
+    class: "key-resize",
+    "aria-label": "key column width: drag, or use the arrow keys",
+    title: "drag to widen; double-click to fit the keys",
+  });
+
+  const toggle = foldable ? el("button", {
+    type: "button",
+    class: "ablation-toggle",
+    "aria-expanded": String(open),
+    title: open ? "hide the ablations" : "show the ablations",
+    onclick: () => {
+      metricView.ablationsOpen = !metricView.ablationsOpen;
+      saveMetricView();
+      renderSummary();
+    },
+  }, open ? "◂" : `+${ablations.length} ablations ▸`) : null;
+
+  const label = (column) =>
+    byPreset && column === baseline ? `${column} (baseline)` : column;
+  const head = el("tr", {}, [
+    el("th", {}, [el("span", { class: "key-head" }, "key"), handle]),
+    el("th", {}, "metric"),
+    ...leading.map((column) => el("th", { class: "num" }, label(column))),
+    foldable ? el("th", { class: "fold" }, toggle) : null,
+    ...trailing.map((column) => el("th", { class: "num" }, label(column))),
+  ]);
+
+  const row = (key) => {
+    const name = named.get(key);
+    const values = cells.get(key);
+    return el("tr", { class: `metric-row reference-${metricHelp.referenceOf(key)}` }, [
+      el("td", { title: key }, el("code", { class: "key-clip" }, key)),
+      // The spreadsheet's own name, and only for a result: a
+      // denominator is not a row of that table, and neither is a
+      // metric the spreadsheet has no row for. Both read as a dash
+      // rather than as a repeat of the key.
+      el("td", { class: name ? "" : "empty" }, name && metricHelp.has(key)
+        ? el("button", {
+            type: "button",
+            class: "metric-trigger",
+            "data-metric": key,
+            "aria-describedby": "metric-popup",
+          }, name)
+        : name || "-"),
+      ...leading.map((column) => el("td", { class: "num" },
+        metricValue(values[column], column, baseline, byPreset))),
+      foldable ? el("td", { class: "fold" }, open ? null : ablationDigest(values, ablations)) : null,
+      ...trailing.map((column) => el("td", { class: "num" },
+        metricValue(values[column], column, baseline, byPreset))),
+    ]);
+  };
+
+  // Bands only where a reference tells rows apart; a table of judge
+  // metrics has none to show.
+  const body = [];
+  if (keys.some((key) => metricHelp.referenceOf(key) !== "none")) {
+    for (const group of metricHelp.groups) {
+      const mine = keys.filter((key) => metricHelp.referenceOf(key) === group.id);
+      if (!mine.length) continue;
+      body.push(el("tr", { class: `reference-band reference-${group.id}` },
+        el("td", { colspan: width }, group.title)));
+      body.push(...mine.map(row));
+    }
+  } else {
+    body.push(...keys.map(row));
+  }
+
+  const node = el("table", { class: "metric-table" }, [
+    el("thead", {}, head), el("tbody", {}, body),
+  ]);
+  wireKeyResize(node, handle);
+  return el("div", { class: "metric-scroll" }, node);
+}
+
+// The key column is clipped to one width shared by every metric table, and
+// the end of a long key fades out under the edge rather than stopping on a
+// cut letter.
+function setKeyWidth(width) {
+  metricView.keyWidth = Math.round(Math.max(48, Math.min(640, width)));
+  $("summary").style.setProperty("--key-width", `${metricView.keyWidth}px`);
+  for (const clip of $("summary").querySelectorAll(".key-clip")) {
+    clip.classList.toggle("overflows", clip.scrollWidth > clip.clientWidth + 1);
+  }
+}
+
+function fullKeyWidth() {
+  return Math.max(...[...$("summary").querySelectorAll(".key-clip")]
+    .map((clip) => clip.scrollWidth));
+}
+
+function wireKeyResize(node, handle) {
+  let startX = 0;
+  let startWidth = 0;
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    startX = event.clientX;
+    startWidth = metricView.keyWidth;
+    handle.setPointerCapture(event.pointerId);
+    node.classList.add("resizing");
+    metricHelp.hide(true);
+  });
+  handle.addEventListener("pointermove", (event) => {
+    if (!handle.hasPointerCapture(event.pointerId)) return;
+    setKeyWidth(startWidth + event.clientX - startX);
+  });
+  const stop = (event) => {
+    if (handle.hasPointerCapture(event.pointerId)) {
+      handle.releasePointerCapture(event.pointerId);
+    }
+    node.classList.remove("resizing");
+    saveMetricView();
+  };
+  handle.addEventListener("pointerup", stop);
+  handle.addEventListener("pointercancel", stop);
+  handle.addEventListener("dblclick", () => {
+    // Between the full length of the keys and the compact default.
+    const full = fullKeyWidth();
+    setKeyWidth(metricView.keyWidth >= full ? KEY_WIDTH_DEFAULT : full);
+    saveMetricView();
+  });
+  handle.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    setKeyWidth(metricView.keyWidth + (event.key === "ArrowRight" ? 20 : -20));
+    saveMetricView();
+  });
 }
 
 function fixed(value) {
@@ -864,4 +1032,5 @@ document.addEventListener("keydown", (event) => {
 });
 
 restoreFilters();
+restoreMetricView();
 update();
