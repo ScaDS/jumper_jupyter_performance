@@ -342,6 +342,378 @@ const metricHelp = (() => {
     read: "> 1: faster than eager, timed per call.",
   };
 
+  // -- metrics only we report ---------------------------------------------
+
+  // A run-scope metric is computed once per reviewer invocation and the
+  // table shows the mean over them; a cell-scope one is computed once over
+  // all generations of the cell.
+  const PER_INVOCATION = [String.raw`R`,
+    "the judged reviewer invocations of the cell; the value is computed for each and averaged"];
+  const SUGGESTIONS = [String.raw`N`, "every suggestion of every generation in the cell"];
+  const GENERATIONS = [String.raw`G`, "the generations of the cell"];
+  const ATTEMPTS = [String.raw`a_i`, "code versions suggestion i needed; 1 means no repair"];
+  const RAN = [String.raw`\text{ran}_i`, "suggestion i finished without an error or a timeout"];
+
+  function perInvocation(name, term) {
+    return String.raw`\mathrm{${name.replaceAll("_", "\\_")}} = \frac{1}{R}\sum_{r=1}^{R} ${term}`;
+  }
+
+  function share(name, numerator, denominator) {
+    return String.raw`\mathrm{${name.replaceAll("_", "\\_")}} = \frac{${numerator}}{${denominator}}`;
+  }
+
+  // Precision and relevance: shares of the claims the judge counted.
+  const CLAIMS = [String.raw`\text{claims}_r`, "the claims the judge counted in analysis r"];
+  for (const [key, counted, meaning, read] of [
+    ["precision.supported_claim_precision", "supported",
+      "claims supported by the sources in the packet", "Higher is better."],
+    ["precision.contradiction_rate", "contradicted",
+      "claims the sources contradict", "Lower is better."],
+    ["precision.hallucination_rate", "hallucinated",
+      "claims with nothing in the sources behind them", "Lower is better."],
+    ["relevance_conciseness.relevant_claim_fraction", "relevant",
+      "claims about the optimisation decision", "Higher is better."],
+  ]) {
+    HELP[key] = {
+      source: "Ours, judged",
+      tex: perInvocation(key.split(".")[1],
+        String.raw`\frac{\text{${counted}}_r}{\text{claims}_r}`),
+      legend: [
+        PER_INVOCATION, CLAIMS,
+        [String.raw`\text{${counted}}_r`, meaning],
+      ],
+      note: "A claim that is true of the world but not supported by the sources counts as unsupported.",
+      read,
+    };
+  }
+
+  const BOTTLENECK_PARTS = {
+    resource_score: ["\\text{resource}_r", "the resource the analysis named"],
+    code_region_score: ["\\text{region}_r", "the place in the code it named"],
+    causal_explanation_score: ["\\text{cause}_r", "why it called that the bottleneck"],
+  };
+  for (const [value, [symbol, meaning]] of Object.entries(BOTTLENECK_PARTS)) {
+    HELP[`bottleneck_identification.${value}`] = {
+      source: "Ours, judged",
+      tex: perInvocation(value, symbol),
+      legend: [
+        PER_INVOCATION,
+        [symbol, `the judge's score for ${meaning}: 0 wrong, 1 partly right, 2 right`],
+      ],
+      read: "From 0 to 2. Higher is better.",
+    };
+  }
+  const BOTTLENECK_LEGEND = Object.values(BOTTLENECK_PARTS).map(([symbol, meaning]) =>
+    [symbol, `score for ${meaning}: 0, 1 or 2`]);
+  HELP["bottleneck_identification.total_score"] = {
+    source: "Ours, judged",
+    tex: perInvocation("total_score",
+      String.raw`\bigl(\text{resource}_r + \text{region}_r + \text{cause}_r\bigr)`),
+    legend: [PER_INVOCATION, ...BOTTLENECK_LEGEND],
+    read: "From 0 to 6. Higher is better.",
+  };
+  HELP["bottleneck_identification.normalised_score"] = {
+    source: "Ours, judged",
+    tex: perInvocation("normalised_score",
+      String.raw`\frac{\text{resource}_r + \text{region}_r + \text{cause}_r}{3 \cdot 2}`),
+    legend: [PER_INVOCATION, ...BOTTLENECK_LEGEND],
+    read: "From 0 to 1. Higher is better.",
+  };
+
+  const COVERAGE_TERM = String.raw`\frac{\sum_{f \in F} w_f\, c_{r,f}}{\sum_{f \in F} w_f}`;
+  const COVERAGE_LEGEND = [
+    [String.raw`w_f`, "the weight of reference fact f, from the usecase manifest"],
+    [String.raw`c_{r,f}`, "1 if analysis r states fact f, 0.5 if partly, 0 if not, as the judge decided"],
+  ];
+  HELP["conditional_evidence_coverage.weighted_recall"] = {
+    source: "Ours, judged",
+    tex: perInvocation("weighted_recall", COVERAGE_TERM),
+    legend: [
+      PER_INVOCATION,
+      [String.raw`F`, "the reference facts whose source this preset still had switched on"],
+      ...COVERAGE_LEGEND,
+    ],
+    read: "Did the model use what it was given. Higher is better.",
+  };
+  HELP["global_evidence_coverage.weighted_recall"] = {
+    source: "Ours, judged",
+    tex: perInvocation("weighted_recall", COVERAGE_TERM),
+    legend: [
+      PER_INVOCATION,
+      [String.raw`F`, "every reference fact of the usecase, for every preset alike"],
+      ...COVERAGE_LEGEND,
+    ],
+    read: "What was lost by removing a source. Higher is better.",
+  };
+
+  const TRANSFER_TOTAL = [String.raw`\text{suggestions}_r`, "the suggestions of invocation r"];
+  HELP["analysis_to_suggestion_transfer.bottleneck_aligned_rate"] = {
+    source: "Ours, judged",
+    tex: perInvocation("bottleneck_aligned_rate",
+      String.raw`\frac{\text{aligned}_r}{\text{suggestions}_r}`),
+    legend: [PER_INVOCATION, TRANSFER_TOTAL,
+      [String.raw`\text{aligned}_r`, "suggestions that address the bottleneck the analysis named"]],
+    read: "Higher is better.",
+  };
+  HELP["analysis_to_suggestion_transfer.fully_constrained_suggestion_rate"] = {
+    source: "Ours, judged",
+    tex: perInvocation("fully_constrained_suggestion_rate",
+      String.raw`\frac{\text{preserving all}_r}{\text{suggestions}_r}`),
+    legend: [PER_INVOCATION, TRANSFER_TOTAL,
+      [String.raw`\text{preserving all}_r`,
+        "suggestions that keep every constraint the analysis stated; breaking one is enough to fail"]],
+    read: "Higher is better.",
+  };
+  HELP["analysis_to_suggestion_transfer.preserved_constraint_rate"] = {
+    source: "Ours, judged",
+    tex: perInvocation("preserved_constraint_rate",
+      String.raw`\frac{\text{preserved}_r}{\text{observations}_r}`),
+    legend: [PER_INVOCATION,
+      [String.raw`\text{observations}_r`, "pairs of a suggestion and a stated constraint the judge checked"],
+      [String.raw`\text{preserved}_r`, "those pairs where the suggestion kept the constraint"]],
+    read: "Higher is better.",
+  };
+
+  for (const [value, set, meaning, read] of [
+    ["differs_rate", String.raw`\text{differs}`,
+      "suggestions that ran but whose output differs from the original", "Lower is better."],
+    ["unverified_rate", String.raw`\text{unverified}`,
+      "suggestions that ran but whose output could not be compared", "Lower is better."],
+    ["failed_rate", String.raw`\neg\,\text{ran}`,
+      "suggestions that did not finish: an error or a timeout", "Lower is better."],
+  ]) {
+    HELP[`correctness_rates.${value}`] = {
+      source: "Ours",
+      tex: share(value, String.raw`\bigl|\{\, i : ${set}_i \,\}\bigr|`, "N"),
+      legend: [SUGGESTIONS, [String.raw`${set}_i`, meaning]],
+      note: "verified, differs, unverified and failed add up to 1.",
+      read,
+    };
+  }
+
+  HELP["execution_success.pre_repair_success_rate"] = {
+    source: "Ours",
+    tex: share("pre_repair_success_rate",
+      String.raw`\bigl|\{\, i : \text{ran}_i \wedge a_i \le 1 \,\}\bigr|`, "N"),
+    legend: [SUGGESTIONS, RAN, ATTEMPTS],
+    read: "Ran as the model first wrote it.",
+  };
+  HELP["execution_success.post_repair_success_rate"] = {
+    source: "Ours",
+    tex: share("post_repair_success_rate", String.raw`\bigl|\{\, i : \text{ran}_i \,\}\bigr|`, "N"),
+    legend: [SUGGESTIONS, RAN],
+    read: "Ran at all, after up to three repairs.",
+  };
+  HELP["execution_success.repair_uplift"] = {
+    source: "Ours",
+    tex: String.raw`\mathrm{repair\_uplift} = \mathrm{post\_repair\_success\_rate} - \mathrm{pre\_repair\_success\_rate}`,
+    legend: [[String.raw`\mathrm{post}, \mathrm{pre}`, "the two success rates beside it"]],
+    read: "How much the repair loop carried. A large uplift flatters the model.",
+  };
+
+  HELP["pass_at_k.pass_at_k"] = {
+    source: "Ours; ECCO reports pass@1 only",
+    tex: String.raw`\mathrm{pass@k} = \frac{1}{G}\sum_{g=1}^{G} \mathbb{1}\bigl[\exists\, i \in g : \text{correct}_i\bigr]`,
+    legend: [
+      [String.raw`G`, "generations with at least one verdict (generations)"],
+      [String.raw`i \in g`, "the suggestions of generation g; k is however many it returned"],
+      [String.raw`\text{correct}_i`, "suggestion i ran and is verified"],
+      SYMBOLS.indicator,
+    ],
+    read: "The share of responses with at least one correct option.",
+  };
+
+  const RANKED = [String.raw`C_g`,
+    "the correct suggestions of generation g with a measured speedup"];
+  HELP["rank_quality.first_is_fastest_rate"] = {
+    source: "Ours",
+    tex: String.raw`\mathrm{first\_is\_fastest\_rate} = \frac{1}{|G'|}\sum_{g \in G'}
+      \mathbb{1}\Bigl[\text{position}_{\arg\max_{i \in C_g} s_i} = 0\Bigr]`,
+    legend: [
+      [String.raw`G'`, "generations with at least one correct, timed suggestion"],
+      RANKED,
+      SYMBOLS.speedup,
+      [String.raw`\text{position}_i`, "where the model ranked suggestion i, 0 for its first"],
+      SYMBOLS.indicator,
+    ],
+    read: "Higher: the model's first option is its best one.",
+  };
+  HELP["rank_quality.mean_rank_correlation"] = {
+    source: "Ours",
+    tex: String.raw`\mathrm{mean\_rank\_correlation} = \frac{1}{|G''|}\sum_{g \in G''}
+      \rho\bigl(\,(\text{position}_i)_{i \in C_g},\; (-s_i)_{i \in C_g}\bigr)`,
+    legend: [
+      [String.raw`G''`, "generations with at least two correct, timed suggestions"],
+      RANKED,
+      [String.raw`\text{position}_i`, "where the model ranked suggestion i, 0 for its first"],
+      SYMBOLS.speedup,
+      [String.raw`\rho`, "Spearman rank correlation"],
+    ],
+    read: "From -1 to 1. 1: the proposed order is the measured order.",
+  };
+
+  HELP["repairs.attempts_per_suggestion"] = {
+    source: "Ours",
+    tex: String.raw`\mathrm{attempts\_per\_suggestion} = \frac{1}{N}\sum_{i=1}^{N} \max(a_i - 1,\, 0)`,
+    legend: [SUGGESTIONS, ATTEMPTS],
+    read: "Repairs per suggestion. Lower is better.",
+  };
+  HELP["repairs.repaired_share"] = {
+    source: "Ours",
+    tex: share("repaired_share", String.raw`\bigl|\{\, i : a_i > 1 \,\}\bigr|`, "N"),
+    legend: [SUGGESTIONS, ATTEMPTS],
+    read: "The share that needed the repair loop. Lower is better.",
+  };
+  HELP["repairs.repair_success_rate"] = {
+    source: "Ours",
+    tex: share("repair_success_rate",
+      String.raw`\bigl|\{\, i : a_i > 1 \wedge \text{ran}_i \,\}\bigr|`,
+      String.raw`\bigl|\{\, i : a_i > 1 \,\}\bigr|`),
+    legend: [ATTEMPTS, RAN],
+    read: "Of the repaired suggestions, the share that ran in the end.",
+  };
+  HELP["repairs.idea_change_rate"] = {
+    source: "Ours",
+    tex: share("idea_change_rate",
+      String.raw`\bigl|\{\, i \in P : \text{code}^{\text{before}}_i \ne \text{code}^{\text{after}}_i \,\}\bigr|`,
+      String.raw`|P|`),
+    legend: [
+      [String.raw`P`, "repaired suggestions whose code is recorded both before and after the repair"],
+      [String.raw`\text{code}^{\text{before}}_i`, "the code as the model wrote it, from the review record"],
+      [String.raw`\text{code}^{\text{after}}_i`, "the code after the repair loop, from the benchmark record"],
+      [String.raw`\ne`, "differ once formatting is normalised away"],
+    ],
+    note: "A lower bound on a changed idea: a rename counts as a change too.",
+    read: "How often the repair rewrote the suggestion rather than fixed it.",
+  };
+
+  const MODE_PAIRS = [String.raw`Q`,
+    "the pairs (generation, two replay modes) that scored the same stored suggestions"];
+  HELP["replay_mode_agreement.correctness_agreement"] = {
+    source: "Ours",
+    tex: String.raw`\mathrm{correctness\_agreement} = \frac{1}{|I|}\sum_{(q,\,i) \in I}
+      \mathbb{1}\bigl[\text{correctness}^{m}_i = \text{correctness}^{m'}_i\bigr]`,
+    legend: [
+      MODE_PAIRS,
+      [String.raw`I`, "the suggestions i both modes of pair q scored"],
+      [String.raw`m,\ m'`, "the two replay modes of pair q"],
+      [String.raw`\text{correctness}^{m}_i`, "verified, differs or unverified under mode m"],
+      SYMBOLS.indicator,
+    ],
+    read: "1: the modes agree on every suggestion.",
+  };
+  HELP["replay_mode_agreement.mean_speedup_dispersion"] = {
+    source: "Ours",
+    tex: String.raw`\mathrm{mean\_speedup\_dispersion} = \frac{1}{|I|}\sum_{(q,\,i) \in I}
+      \frac{\max\bigl(s^{m}_i,\, s^{m'}_i\bigr)}{\min\bigl(s^{m}_i,\, s^{m'}_i\bigr)}`,
+    legend: [
+      MODE_PAIRS,
+      [String.raw`I`, "the suggestions i with a positive speedup under both modes of pair q"],
+      [String.raw`s^{m}_i`, "the speedup of suggestion i measured under mode m"],
+    ],
+    read: "1: both modes measured the same speedup. Higher: they disagree.",
+  };
+  HELP["replay_mode_agreement.mean_rank_correlation"] = {
+    source: "Ours",
+    tex: String.raw`\mathrm{mean\_rank\_correlation} = \frac{1}{|Q|}\sum_{q \in Q}
+      \rho\bigl(\,(s^{m}_i)_{i},\; (s^{m'}_i)_{i}\bigr)`,
+    legend: [
+      MODE_PAIRS,
+      [String.raw`s^{m}_i`, "the speedup of suggestion i under mode m"],
+      [String.raw`\rho`, "Spearman rank correlation over the suggestions both modes scored"],
+    ],
+    read: "1: both modes order the suggestions alike.",
+  };
+  HELP["replay_mode_agreement.fallback_rate"] = {
+    source: "Ours",
+    tex: share("fallback_rate", String.raw`\bigl|\{\, b \in B : \text{degraded}_b \,\}\bigr|`, "|B|"),
+    legend: [
+      [String.raw`B`, "the benchmark records of the cell"],
+      [String.raw`\text{degraded}_b`, "the requested replay mode could not be served and fell back to the full replay"],
+    ],
+    read: "Lower is better: a fallback is another mode's result under this mode's name.",
+  };
+
+  const RETURNED = [String.raw`n_r`, "suggestions review r returned"];
+  const REQUESTED = [String.raw`k`, "suggestions requested per review"];
+  const REVIEWS = [String.raw`R`, "the reviews of the cell"];
+  HELP["requested_vs_returned.mean_returned"] = {
+    source: "Ours",
+    tex: String.raw`\mathrm{mean\_returned} = \frac{1}{R}\sum_{r=1}^{R} n_r`,
+    legend: [REVIEWS, RETURNED],
+    read: "Read before the per-suggestion rates: they rest on this many.",
+  };
+  HELP["requested_vs_returned.mean_shortfall"] = {
+    source: "Ours",
+    tex: String.raw`\mathrm{mean\_shortfall} = \frac{1}{R}\sum_{r=1}^{R} \max(k - n_r,\, 0)`,
+    legend: [REVIEWS, RETURNED, REQUESTED],
+    read: "Lower is better.",
+  };
+  HELP["requested_vs_returned.compliance_rate"] = {
+    source: "Ours",
+    tex: share("compliance_rate", String.raw`\bigl|\{\, r : n_r \ge k \,\}\bigr|`, "R"),
+    legend: [REVIEWS, RETURNED, REQUESTED],
+    read: "The share of reviews that returned as many options as asked.",
+  };
+
+  HELP["resource_effect_agreement.agreement_rate"] = {
+    source: "Ours, judged and measured",
+    tex: perInvocation("agreement_rate",
+      String.raw`\frac{\bigl|\{\, p \in P_r : d^{\text{measured}}_p = d^{\text{predicted}}_p \,\}\bigr|}{|P_r|}`),
+    legend: [
+      PER_INVOCATION,
+      [String.raw`P_r`, "the judge's predictions for invocation r that could be checked against a measurement"],
+      [String.raw`d^{\text{predicted}}_p`, "the direction the suggestion's description implies for a resource: up, down or none"],
+      [String.raw`d^{\text{measured}}_p`,
+        "the measured direction: the relative change (v - b) / |b| of the resource's mean, " +
+        "none within ±10%"],
+      [String.raw`b,\ v`, "the resource's mean under the original cell and under the suggestion"],
+    ],
+    read: "Low: suggestions that worked did not work the way they said.",
+  };
+
+  const LABELS = [String.raw`L_r`, "the technique labels the judge gave the suggestions of invocation r, case and spacing ignored"];
+  const LABELLED = [String.raw`n_r`, "the suggestions of invocation r"];
+  HELP["suggestion_diversity.distinct_technique_rate"] = {
+    source: "Ours, judged",
+    tex: perInvocation("distinct_technique_rate", String.raw`\frac{|\,\mathrm{set}(L_r)\,|}{n_r}`),
+    legend: [PER_INVOCATION, LABELS, LABELLED,
+      [String.raw`\mathrm{set}(L_r)`, "the distinct labels"]],
+    read: "1: every option is a different idea.",
+  };
+  HELP["suggestion_diversity.duplicate_rate"] = {
+    source: "Ours, judged",
+    tex: perInvocation("duplicate_rate", String.raw`\frac{n_r - |\,\mathrm{set}(L_r)\,|}{n_r}`),
+    legend: [PER_INVOCATION, LABELS, LABELLED,
+      [String.raw`\mathrm{set}(L_r)`, "the distinct labels"]],
+    read: "Lower is better: the same idea rephrased.",
+  };
+
+  for (const [value, term, meaning, scope] of [
+    ["mean_review_latency_s", String.raw`\text{latency}_r`,
+      "seconds the model calls of review r took", REVIEWS],
+    ["mean_input_tokens", String.raw`\textstyle\sum_{c \in r} \text{input}_c`,
+      "input tokens over the model calls c of review r", REVIEWS],
+    ["mean_output_tokens", String.raw`\textstyle\sum_{c \in r} \text{output}_c`,
+      "output tokens over the model calls c of review r", REVIEWS],
+    ["mean_total_tokens", String.raw`\text{tokens}_r`,
+      "all tokens of review r", REVIEWS],
+    ["mean_benchmark_wall_s", String.raw`\text{wall}_g`,
+      "seconds the benchmark of generation g took", GENERATIONS],
+    ["mean_repair_calls", String.raw`\text{fix calls}_g`,
+      "model calls the repair loop made in generation g", GENERATIONS],
+  ]) {
+    const over = scope === REVIEWS ? "r=1}^{R" : "g=1}^{G";
+    const count = scope === REVIEWS ? "R" : "G";
+    HELP[`end_to_end_cost.${value}`] = {
+      source: "Ours",
+      tex: String.raw`\mathrm{${value.replaceAll("_", "\\_")}} = \frac{1}{${count}}\sum_{${over}} ${term}`,
+      legend: [scope, [term, meaning]],
+      note: value.includes("tokens") ? "Empty when the model endpoint reports no usage." : null,
+      read: "Lower is cheaper. Read next to quality: removing a source removes tokens with it.",
+    };
+  }
+
   // -- popup --------------------------------------------------------------
 
   const popup = document.createElement("div");
