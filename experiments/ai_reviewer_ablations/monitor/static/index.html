@@ -64,15 +64,10 @@
   </section>
 
   <section class="panel" id="panel-results">
-    <h2>Where the results are</h2>
-    <div id="where"></div>
-
     <h2>Compare runs</h2>
     <p class="note">
-      Runs are pooled only when they asked the same question - the same
-      presets, defined the same way, under the same protocol. Ones that
-      differ are shown side by side and said to differ, because a number
-      averaged over two definitions is not a number about either.
+      Runs can be pooled only when they use the same presets, defined the
+      same way, under the same protocol.
     </p>
     <div class="toolbar">
       <select id="compare-runs" multiple size="4"></select>
@@ -81,31 +76,39 @@
     <div id="comparison"></div>
 
     <h2>Metrics</h2>
-    <p class="note">
-      A value is marked when the interval of its difference from the
-      baseline stays clear of zero. The point estimate alone says nothing
-      about whether two conditions differ.
-    </p>
-    <p class="note">
-      <b>usecases</b> picks what the table is about, across every run that
-      measured them. <b>combine</b> puts presets or usecases in the columns,
-      or averages the usecases into one column set.
-    </p>
-    <p class="note">
-      Averaging gives each usecase weight one, geometrically for a speedup
-      because it is a ratio. Hover a combined value for what each usecase
-      said; an interval appears from three usecases on and measures how much
-      they disagree.
-    </p>
-    <p class="note">
-      <b>results</b> shows each metric's own answer, <b>+inputs</b> adds the
-      quantities it was computed from, <b>all</b> adds what nothing measured.
-      Every menu takes several values, and an empty menu is not filtering.
-    </p>
+    <details class="metrics-help">
+      <summary>How to read the table</summary>
+      <p class="note">
+        <b>marked</b> values differ from the baseline: the 95% bootstrap
+        interval of preset minus baseline, over the same resampled
+        generations for both, lies wholly above or wholly below zero.
+      </p>
+      <p class="note">
+        <b>usecases</b> picks the usecases the table covers, across every
+        run that measured them.
+      </p>
+      <p class="note">
+        <b>combine</b> chooses the columns: presets, usecases, or one
+        averaged set.
+      </p>
+      <p class="note">
+        <b>averaged</b> weighs each usecase equally, geometrically for
+        speedups. Hover a value for each usecase's number; from three
+        usecases on, its interval shows how much they disagree.
+      </p>
+      <p class="note">
+        <b>results</b> shows each metric's own answer, <b>+inputs</b> adds the
+        quantities it was computed from, <b>all</b> adds what nothing measured.
+        Every menu takes several values, and an empty menu is not filtering.
+      </p>
+    </details>
     <div id="summary"></div>
 
     <h2>Judging</h2>
     <div id="judge"></div>
+
+    <h2>Where the results are</h2>
+    <div id="where"></div>
   </section>
 </main>
 

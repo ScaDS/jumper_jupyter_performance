@@ -298,6 +298,17 @@ tr.gap td { color: var(--muted); }
 }
 .usecase-picker > summary { font-weight: 600; }
 
+/* How to read the metric table: folded by default, it is read once. */
+.metrics-help { margin: 0 0 10px; }
+.metrics-help > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.metrics-help > summary:hover { color: var(--ink); }
+.metrics-help .note { margin-bottom: 8px; }
+
 /* -- metric table ------------------------------------------------------- */
 
 .reference-original { --reference: var(--reference-original); --reference-soft: var(--reference-original-soft); }
