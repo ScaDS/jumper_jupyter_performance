@@ -1053,6 +1053,19 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "r" && !event.metaKey && !event.ctrlKey) update();
 });
 
+// One filter menu open at a time: a click anywhere outside an open menu,
+// another menu's button included, closes it. A click inside, on one of its
+// checkboxes, leaves it open.
+function closeMenusOutside(target) {
+  for (const menu of document.querySelectorAll("details.picker[open]")) {
+    if (!menu.contains(target)) menu.open = false;
+  }
+}
+document.addEventListener("click", (event) => closeMenusOutside(event.target));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeMenusOutside(null);
+});
+
 restoreFilters();
 restoreMetricView();
 update();
