@@ -18,21 +18,38 @@ def references_of(context, kind: str) -> References | None:
     return verification.references
 
 
-def verified_suggestions(context) -> list[Measurement]:
-    """Every verified suggestion of the cell's reviews, in review order."""
+def verified_reviews(context) -> list[list[Measurement]]:
+    """The cell's reviews, each as its own list of verified suggestions.
+
+    Grouped rather than pooled, because "the best option this generation
+    produced" is a different question from "a typical option": a user picks
+    one suggestion out of one response, and pooling the cell's reviews first
+    would let the best generation stand in for all of them.
+    """
     verification = context.verification
     if verification is None:
         return []
-    measurements = []
+    reviews = []
     for record in context.reviews():
         review = verification.reviews.get(record.identity.reviewer_run_id)
         if review is None:
             continue
-        measurements.extend(
-            review.suggestions[label]
-            for label in sorted(review.suggestions, key=int)
+        reviews.append(
+            [
+                review.suggestions[label]
+                for label in sorted(review.suggestions, key=int)
+            ]
         )
-    return measurements
+    return reviews
+
+
+def verified_suggestions(context) -> list[Measurement]:
+    """Every verified suggestion of the cell's reviews, in review order."""
+    return [
+        measurement
+        for review in verified_reviews(context)
+        for measurement in review
+    ]
 
 
 def correct_suggestions(context) -> list[Measurement]:

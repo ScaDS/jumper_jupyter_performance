@@ -191,56 +191,144 @@ const metricHelp = (() => {
     read: "> 1: the suggestion needs less memory than the original cell.",
   };
 
+  const REFERENCE_SPEEDUP = String.raw`\frac{T(\text{ECCO fast human})}{T(\text{suggestion}_i)}`;
+
+  HELP["reference_speedup.best_reference_speedup"] = {
+    source: "Ours; neither paper reports it",
+    tex: String.raw`\mathrm{best\_reference\_speedup} =
+      \max_{i \in C} ${REFERENCE_SPEEDUP}`,
+    legend: [
+      SYMBOLS.runtime, SYMBOLS.humanFast, SYMBOLS.suggestion, SYMBOLS.correct,
+      [String.raw`\max_{i \in C}`,
+        "over every correct suggestion of the cell - every generation and " +
+        "every repetition of this code pair, not averaged"],
+    ],
+    read: "> 1: the best rewrite this preset was ever seen to produce beat the " +
+      "human's. An extremum, so it grows with the number of draws: do not " +
+      "compare presets drawn a different number of times.",
+  };
+
   HELP["reference_speedup.geometric_mean_reference_speedup"] = {
     source: "Ours; neither paper reports it",
     tex: String.raw`\mathrm{geometric\_mean\_reference\_speedup} =
-      ${AGGREGATES.geometric("C", "|C|",
-        String.raw`\frac{T(\text{ECCO fast human})}{T(\text{suggestion}_i)}`)}`,
+      ${AGGREGATES.geometric("C", "|C|", REFERENCE_SPEEDUP)}`,
     legend: [SYMBOLS.runtime, SYMBOLS.humanFast, SYMBOLS.suggestion,
       SYMBOLS.correct, SYMBOLS.correctCount],
     read: "> 1: faster than the human solution; < 1: slower.",
   };
 
+  const REFERENCE_MEMORY = String.raw`\frac{M(\text{ECCO fast human})}{M(\text{suggestion}_i)}`;
+
+  HELP["reference_memory_reduction.best_reference_memory_reduction"] = {
+    source: "Ours; neither paper reports it",
+    tex: String.raw`\mathrm{best\_reference\_memory\_reduction} =
+      \max_{i \in C} ${REFERENCE_MEMORY}`,
+    legend: [
+      SYMBOLS.memory, SYMBOLS.humanFast, SYMBOLS.suggestion, SYMBOLS.correct,
+      [String.raw`\max_{i \in C}`,
+        "over every correct suggestion of the cell - every generation and " +
+        "every repetition of this code pair, not averaged"],
+    ],
+    read: "> 1: the leanest rewrite this preset was ever seen to produce needs " +
+      "less memory than the human's. An extremum, so it grows with the number " +
+      "of draws: do not compare presets drawn a different number of times.",
+  };
+
   HELP["reference_memory_reduction.geometric_mean_reference_memory_reduction"] = {
     source: "Ours; neither paper reports it",
     tex: String.raw`\mathrm{geometric\_mean\_reference\_memory\_reduction} =
-      ${AGGREGATES.geometric("C", "|C|",
-        String.raw`\frac{M(\text{ECCO fast human})}{M(\text{suggestion}_i)}`)}`,
+      ${AGGREGATES.geometric("C", "|C|", REFERENCE_MEMORY)}`,
     legend: [SYMBOLS.memory, SYMBOLS.humanFast, SYMBOLS.suggestion,
       SYMBOLS.correct, SYMBOLS.correctCount],
     read: "> 1: needs less memory than the human solution.",
   };
 
+  // Both runtime percentiles reduce a generation to its best correct
+  // suggestion first - a user takes one option out of one response - and
+  // differ only in what happens to those per-generation bests.
+  const RUNTIME_PERCENTILE = String.raw`100 \cdot
+    \frac{\bigl|\{\, s \in S : T(s) > T(\text{generated}_i) \,\}\bigr|}{|S|}`;
+  const RUNTIME_PERCENTILE_LEGEND = [
+    [String.raw`S`, "the CodeNet submissions of the problem; ours: re-run on our inputs. " +
+      "Only submissions that ran correctly; a timeout counts as T = ∞"],
+    [String.raw`s`, "one submission"],
+    SYMBOLS.runtime, SYMBOLS.generated,
+    [String.raw`T(s) > T(\text{generated}_i)`, "the submission is slower than the suggestion"],
+    SYMBOLS.generation,
+    [String.raw`i \in g \cap C`, "the correct suggestions of generation g"],
+    SYMBOLS.correct,
+    [String.raw`100\,\cdot`, "the share as a percentage"],
+  ];
+
   HELP["runtime_percentile.mean_runtime_percentile"] = {
     source: "ECCO: Runtime %",
-    tex: String.raw`\mathrm{mean\_runtime\_percentile} = \frac{1}{|C|}\sum_{i \in C} 100 \cdot
-      \frac{\bigl|\{\, s \in S : T(s) > T(\text{generated}_i) \,\}\bigr|}{|S|}`,
+    tex: String.raw`\mathrm{mean\_runtime\_percentile} =
+      \frac{1}{G_C}\sum_{g=1}^{G_C} \max_{i \in g \cap C} ${RUNTIME_PERCENTILE}`,
     legend: [
-      [String.raw`S`, "the CodeNet submissions of the problem; ours: re-run on our inputs. " +
-        "Only submissions that ran correctly; a timeout counts as T = ∞"],
-      [String.raw`s`, "one submission"],
-      SYMBOLS.runtime, SYMBOLS.generated,
-      [String.raw`T(s) > T(\text{generated}_i)`, "the submission is slower than the suggestion"],
-      SYMBOLS.correct,
-      [String.raw`100\,\cdot`, "the share as a percentage"],
+      ...RUNTIME_PERCENTILE_LEGEND,
+      [String.raw`G_C`, "generations with at least one correct suggestion; " +
+        "one with none is left out, not counted as 0%"],
     ],
-    read: "The percentage of people whose solution is slower. Higher is better.",
+    read: "The percentage of people whose solution is slower than the option a " +
+      "user would pick, typically. Higher is better.",
   };
+
+  HELP["runtime_percentile.best_runtime_percentile"] = {
+    source: "Ours; ECCO reports the mean only",
+    tex: String.raw`\mathrm{best\_runtime\_percentile} =
+      \max_{g=1..G_C} \;\max_{i \in g \cap C} ${RUNTIME_PERCENTILE}
+      \;=\; \max_{i \in C} ${RUNTIME_PERCENTILE}`,
+    legend: [
+      ...RUNTIME_PERCENTILE_LEGEND,
+      [String.raw`G_C`, "generations with at least one correct suggestion"],
+      [String.raw`\max`, "not averaged with anything: the single best result in the cell"],
+    ],
+    read: "The best this preset was ever seen to do. An extremum, so it grows " +
+      "with the number of generations: do not compare presets drawn a " +
+      "different number of times.",
+  };
+
+  // Memory % splits exactly as Runtime % does, over the same grain.
+  const MEMORY_PERCENTILE = String.raw`100 \cdot
+    \frac{\bigl|\{\, s \in S : M(s) > M(\text{generated}_i) \,\}\bigr|}{|S|}`;
+  const MEMORY_PERCENTILE_LEGEND = [
+    [String.raw`S`, "the CodeNet submissions of the problem, re-run on our inputs. " +
+      "Only submissions that ran correctly; a timeout reported no peak and is left out"],
+    [String.raw`s`, "one submission"],
+    SYMBOLS.memory, SYMBOLS.generated,
+    [String.raw`M(s) > M(\text{generated}_i)`, "the submission needs more memory than the suggestion"],
+    SYMBOLS.generation,
+    [String.raw`i \in g \cap C`, "the correct suggestions of generation g"],
+    SYMBOLS.correct,
+    [String.raw`100\,\cdot`, "the share as a percentage"],
+  ];
 
   HELP["memory_percentile.mean_memory_percentile"] = {
     source: "ECCO: Memory %",
-    tex: String.raw`\mathrm{mean\_memory\_percentile} = \frac{1}{|C|}\sum_{i \in C} 100 \cdot
-      \frac{\bigl|\{\, s \in S : M(s) > M(\text{generated}_i) \,\}\bigr|}{|S|}`,
+    tex: String.raw`\mathrm{mean\_memory\_percentile} =
+      \frac{1}{G_C}\sum_{g=1}^{G_C} \max_{i \in g \cap C} ${MEMORY_PERCENTILE}`,
     legend: [
-      [String.raw`S`, "the CodeNet submissions of the problem, re-run on our inputs. " +
-        "Only submissions that ran correctly; a timeout reported no peak and is left out"],
-      [String.raw`s`, "one submission"],
-      SYMBOLS.memory, SYMBOLS.generated,
-      [String.raw`M(s) > M(\text{generated}_i)`, "the submission needs more memory than the suggestion"],
-      SYMBOLS.correct,
-      [String.raw`100\,\cdot`, "the share as a percentage"],
+      ...MEMORY_PERCENTILE_LEGEND,
+      [String.raw`G_C`, "generations with at least one correct suggestion; " +
+        "one with none is left out, not counted as 0%"],
     ],
-    read: "The percentage of people whose solution needs more memory. Higher is better.",
+    read: "The percentage of people whose solution needs more memory than the " +
+      "option a user would pick, typically. Higher is better.",
+  };
+
+  HELP["memory_percentile.best_memory_percentile"] = {
+    source: "Ours; ECCO reports the mean only",
+    tex: String.raw`\mathrm{best\_memory\_percentile} =
+      \max_{g=1..G_C} \;\max_{i \in g \cap C} ${MEMORY_PERCENTILE}
+      \;=\; \max_{i \in C} ${MEMORY_PERCENTILE}`,
+    legend: [
+      ...MEMORY_PERCENTILE_LEGEND,
+      [String.raw`G_C`, "generations with at least one correct suggestion"],
+      [String.raw`\max`, "not averaged with anything: the single best result in the cell"],
+    ],
+    read: "The best this preset was ever seen to do. An extremum, so it grows " +
+      "with the number of generations: do not compare presets drawn a " +
+      "different number of times.",
   };
 
   HELP["pass_at_k.pass_at_1"] = {

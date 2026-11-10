@@ -5,6 +5,19 @@ a person submitted, below 1 it fell short of it. ECCO itself only reports the
 speedup over the slow input; this is the comparison its pairs make possible.
 Both sides are timed by cli.verify in one fresh process each, over the same
 scaled inputs.
+
+Two numbers:
+
+``geometric_mean_reference_speedup`` - **Speedup vs human** - over every
+correct suggestion of the cell, which is what a typical accepted rewrite is
+worth against the person's.
+
+``best_reference_speedup`` - **Best speedup vs human** - the single fastest
+correct suggestion of the whole cell, across every generation and repetition:
+the best this preset was ever seen to do on this code pair. An extremum, so it
+rises with the number of draws and cannot be compared between presets drawn a
+different number of times; `coverage` and `correct_suggestions` say how many
+draws stand behind it.
 """
 
 from __future__ import annotations
@@ -31,20 +44,26 @@ class ReferenceSpeedup(DeterministicMetric):
         display_name="Speedup over Human Fast Solution",
         value_names={
             "geometric_mean_reference_speedup": "Speedup vs human",
+            "best_reference_speedup": "Best speedup vs human",
         },
         category=CATEGORY_SUGGESTIONS,
         evaluation_method=METHOD_DETERMINISTIC,
         scope=SCOPE_CELL,
         reported_values=(
             "geometric_mean_reference_speedup",
+            "best_reference_speedup",
             "correct_suggestions",
         ),
         description=(
-            "T(human fast) / T(suggestion), geometric mean over correct "
-            "suggestions; above 1 beats the ECCO fast solution."
+            "T(human fast) / T(suggestion); above 1 beats the ECCO fast "
+            "solution. Geometric mean over correct suggestions, and the "
+            "fastest correct suggestion of the whole cell."
         ),
         supporting_values=("correct_suggestions",),
-        ratio_values=("geometric_mean_reference_speedup",),
+        ratio_values=(
+            "geometric_mean_reference_speedup",
+            "best_reference_speedup",
+        ),
     )
 
     def compute(self, context, parameters: dict) -> dict:
@@ -52,14 +71,21 @@ class ReferenceSpeedup(DeterministicMetric):
         if references is None:
             return {
                 "geometric_mean_reference_speedup": None,
+                "best_reference_speedup": None,
                 "correct_suggestions": 0,
             }
         human = references.entries.get(HUMAN_FAST)
         baseline = human.time_s if human and human.ok else None
         correct = correct_suggestions(context)
-        return {
-            "geometric_mean_reference_speedup": geometric_mean(
+        speedups = [
+            value
+            for value in (
                 ratio(baseline, measurement.time_s) for measurement in correct
-            ),
+            )
+            if value is not None
+        ]
+        return {
+            "geometric_mean_reference_speedup": geometric_mean(speedups),
+            "best_reference_speedup": max(speedups) if speedups else None,
             "correct_suggestions": len(correct),
         }
