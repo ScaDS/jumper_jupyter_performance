@@ -136,6 +136,17 @@ def build_ai_review_parser() -> argparse.ArgumentParser:
             "once and reuse it. A mode that cannot serve this cell falls back to full"
         ),
     )
+    parser.add_argument(
+        "--result-names",
+        default=None,
+        metavar="NAMES",
+        help=(
+            "Comma-separated top-level names holding the cell's result (e.g. "
+            "answers). Correctness is then decided by these alone, and a "
+            "suggestion that stops binding them is reported as failed rather "
+            "than timed. Default: every binding of the original cell"
+        ),
+    )
     _CHECK_NAMES = ("validate_syntax", "run")
     parser.add_argument(
         "--check",

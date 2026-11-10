@@ -65,10 +65,17 @@ class BenchmarkOrchestrator:
         adapter: LanguageAdapter | None = None,
         checks: CheckPlan | None = None,
         cross_check: bool = True,
+        result_names: tuple[str, ...] | list[str] | None = None,
     ):
         self.runner = runner
         self.fix_fn = fix_fn
         self.cross_check = cross_check
+        # Which bindings carry the cell's result. Declared, because nothing
+        # here can tell a cell's output from its bookkeeping: with the names
+        # known, the verdict rests on them and a constant that moved inside a
+        # function stops mattering; without them every binding counts, which
+        # is the old behaviour and the only safe default.
+        self.result_names = tuple(result_names or ())
         # Defaults to Python so direct constructors (and tests) keep working;
         # build_orchestrator passes the target cell's actual adapter.
         self.adapter = adapter or get_adapter("python")
@@ -185,6 +192,7 @@ class BenchmarkOrchestrator:
             correctness=fingerprint.MATCH,
         )
         prints = baseline_runs[-1].fingerprints
+        self._check_declared_results(prints)
         self._compare_with_reference(reference, duration, prints)
         timeout = self._timeout_from(baseline_runs, duration)
 
@@ -238,9 +246,14 @@ class BenchmarkOrchestrator:
             self.runner.fall_back(reason)
             raise StrategyChanged(reason)
 
-        verdict, differing = fingerprint.compare_all(reference.fingerprints, prints)
-        if verdict == fingerprint.DIFFERS:
-            names = ", ".join(differing) or "unnamed values"
+        verdict, differing, missing = fingerprint.compare_all(
+            reference.fingerprints, prints
+        )
+        if differing or missing:
+            # The same code ran both ways. Values that differ mean the mode
+            # rebuilt the wrong state; names that are absent under one mode and
+            # not the other mean the same thing, and are no more acceptable.
+            names = ", ".join(differing + missing) or "unnamed values"
             reason = (
                 f"its baseline computed something else than the full replay did ({names})"
             )
@@ -365,6 +378,15 @@ class BenchmarkOrchestrator:
         )
         outstanding = len(pending) + len(repairing)
         if isinstance(outcome, list):
+            lost = self._lost_results(baseline_prints, outcome[-1].fingerprints)
+            if lost:
+                # It ran, and it produced none of what the cell is for. This is
+                # not a slow or a wrong measurement, it is no measurement: the
+                # timed region did not do the work, so its duration is not a
+                # speedup of anything and must not be settled as one.
+                candidate.error = fingerprint.describe_missing_results(lost)
+                self._reject(results, candidate, position, pool, repairing)
+                return
             verdict = self._verdict(candidate, outcome, baseline_duration, baseline_prints)
             candidate.last_verdict = verdict
             candidate.last_code = candidate.code
@@ -479,6 +501,60 @@ class BenchmarkOrchestrator:
             return f"option {candidate.label}"
         return f"option {position}/{self.progress.total_variants}"
 
+    def _compared_scope(self, baseline_prints: dict, prints: dict) -> tuple[dict, dict]:
+        """The bindings this verdict rests on.
+
+        With result names declared, only those. Everything else a cell happens
+        to bind is bookkeeping - a modulus, a bound, a counter - and a rewrite
+        is free to move it inside a function; that is what deleting the class
+        which read it looks like. Letting such a name decide turns a correct
+        rewrite into an unverified one, which is a worse error than ignoring it:
+        the result itself is still compared, and it is the only thing a user
+        cares about. Undeclared, nothing can tell output from bookkeeping, so
+        every binding counts.
+        """
+        if not self.result_names:
+            return baseline_prints, prints
+        declared = set(self.result_names)
+        return (
+            {
+                name: value
+                for name, value in baseline_prints.items()
+                if name in declared
+            },
+            {name: value for name, value in prints.items() if name in declared},
+        )
+
+    def _lost_results(self, baseline_prints: dict, prints: dict) -> list[str]:
+        """Declared result names the baseline bound and this variant did not.
+
+        Limited to what the baseline actually produced, so a name declared for
+        a cell that never binds it cannot condemn every rewrite of it.
+        """
+        return [
+            name
+            for name in self.result_names
+            if name in baseline_prints and name not in prints
+        ]
+
+    def _check_declared_results(self, baseline_prints: dict) -> None:
+        """Say so when a declared result name is not in the baseline at all.
+
+        Silence here would be the worst outcome: the verdict would quietly rest
+        on nothing, and every variant would read as unverified for a reason
+        nobody could see.
+        """
+        absent = [
+            name for name in self.result_names if name not in baseline_prints
+        ]
+        if absent:
+            logger.warning(
+                "[JUmPER]: the benchmark was told the cell's result is "
+                f"{', '.join(absent)}, but the cell under review binds no such "
+                "name at its top level. Correctness will rest on whatever else "
+                "it binds, as if no result name had been named."
+            )
+
     def _syntax_ok(self, candidate: _Candidate) -> bool:
         if not self.checks.validate_syntax.active:
             return True
@@ -514,8 +590,11 @@ class BenchmarkOrchestrator:
         baseline_prints: dict,
     ) -> BenchmarkResult:
         duration, metrics = median_of(outcomes)
-        correctness, differing = fingerprint.compare_all(
+        baseline_scope, variant_scope = self._compared_scope(
             baseline_prints, outcomes[-1].fingerprints
+        )
+        correctness, differing, missing = fingerprint.compare_all(
+            baseline_scope, variant_scope
         )
         return BenchmarkResult(
             label=candidate.label,
@@ -526,6 +605,7 @@ class BenchmarkOrchestrator:
             speedup=round(baseline_duration / duration, 2) if duration else None,
             correctness=correctness,
             differing_names=differing,
+            missing_names=missing,
         )
 
 
@@ -572,6 +652,8 @@ def _summarize(verdict: BenchmarkResult) -> str:
         )
     if verdict.correctness == fingerprint.DIFFERS:
         parts.append("but results differ")
+    elif verdict.missing_names:
+        parts.append(f"no longer binds {', '.join(verdict.missing_names)}")
     elif verdict.correctness == fingerprint.UNVERIFIED:
         parts.append("results unverified")
     if verdict.attempts > 1:

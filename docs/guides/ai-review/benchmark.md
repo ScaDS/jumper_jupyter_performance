@@ -32,7 +32,17 @@ card reports a verdict instead of a promise.
 3. **Compares results.** The values the cell binds at top level are reduced to
    statistical signatures (shape, dtype, mean, std, min, max) and checked
    against the original's. Exact equality is not required — reordering a sum is
-   what vectorizing *does*.
+   what vectorizing *does*. A value with no signature — a list, a dict, an
+   object — carries no signal, and a cell whose result is one of those is
+   verified by whatever else it binds.
+
+   By default every binding counts, because nothing here can tell the cell's
+   result from its bookkeeping. Name the result with `--result-names` and only
+   those bindings decide: a rewrite is then free to move a constant inside the
+   function that uses it — which is what deleting the code that read it looks
+   like — without its results reading as uncomparable, and one that defines a
+   faster function but never calls it is repaired and reported as failed
+   instead of being timed as an empty cell.
 4. **Repairs what breaks.** An option that raises, or is killed for running far
    past the original's time, goes back to the model with the error, up to
    `fix_attempts` times. Repaired code replaces the option, so applying it
@@ -54,6 +64,7 @@ card reports a verdict instead of a promise.
 | `3.4x faster` / `1.2x slower` | Median duration against the original's, both shown next to it. |
 | `results differ from the original (…) - the speedup is unearned` | It got fast by computing something else. Named bindings say which. |
 | `results could not be compared` | It ran, but nothing comparable could be captured — treat the speedup as unverified. |
+| `it no longer binds X, so its results could not be compared` | Same verdict, with the reason: the rewrite stopped producing something the original produced. If `X` is the cell's result, the speedup is meaningless; if it is a constant that moved into a function, say so with `--result-names`. |
 | `repaired after N failed attempt(s)` | The measured code is not the code first proposed. Read the diff. |
 | `Failed after N attempt(s)` | Still broken after every repair round; the last error is shown. |
 | `Syntax valid` / `not timed` | The timed run was off — the option parses, nothing more. |
@@ -75,6 +86,7 @@ an estimate of what is left.
 | `--fix-attempts N` | `ai.benchmark.fix_attempts` | 3 |
 | `--replay-mode MODE` | `ai.benchmark.replay.mode` | `full` — see [Replay modes](replay-modes.md) |
 | `--check` / `--skip-check` | `ai.benchmark.checks` | all steps on |
+| `--result-names a,b` | `ai.benchmark.result_names` | empty — every binding is compared |
 | — | `ai.benchmark.interval` | 0.05 s sampling, finer than the live monitor's |
 | — | `ai.benchmark.timeout_factor` | 10 — an option is killed past this multiple of the original's time |
 

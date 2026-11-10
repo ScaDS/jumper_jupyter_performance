@@ -54,7 +54,7 @@ def test_compare_all_reports_which_names_diverged():
     baseline = {"y": fp.fingerprint(10.0), "z": fp.fingerprint(1.0)}
     variant = {"y": fp.fingerprint(99.0), "z": fp.fingerprint(1.0)}
 
-    assert fp.compare_all(baseline, variant) == (fp.DIFFERS, ["y"])
+    assert fp.compare_all(baseline, variant) == (fp.DIFFERS, ["y"], [])
 
 
 def test_divergence_report_names_the_dtype_that_changed_the_answer():
@@ -65,7 +65,7 @@ def test_divergence_report_names_the_dtype_that_changed_the_answer():
 
     baseline = {"result": fp.fingerprint(original)}
     variant = {"result": fp.fingerprint(wrong)}
-    verdict, names = fp.compare_all(baseline, variant)
+    verdict, names, _missing = fp.compare_all(baseline, variant)
 
     report = fp.describe_divergence(baseline, variant, names)
 
@@ -84,10 +84,48 @@ def test_divergence_report_says_when_a_value_was_not_produced_at_all():
 def test_compare_all_is_unverified_when_a_name_is_missing():
     baseline = {"y": fp.fingerprint(10.0)}
 
-    verdict, differing = fp.compare_all(baseline, {})
+    verdict, differing, missing = fp.compare_all(baseline, {})
 
     assert verdict == fp.UNVERIFIED
     assert differing == []
+    assert missing == ["y"]
+
+
+def test_a_name_the_variant_dropped_is_missing_not_merely_unverified():
+    # The case that cost the ECCO pilot nineteen correct suggestions: the
+    # rewrite deleted the class that read MOD as a global and moved the
+    # constant inside the function that now uses it. The checksum - the
+    # cell's one summarisable output - still matched. Reporting that as "could
+    # not be compared" loses the one fact a reader needs: which binding went,
+    # and whether it was the result.
+    baseline = {
+        "MOD": fp.fingerprint(998244353),
+        "checksum": fp.fingerprint(7.0),
+    }
+    variant = {"checksum": fp.fingerprint(7.0)}
+
+    verdict, differing, missing = fp.compare_all(baseline, variant)
+
+    assert verdict == fp.UNVERIFIED  # still conservative: it dropped something
+    assert differing == []
+    assert missing == ["MOD"]
+
+
+def test_a_variant_that_kept_only_a_constant_is_never_a_match():
+    # The other half of the same case, and the reason a missing name may not
+    # simply be ignored: this cell defined a faster function, never called it,
+    # and kept the modulus. Its results are not comparable and its speedup is
+    # whatever dividing by three microseconds gives.
+    baseline = {
+        "MOD": fp.fingerprint(998244353),
+        "checksum": fp.fingerprint(7.0),
+    }
+    variant = {"MOD": fp.fingerprint(998244353)}
+
+    verdict, differing, missing = fp.compare_all(baseline, variant)
+
+    assert verdict == fp.UNVERIFIED
+    assert missing == ["checksum"]
 
 
 def test_compare_all_ignores_unsummarisable_baseline_names():
@@ -96,8 +134,24 @@ def test_compare_all_ignores_unsummarisable_baseline_names():
     baseline = {"f": None, "D": fp.fingerprint(10.0)}
     variant = {"D": fp.fingerprint(10.0)}
 
-    assert fp.compare_all(baseline, variant) == (fp.MATCH, [])
+    assert fp.compare_all(baseline, variant) == (fp.MATCH, [], [])
 
 
 def test_compare_all_is_unverified_when_nothing_is_summarisable():
-    assert fp.compare_all({"f": None, "g": None}, {}) == (fp.UNVERIFIED, [])
+    assert fp.compare_all({"f": None, "g": None}, {}) == (fp.UNVERIFIED, [], [])
+
+
+def test_a_list_has_no_signature_so_the_cell_needs_another_output():
+    # Why the ECCO payload cells bind a checksum next to their answers: the
+    # list itself carries no signal, and a name with no baseline signature is
+    # skipped rather than dragging the verdict down.
+    assert fp.fingerprint(["12", "34"]) is None
+    assert fp.compare_all({"answers": None}, {"answers": None}) == (fp.UNVERIFIED, [], [])
+
+
+def test_describe_missing_results_tells_the_model_to_call_its_function():
+    report = fp.describe_missing_results(["answers"])
+
+    assert "answers" in report
+    assert "no longer produces the result" in report
+    assert "has to be called" in report

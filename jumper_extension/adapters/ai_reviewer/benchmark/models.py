@@ -40,6 +40,10 @@ class BenchmarkResult:
     speedup: float | None = None
     correctness: str = ""
     differing_names: list[str] = dataclasses.field(default_factory=list)
+    # Names the original cell bound and this variant no longer does. Reported
+    # separately from a divergence: it says the rewrite stopped producing
+    # something, not that it produced it wrongly.
+    missing_names: list[str] = dataclasses.field(default_factory=list)
     error: str = ""
 
     @property

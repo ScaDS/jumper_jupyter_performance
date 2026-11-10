@@ -4,6 +4,13 @@ computes something else is not reported as a speedup.
 Signatures are statistical (shape/dtype/mean/std/min/max), never exact hashes:
 reordering a sum - which is what vectorising *does* - changes the last bits of a
 float, so byte equality would flag every honest optimization as wrong.
+
+A value this cannot summarise - a list, a dict, an object - has no signature
+at all, and a cell whose result is one of those is verified by whatever else
+it binds. Where that matters, the cell's result is named with
+``ai.benchmark.result_names`` and the usecase provides a summarisable one
+alongside it; see the ECCO payload cells, which bind a checksum next to their
+list of answers for exactly this reason.
 """
 import ast
 import json
@@ -188,31 +195,66 @@ def _describe(print_: dict | None) -> str:
     return f"array shape={print_['shape']} dtype={print_['dtype']}{f' {stats}' if stats else ''}"
 
 
-def compare_all(baseline: dict, variant: dict, rel_tol: float = REL_TOL) -> tuple[str, list[str]]:
-    """Verdict over every captured name, plus the names that diverged.
+def compare_all(
+    baseline: dict, variant: dict, rel_tol: float = REL_TOL
+) -> tuple[str, list[str], list[str]]:
+    """Verdict over every captured name, the names that diverged, and the
+    names the variant no longer binds at all.
 
-    A name with no baseline signature (``None`` - e.g. a function or other
-    unsummarisable binding) carries no verification signal, so it is skipped
-    rather than dragging an otherwise-verified result down to UNVERIFIED. The
-    result is UNVERIFIED only when nothing in the baseline could be compared.
+    Three outcomes have to stay apart, and two of them used to arrive here as
+    one. A name with no baseline signature (``None`` - a function, a handle)
+    carries no verification signal, so it is skipped rather than dragging an
+    otherwise-verified result down. A name the variant never bound is
+    something else entirely: the rewrite stopped producing something the
+    original produced. It is reported as *missing*, and it still keeps the
+    verdict out of MATCH - a rewrite that dropped the cell's output while
+    keeping a constant must never read as correct - but it is no longer
+    indistinguishable from "nothing here could be compared". The difference
+    is the whole diagnosis: a missing ``answers`` is a broken rewrite, a
+    missing ``MOD`` is a constant that moved inside a function.
     """
     if not baseline:
-        return UNVERIFIED, []
+        return UNVERIFIED, [], []
 
-    differing = []
+    differing: list[str] = []
+    missing: list[str] = []
     verdict = MATCH
     compared = 0
     for name, expected in baseline.items():
         if not expected:
             continue  # unsummarisable baseline value: no signal, do not poison
+        if name not in variant:
+            missing.append(name)
+            continue
         compared += 1
-        result = compare(expected, variant.get(name), rel_tol)
+        result = compare(expected, variant[name], rel_tol)
         if result == DIFFERS:
             differing.append(name)
         elif result == UNVERIFIED and verdict == MATCH:
             verdict = UNVERIFIED
     if differing:
-        return DIFFERS, differing
-    if compared == 0:
-        return UNVERIFIED, []
-    return verdict, []
+        return DIFFERS, differing, missing
+    if missing or compared == 0:
+        return UNVERIFIED, [], missing
+    return verdict, [], missing
+
+
+def describe_missing_results(names: list[str]) -> str:
+    """Tell the model it dropped the cell's result, in terms it can act on.
+
+    Separate from :func:`describe_divergence` because the failure is different:
+    nothing was computed wrongly, nothing was computed at all. A rewrite that
+    defines a faster function and never calls it hits this, and left to the
+    divergence wording it would be asked to fix arithmetic that is fine.
+    """
+    listed = ", ".join(names)
+    verb = "is" if len(names) == 1 else "are"
+    return (
+        "Your rewrite ran without error, but it no longer produces the "
+        f"result of the cell: {listed} {verb} not bound when the cell "
+        "finishes.\n\n"
+        "The cell under review computes this at its top level, and whatever "
+        "runs after it reads it from there. A faster function is only half of "
+        "the rewrite: it has to be called, and its result assigned to the same "
+        f"name ({listed}), at the top level of the cell."
+    )

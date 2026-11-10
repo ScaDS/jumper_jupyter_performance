@@ -148,6 +148,9 @@ class AIReviewer:
         checks = resolve_checks(adapter, defaults.checks, options.get("checks"))
         runs = options.get("runs") or defaults.runs
         fix_attempts = options.get("fix_attempts") or defaults.fix_attempts
+        result_names = options.get("result_names")
+        if result_names is None:
+            result_names = defaults.result_names
         runner = BenchmarkRunner(
             prefix_cells=prefix_cells,
             interval=defaults.interval,
@@ -169,6 +172,7 @@ class AIReviewer:
             adapter=adapter,
             checks=checks,
             cross_check=defaults.replay.cross_check,
+            result_names=result_names,
         )
 
     def _cell_language(self, index: int) -> str:

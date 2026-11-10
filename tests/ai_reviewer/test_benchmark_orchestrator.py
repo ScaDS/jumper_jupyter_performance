@@ -140,6 +140,140 @@ def test_a_repair_that_returns_broken_syntax_costs_no_replay():
     assert orchestrator.final_code["1"] == "y = 1"
 
 
+# --- declared result names ---
+
+def _binding_runner(behaviour, bindings: dict):
+    """A runner where *bindings* maps a code string to the names it leaves.
+
+    The ECCO shape: the payload binds the answers and a modulus, and a rewrite
+    may keep either, both or neither.
+    """
+    runner = _runner(behaviour)
+    original = runner.run_once
+
+    def run_once(code, tag, timeout=None):
+        outcome = original(code, tag, timeout)
+        outcome.fingerprints = {
+            name: {"kind": "scalar", "value": value}
+            for name, value in bindings.get(code, {}).items()
+        }
+        return outcome
+
+    runner.run_once = run_once
+    runner.cross_check_baseline = lambda code, tag="cross_check": None
+    return runner
+
+
+_ECCO_BINDINGS = {
+    "base": {"MOD": 998244353.0, "answers": 7.0},
+    # Kept the answer, moved the modulus inside the function it now uses.
+    "moved_constant": {"answers": 7.0},
+    # Defined a faster solver and never called it.
+    "never_called": {"MOD": 998244353.0},
+}
+
+
+def test_a_constant_that_moved_inside_a_function_no_longer_decides_the_verdict():
+    orchestrator = BenchmarkOrchestrator(
+        runner=_binding_runner(
+            lambda code: 4.0 if code == "base" else 1.0, _ECCO_BINDINGS
+        ),
+        fix_fn=lambda code, error, label: code,
+        runs=2,
+        result_names=["answers"],
+    )
+
+    results = orchestrator.run("base", [("1", "moved_constant")])
+
+    assert results["1"].correctness == fingerprint.MATCH
+    assert results["1"].speedup == 4.0
+
+
+def test_without_declared_names_a_moved_constant_still_costs_the_verdict():
+    # The old behaviour, kept for every cell nobody described: nothing here can
+    # tell a result from bookkeeping, so a dropped binding keeps the verdict
+    # out of MATCH.
+    orchestrator = BenchmarkOrchestrator(
+        runner=_binding_runner(
+            lambda code: 4.0 if code == "base" else 1.0, _ECCO_BINDINGS
+        ),
+        fix_fn=lambda code, error, label: code,
+        runs=2,
+    )
+
+    results = orchestrator.run("base", [("1", "moved_constant")])
+
+    assert results["1"].correctness == fingerprint.UNVERIFIED
+    assert results["1"].missing_names == ["MOD"]
+
+
+def test_a_variant_that_produced_no_result_is_failed_not_timed():
+    fix_calls = []
+
+    def fix(code, error, label):
+        fix_calls.append(error)
+        return code  # the model does not fix it
+
+    orchestrator = BenchmarkOrchestrator(
+        runner=_binding_runner(
+            # Three microseconds, because it did not do the work.
+            lambda code: 4.0 if code == "base" else 0.000003,
+            _ECCO_BINDINGS,
+        ),
+        fix_fn=fix,
+        runs=2,
+        fix_attempts=1,
+        result_names=["answers"],
+    )
+
+    results = orchestrator.run("base", [("1", "never_called")])
+
+    # Not OK with a speedup of 1.3 million: nothing was measured.
+    assert results["1"].status == FAILED
+    assert results["1"].speedup is None
+    assert "no longer produces the result" in results["1"].error
+    assert "answers" in fix_calls[0]
+
+
+def test_a_missing_result_is_repaired_and_then_measured():
+    def fix(code, error, label):
+        return "moved_constant"
+
+    orchestrator = BenchmarkOrchestrator(
+        runner=_binding_runner(
+            lambda code: 4.0 if code == "base" else 1.0, _ECCO_BINDINGS
+        ),
+        fix_fn=fix,
+        runs=2,
+        result_names=["answers"],
+    )
+
+    results = orchestrator.run("base", [("1", "never_called")])
+
+    assert results["1"].status == OK
+    assert results["1"].correctness == fingerprint.MATCH
+    assert results["1"].attempts == 2
+
+
+def test_a_result_name_the_cell_never_binds_only_warns(caplog):
+    orchestrator = BenchmarkOrchestrator(
+        runner=_binding_runner(
+            lambda code: 4.0 if code == "base" else 1.0, _ECCO_BINDINGS
+        ),
+        fix_fn=lambda code, error, label: code,
+        runs=2,
+        result_names=["nowhere"],
+    )
+
+    with caplog.at_level(logging.WARNING, logger="extension"):
+        results = orchestrator.run("base", [("1", "moved_constant")])
+
+    assert "binds no such name" in caplog.text
+    # Nothing to compare, and nothing condemned for it either.
+    assert results["1"].status == OK
+    assert results["1"].correctness == fingerprint.UNVERIFIED
+
+
 def _diverging_runner(behaviour, diverging_codes: set):
     """A runner whose *diverging_codes* come back with the wrong fingerprint."""
     runner = _runner(behaviour)

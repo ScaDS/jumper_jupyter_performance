@@ -98,7 +98,14 @@ def verdict_of(state: OptimizationState, index: int) -> dict | None:
         )
         tone = "bad"
     elif result.correctness == fingerprint.UNVERIFIED:
-        notes.append("results could not be compared")
+        if result.missing_names:
+            names = ", ".join(result.missing_names)
+            notes.append(
+                f"it no longer binds {names}, so its results could not be "
+                "compared with the original's"
+            )
+        else:
+            notes.append("results could not be compared")
         tone = "warn"
     if result.attempts > 1:
         notes.append(f"repaired after {result.attempts - 1} failed attempt(s)")

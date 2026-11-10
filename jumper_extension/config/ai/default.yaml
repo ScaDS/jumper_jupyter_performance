@@ -23,6 +23,12 @@ benchmark:
   interval: 0.05
   # A variant is killed past this multiple of the baseline duration.
   timeout_factor: 10.0
+  # Top-level names that hold the reviewed cell's result, e.g. [answers].
+  # Named, correctness is decided by them alone and a suggestion that stops
+  # binding them is reported as failed rather than as a speedup over a cell
+  # that did no work. Empty, every binding of the original cell is compared.
+  # Override per-run with --result-names.
+  result_names: []
   # Which benchmark steps run. Each is also gated by adapter capability: a step
   # enabled here but unsupported for the cell's language is skipped with a
   # warning; one set false is skipped silently. Override per-run with

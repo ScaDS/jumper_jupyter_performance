@@ -1029,12 +1029,24 @@ def _benchmark_options(args) -> dict:
         "runs": args.benchmark_runs,
         "fix_attempts": args.fix_attempts,
         "replay_mode": getattr(args, "replay_mode", None),
+        "result_names": _result_names(getattr(args, "result_names", None)),
     }
     resolved = {key: value for key, value in options.items() if value is not None}
     checks = _check_overrides(args)
     if checks:
         resolved["checks"] = checks
     return resolved
+
+
+def _result_names(value) -> list[str] | None:
+    """``--result-names a,b`` as a list; None when the flag was not given.
+
+    None rather than an empty list, so that leaving the flag off falls back to
+    the config while passing it empty is a deliberate "compare everything".
+    """
+    if value is None:
+        return None
+    return [name.strip() for name in value.split(",") if name.strip()]
 
 
 def _check_overrides(args) -> dict:

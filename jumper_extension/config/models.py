@@ -170,6 +170,15 @@ class AIBenchmarkConfig(BaseModel):
     interval: float = 0.05
     # Kill a variant once it exceeds this multiple of the baseline duration.
     timeout_factor: float = 10.0
+    # Top-level names that carry the reviewed cell's result. Named, the
+    # correctness verdict rests on them alone: a rewrite is then free to move a
+    # constant inside a function - which is what deleting the code that read it
+    # looks like - without its results reading as uncomparable, and one that
+    # defines a faster function but never calls it is reported as failed
+    # instead of as an enormous speedup over a cell that did nothing. Empty,
+    # every binding the original cell made counts, which is the only safe
+    # default for a cell nobody described.
+    result_names: list[str] = Field(default_factory=list)
     checks: AIBenchmarkChecksConfig = Field(default_factory=AIBenchmarkChecksConfig)
     replay: AIBenchmarkReplayConfig = Field(default_factory=AIBenchmarkReplayConfig)
 
