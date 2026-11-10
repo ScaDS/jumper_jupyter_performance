@@ -116,6 +116,20 @@ code, so it belongs on the node the usecase runs on. The metrics it feeds
 abstain everywhere else; `docs/paper_metrics_mapping.md` maps them to the
 papers.
 
+Where it ran, **its verdict is the one every metric uses**. The reviewer also
+judges its own suggestions, by comparing statistical signatures of whatever
+the cell happens to bind, and that check is weaker than the papers' by
+construction: on the ECCO pilot it reported 55 suggestions as "could not be
+compared" that had in fact computed nothing, and rejected 17 that were
+correct. `metrics/correctness.py` is where the two are joined - correctness
+from `cli.verify`, timings from the reviewer, which is the only instrument
+that measures a variant against the cell under review - and it falls back to
+the reviewer's verdict for every usecase without a `verification` block.
+`coverage` is therefore the share that passed the paper's protocol, and
+`correct_but_untimed` beside it counts suggestions the protocol passed and
+the reviewer never timed, almost always because its own timeout budget - a
+multiple of the baseline - killed them first.
+
 All but `cli.index` read an existing run (`target_run=<run id>`, or the newest by
 default); `cli.index` reads all of them. None touches the reviewer. That
 split is deliberate: adding a metric costs a second, not a sweep.
@@ -305,7 +319,9 @@ is in the usecase: the payload has to run long enough to be sampled.
 In the tables, three numbers are read together and never apart:
 
 - a **correctness-conditioned speedup** always carries its **coverage**. 3.0x
-  over 10% of suggestions and 1.8x over 90% are not close.
+  over 10% of suggestions and 1.8x over 90% are not close. And coverage
+  carries `correct_but_untimed`: suggestions that were correct and never
+  measured are a floor under the figure, not a verdict on the preset.
 - **conditional** evidence coverage next to **global**. High conditional and
   low global is the signature finding: the model used its context well, and
   the context was not enough.

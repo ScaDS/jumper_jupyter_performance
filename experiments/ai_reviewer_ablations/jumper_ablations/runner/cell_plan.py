@@ -28,6 +28,7 @@ _MANAGED_WITH_VALUE = (
     "--benchmark-runs",
     "--fix-attempts",
     "--replay-mode",
+    "--result-names",
     "--resume",
     "--level",
 )
@@ -59,6 +60,7 @@ def review_line(
     protocol: ProtocolConfig,
     target_cell_index: int | None = None,
     with_benchmark: bool = True,
+    result_names: list[str] | None = None,
 ) -> str:
     """The notebook's review invocation, with this ablation selected."""
     tokens = shlex.split(base_line)
@@ -85,13 +87,28 @@ def review_line(
             "--replay-mode",
             replay_mode,
         ]
+        rebuilt += _result_names_flag(result_names)
     return " ".join(rebuilt)
+
+
+def _result_names_flag(result_names: list[str] | None) -> list[str]:
+    """``--result-names`` when the usecase named any, nothing otherwise.
+
+    Nothing rather than an empty value: the flag given empty means "compare
+    every binding" to the reviewer, which is also what omitting it means here,
+    and a line that states a flag it does not use is a line that reads as
+    though the experiment configured something it did not.
+    """
+    if not result_names:
+        return []
+    return ["--result-names", ",".join(result_names)]
 
 
 def resume_benchmark_line(
     reviewer_run_id: str,
     replay_mode: str,
     protocol: ProtocolConfig,
+    result_names: list[str] | None = None,
 ) -> str:
     """Re-score suggestions that already exist, under another replay mode.
 
@@ -111,6 +128,7 @@ def resume_benchmark_line(
             str(protocol.benchmark.fix_attempts),
             "--replay-mode",
             replay_mode,
+            *_result_names_flag(result_names),
         ]
     )
 

@@ -104,6 +104,12 @@ class UsecaseWorkspace(BaseModel):
 class UsecaseBenchmark(BaseModel):
     replay_mode: str = "full"
     extra_replay_modes: list[str] = Field(default_factory=list)
+    # Top-level names of the payload cell that hold its result, passed to the
+    # reviewer as ``--result-names``. Declared here because only the payload
+    # knows: the reviewer compares whatever the cell happens to bind, and on a
+    # cell whose output is a list that came down to whichever scalar survived.
+    # Empty leaves the reviewer comparing every binding, as before.
+    result_names: list[str] = Field(default_factory=list)
 
 
 class UsecaseVerification(BaseModel):

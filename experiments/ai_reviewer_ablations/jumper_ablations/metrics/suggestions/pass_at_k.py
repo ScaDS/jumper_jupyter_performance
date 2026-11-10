@@ -18,7 +18,8 @@ from jumper_ablations.metrics.base import (
     DeterministicMetric,
     MetricSpec,
 )
-from jumper_ablations.metrics.verdicts import is_correct, ordered_verdicts
+from jumper_ablations.metrics.correctness import is_correct_in
+from jumper_ablations.metrics.verdicts import ordered_verdicts
 from jumper_ablations.statistics import mean, rate
 
 
@@ -58,8 +59,10 @@ class PassAtK(DeterministicMetric):
                 continue
             generations += 1
             sizes.append(len(verdicts))
-            first_correct += is_correct(verdicts[0])
-            any_correct += any(is_correct(verdict) for verdict in verdicts)
+            first_correct += is_correct_in(context, record, verdicts[0])
+            any_correct += any(
+                is_correct_in(context, record, verdict) for verdict in verdicts
+            )
 
         return {
             "pass_at_1": rate(first_correct, generations),

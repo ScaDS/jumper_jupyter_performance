@@ -30,6 +30,17 @@ verification:
 benchmark:
   replay_mode: full
   extra_replay_modes: []
+  # What the payload cell's last two lines bind, and nothing else. `answers` is
+  # the name cli.verify reads, and its absence is what marks a rewrite that
+  # defined a faster solver and never called it - reported as failed instead of
+  # as a cell that got millions of times faster by doing nothing. `checksum` is
+  # here because `answers` is a list of strings, which the reviewer's
+  # fingerprint cannot summarise: the checksum is the only comparable thing the
+  # cell produces, and so the only reason a correct rewrite reads as correct.
+  # Everything else the cell binds - MOD, loop bounds - is bookkeeping a
+  # rewrite is free to move inside a function, and naming these two is what
+  # stops such a move from reading as an uncomparable result.
+  result_names: [answers, checksum]
 
 reference_facts:
   - id: loop_over_value_range

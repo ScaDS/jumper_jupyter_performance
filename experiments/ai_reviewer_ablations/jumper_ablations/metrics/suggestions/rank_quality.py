@@ -17,7 +17,8 @@ from jumper_ablations.metrics.base import (
     DeterministicMetric,
     MetricSpec,
 )
-from jumper_ablations.metrics.verdicts import is_correct, ordered_verdicts
+from jumper_ablations.metrics.correctness import is_correct_in
+from jumper_ablations.metrics.verdicts import ordered_verdicts
 from jumper_ablations.statistics import mean, rate, spearman
 
 
@@ -59,7 +60,8 @@ class RankQuality(DeterministicMetric):
             correct = [
                 (position, verdict.speedup)
                 for position, verdict in enumerate(verdicts)
-                if is_correct(verdict) and verdict.speedup is not None
+                if is_correct_in(context, record, verdict)
+                and verdict.speedup is not None
             ]
             if not correct:
                 continue

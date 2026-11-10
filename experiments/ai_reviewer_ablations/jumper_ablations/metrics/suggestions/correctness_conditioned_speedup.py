@@ -16,8 +16,11 @@ from jumper_ablations.metrics.base import (
     DeterministicMetric,
     MetricSpec,
 )
+from jumper_ablations.metrics.correctness import (
+    correct_but_untimed,
+    correct_speedups_in,
+)
 from jumper_ablations.metrics.verdicts import (
-    correct_speedups,
     ordered_verdicts,
 )
 from jumper_ablations.statistics import geometric_mean, median, rate
@@ -40,6 +43,7 @@ class CorrectnessConditionedSpeedup(DeterministicMetric):
             "median_speedup",
             "coverage",
             "correct_suggestions",
+            "correct_but_untimed",
             "suggestions",
         ),
         description=(
@@ -49,6 +53,7 @@ class CorrectnessConditionedSpeedup(DeterministicMetric):
         ),
         supporting_values=(
             "correct_suggestions",
+            "correct_but_untimed",
             "suggestions",
         ),
         ratio_values=(
@@ -60,14 +65,17 @@ class CorrectnessConditionedSpeedup(DeterministicMetric):
     def compute(self, context, parameters: dict) -> dict:
         correct = []
         total = 0
+        untimed = 0
         for record in context.primary_benchmarks():
-            correct.extend(correct_speedups(record))
+            correct.extend(correct_speedups_in(context, record))
             total += len(ordered_verdicts(record))
+            untimed += correct_but_untimed(context, record)
 
         return {
             "geometric_mean_speedup": geometric_mean(correct),
             "median_speedup": median(correct),
             "coverage": rate(len(correct), total),
             "correct_suggestions": len(correct),
+            "correct_but_untimed": untimed,
             "suggestions": total,
         }

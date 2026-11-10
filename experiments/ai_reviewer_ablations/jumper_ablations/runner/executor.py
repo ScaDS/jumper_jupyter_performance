@@ -276,6 +276,7 @@ def run_pass(
             protocol=protocol,
             target_cell_index=target_index,
             with_benchmark=inline,
+            result_names=usecase.manifest.benchmark.result_names,
         )
         logger.info(f"{usecase.id} | {ablation.id} | {line}")
 
@@ -455,6 +456,7 @@ def _one_generation(
                 reviewer_run_id=reviewer_run_id,
                 replay_mode=mode,
                 protocol=protocol,
+                result_names=usecase.manifest.benchmark.result_names,
             )
         )
         again = session.run(cell_plan.capture_cell())

@@ -42,6 +42,50 @@ def test_review_line_keeps_the_notebook_and_appends_the_preset():
     assert line.count("--benchmark ") == 1
 
 
+def test_review_line_states_the_usecase_s_result_names():
+    line = review_line(
+        base_line=NOTEBOOK_LINE,
+        ablation_id="base",
+        replay_mode="full",
+        protocol=ProtocolConfig(),
+        target_cell_index=1,
+        result_names=["answers"],
+    )
+
+    assert "--result-names answers" in line
+
+
+def test_review_line_omits_the_flag_when_the_usecase_named_nothing():
+    # Stating it empty would read as though the experiment had configured
+    # something; it means the same as leaving it off, so it is left off.
+    line = review_line(
+        base_line=NOTEBOOK_LINE,
+        ablation_id="base",
+        replay_mode="full",
+        protocol=ProtocolConfig(),
+        target_cell_index=1,
+        result_names=[],
+    )
+
+    assert "--result-names" not in line
+
+
+def test_the_notebook_cannot_set_the_result_names_itself():
+    # Managed by the experiment, like the replay mode: a notebook naming its
+    # own would make one preset compare something another did not.
+    line = review_line(
+        base_line=NOTEBOOK_LINE + " --result-names whatever",
+        ablation_id="base",
+        replay_mode="full",
+        protocol=ProtocolConfig(),
+        target_cell_index=1,
+        result_names=["answers"],
+    )
+
+    assert "whatever" not in line
+    assert line.count("--result-names") == 1
+
+
 def test_review_line_drops_the_benchmark_for_the_two_command_shape():
     line = review_line(
         base_line=NOTEBOOK_LINE,

@@ -15,9 +15,9 @@ from jumper_ablations.metrics.base import (
     DeterministicMetric,
     MetricSpec,
 )
-from jumper_ablations.metrics.verdicts import (
-    correct_speedups,
-    measured_speedups,
+from jumper_ablations.metrics.correctness import (
+    correct_speedups_in,
+    measured_speedups_in,
 )
 from jumper_ablations.statistics import mean, median
 
@@ -62,10 +62,10 @@ class BestSpeedup(DeterministicMetric):
         best_measured = []
         best_correct = []
         for record in context.primary_benchmarks():
-            measured = measured_speedups(record)
+            measured = measured_speedups_in(context, record)
             if measured:
                 best_measured.append(max(measured))
-            correct = correct_speedups(record)
+            correct = correct_speedups_in(context, record)
             if correct:
                 best_correct.append(max(correct))
 

@@ -4,6 +4,13 @@ Collapsing them would be the easy mistake. `differs` is a wrong answer that
 often looks like a fast one; `unverified` is not an answer at all, and it is
 never counted as correct here. Reporting the three side by side is what keeps
 a preset that got fast by computing something else from reading as a winner.
+
+This is the **reviewer's own** verdict, deliberately: it is a diagnostic of
+the product, and the point of it is the `unverified` column, which says how
+often the reviewer could not tell its user whether a rewrite was safe. It is
+not the experiment's correctness. Where `cli.verify` ran, that is, and
+`correctness_conditioned_speedup.coverage` reports it - on the ECCO pilot the
+two disagreed about 91 of 268 suggestions in both directions.
 """
 
 from __future__ import annotations
@@ -47,8 +54,11 @@ class CorrectnessRates(DeterministicMetric):
         ),
         description=(
             "Share of suggestions whose results matched the baseline, "
-            "differed from it, could not be compared, or never ran. "
-            "`unverified` is not counted as correct anywhere."
+            "differed from it, could not be compared, or never ran, as the "
+            "reviewer itself judged them. `unverified` is not counted as "
+            "correct anywhere. For the experiment's correctness read "
+            "`correctness_conditioned_speedup.coverage`, which follows "
+            "cli.verify."
         ),
         supporting_values=(
             "suggestions",

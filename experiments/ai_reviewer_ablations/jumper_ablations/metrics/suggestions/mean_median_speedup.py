@@ -15,9 +15,9 @@ from jumper_ablations.metrics.base import (
     DeterministicMetric,
     MetricSpec,
 )
-from jumper_ablations.metrics.verdicts import (
-    correct_speedups,
-    measured_speedups,
+from jumper_ablations.metrics.correctness import (
+    correct_speedups_in,
+    measured_speedups_in,
 )
 from jumper_ablations.statistics import geometric_mean, mean, median
 
@@ -58,7 +58,7 @@ class MeanMedianSpeedup(DeterministicMetric):
     def compute(self, context, parameters: dict) -> dict:
         pooled = []
         for record in context.primary_benchmarks():
-            pooled.extend(measured_speedups(record))
+            pooled.extend(measured_speedups_in(context, record))
 
         return {
             "mean_speedup": mean(pooled),
@@ -103,7 +103,7 @@ class MeanMedianCorrectSpeedup(DeterministicMetric):
     def compute(self, context, parameters: dict) -> dict:
         pooled = []
         for record in context.primary_benchmarks():
-            pooled.extend(correct_speedups(record))
+            pooled.extend(correct_speedups_in(context, record))
 
         return {
             "mean_speedup": mean(pooled),

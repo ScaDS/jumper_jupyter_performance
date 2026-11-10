@@ -51,6 +51,10 @@ class BenchmarkRecord(BaseModel):
     # The reviewer's fingerprint verdict: match / differs / unverified.
     correctness: str = ""
     differing_names: list[str] = Field(default_factory=list)
+    # Names the original cell bound and the variant no longer does. An
+    # `unverified` with names here is a rewrite that dropped something; one
+    # without is a cell that binds nothing comparable at all.
+    missing_names: list[str] = Field(default_factory=list)
     error: str = ""
 
     @property

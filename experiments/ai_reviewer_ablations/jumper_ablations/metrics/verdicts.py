@@ -3,9 +3,17 @@
 The reviewer reports a status, a fingerprint comparison and a speedup, and
 these three have to be combined carefully. A suggestion that ran and got
 faster while computing something else is not a win, and a suggestion whose
-results could not be compared is not a win either - it is an unknown. Every
-metric that says "correct" means the definition in :func:`is_correct`, and it
-means it in one place so that no metric can quietly relax it.
+results could not be compared is not a win either - it is an unknown.
+:func:`is_correct` is that combination, in one place so that no metric can
+quietly relax it.
+
+It is the reviewer's own verdict, which is not always the best one available:
+where ``cli.verify`` measured the usecase, the paper's protocol has judged the
+same code and is authoritative. Metrics therefore do not call this directly -
+they go through :mod:`jumper_ablations.metrics.correctness`, which prefers the
+external verdict and falls back to this one. The speedup helpers that used to
+live here are gone for the same reason: they would have been the easy way back
+to the weaker gate.
 """
 
 from __future__ import annotations
@@ -41,7 +49,8 @@ def is_correct(verdict: BenchmarkRecord) -> bool:
     """It ran, it was compared, and it produced the same results.
 
     `unverified` is deliberately not correct. Counting it as correct would
-    reward exactly the rewrites whose results the harness could not check.
+    reward exactly the rewrites whose results the harness could not check -
+    and on the ECCO pilot most of those rewrites had computed nothing at all.
     """
     return ran(verdict) and verdict.correctness == VERIFIED
 
@@ -50,22 +59,6 @@ def speedup_of(verdict: BenchmarkRecord) -> float | None:
     if not ran(verdict):
         return None
     return verdict.speedup
-
-
-def correct_speedups(record: RunRecord) -> list[float]:
-    return [
-        verdict.speedup
-        for verdict in ordered_verdicts(record)
-        if is_correct(verdict) and verdict.speedup is not None
-    ]
-
-
-def measured_speedups(record: RunRecord) -> list[float]:
-    return [
-        verdict.speedup
-        for verdict in ordered_verdicts(record)
-        if ran(verdict) and verdict.speedup is not None
-    ]
 
 
 def suggestion_codes(record: RunRecord) -> dict[int, str]:
