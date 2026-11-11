@@ -103,7 +103,11 @@ def main() -> int:
 
     logger.info("Exporting performance data...")
 
-    service.plot_performance(level=export_level, save_jpeg=jpeg_path)
+    cells = service.cell_history.view()
+    cell_range = (int(cells["cell_index"].min()), int(cells["cell_index"].max()))
+    service.plot_performance(
+        level=export_level, save_jpeg=jpeg_path, cell_range=cell_range
+    )
     logger.info(f"JPEG plot ({export_level}) saved to: {jpeg_path}")
 
     perf_frames = service.export_perfdata(level=export_level)
