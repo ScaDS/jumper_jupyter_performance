@@ -30,6 +30,8 @@ from random import random
 
 import numpy as np
 
+os.environ.setdefault("MPLBACKEND", "Agg")
+
 from jumper_extension.core.service import build_perfmonitor_service
 from jumper_extension.utilities import is_slurm_available
 

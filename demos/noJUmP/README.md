@@ -13,6 +13,23 @@ Two variants are provided:
 - **Multi-node** (`run_demo_multinode.py`) — runs across multiple
   SLURM-allocated nodes, uses the `slurm_multinode` monitor backend.
 
+## Quick smoke test (Python only)
+
+`run_demo_simple.py` is a minimal check that only needs Python — no
+PyTorch, CUDA or environment modules.  It runs ~40 s of sleeps, CPU burn
+and a 500 MB allocation, then exports to `run_simple_YYYYMMDD_HHMMSS/`.
+
+```bash
+git clone https://github.com/ScaDS/jumper_jupyter_performance.git
+python -m venv venv
+source venv/bin/activate
+pip install ./jumper_jupyter_performance
+cd jumper_jupyter_performance/demos/noJUmP
+
+python run_demo_simple.py          # directly, or:
+sbatch run_demo_simple.sbatch      # via SLURM (submit with the venv active)
+```
+
 ## Prerequisites
 
 - Python ≥ 3.8
