@@ -29,7 +29,13 @@ cd jumper_jupyter_performance/demos/noJUmP
 
 python run_demo_simple.py          # directly, or:
 sbatch run_demo_simple.sbatch      # via SLURM (submit with the venv active)
+
+sbatch run_demo_multinode_simple.sbatch   # multi-node variant (2 nodes)
 ```
+
+The multi-node variant runs sleep / CPU burn / 500 MB on each node in turn,
+then a CPU burn on all nodes at once, and exports to
+`run_multinode_simple_YYYYMMDD_HHMMSS/`.
 
 ## Prerequisites
 
