@@ -7,6 +7,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --time=00:10:00
 #SBATCH --mem=2G
+#SBATCH --gres=gpu:1
 
 # Optional: path to a virtual environment with JUmPER installed.
 # Defaults to the currently active venv (sbatch inherits the environment).

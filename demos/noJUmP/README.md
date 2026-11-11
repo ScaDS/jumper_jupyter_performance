@@ -24,6 +24,7 @@ git clone https://github.com/ScaDS/jumper_jupyter_performance.git
 python -m venv venv
 source venv/bin/activate
 pip install ./jumper_jupyter_performance
+pip install nvidia-ml-py           # NVIDIA GPU metrics
 cd jumper_jupyter_performance/demos/noJUmP
 
 python run_demo_simple.py          # directly, or:
