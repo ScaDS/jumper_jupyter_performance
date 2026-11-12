@@ -157,6 +157,7 @@ class AIReviewer:
             level=state["level"],
             adapter=adapter,
             replay_mode=options.get("replay_mode") or defaults.replay.mode,
+            keep_perf_series=defaults.keep_perf_series,
         )
         logger.info(
             f"[JUmPER]: benchmarking {len(state['suggestions'])} suggestion(s) against cell "

@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 
-def write_atomically(path: Path, payload: str) -> Path:
+def write_atomically(path: Path, payload: str | bytes) -> Path:
     """Write through a neighbouring temporary file and rename over.
 
     A plain write is visible to a reader while it is still happening, so a
@@ -17,12 +17,14 @@ def write_atomically(path: Path, payload: str) -> Path:
     of them then checks the run's snapshot against it.
 
     The rename is atomic as long as the temporary file is on the same
-    filesystem, hence the same directory.
+    filesystem, hence the same directory. Bytes are written as they are, text
+    as UTF-8.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
+    binary = isinstance(payload, bytes)
     handle = tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
+        mode="wb" if binary else "w",
+        encoding=None if binary else "utf-8",
         dir=path.parent,
         prefix=f".{path.name}.",
         delete=False,

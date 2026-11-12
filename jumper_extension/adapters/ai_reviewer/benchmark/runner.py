@@ -6,6 +6,8 @@ results come back as a session export, which is then read through the very same
 reporter the live review uses, so a variant's metrics are comparable with the
 baseline's by construction rather than by convention.
 """
+from __future__ import annotations
+
 import contextlib
 import logging
 import os
@@ -44,10 +46,14 @@ class BenchmarkRunner:
         work_dir: str | None = None,
         adapter: LanguageAdapter | None = None,
         replay_mode: str = FULL,
+        keep_perf_series: bool = False,
     ):
         self.prefix_cells = prefix_cells
         self.interval = interval
         self.level = level
+        # Whether each replay's perf samples are kept beside the summary drawn
+        # from them, rather than dropped with the session export.
+        self.keep_perf_series = keep_perf_series
         self._work_dir = work_dir or tempfile.mkdtemp(prefix="jumper-benchmark-")
         # The target cell's language decides how a replay is built and launched;
         # defaults to Python so direct constructors keep their old behaviour.
@@ -216,12 +222,18 @@ class BenchmarkRunner:
             if context is not None
             else {}
         )
+        perf_series = (
+            context["perfdata"].to_dict(orient="list")
+            if self.keep_perf_series and context is not None
+            else {}
+        )
         prints = fingerprint.load(fingerprint_path) if os.path.exists(fingerprint_path) else {}
         return RunOutcome(
             status=OK,
             duration_s=duration,
             metrics=metrics,
             fingerprints=prints,
+            perf_series=perf_series,
         )
 
 

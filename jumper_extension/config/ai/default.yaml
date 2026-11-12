@@ -28,6 +28,10 @@ benchmark:
   interval: 0.05
   # A variant is killed past this multiple of the baseline duration.
   timeout_factor: 10.0
+  # Keep every replay's perf samples of the timed cell next to the medians.
+  # Off by default: a long cell sampled every `interval` seconds, times runs,
+  # times suggestions, is a lot to hold for a card that shows only medians.
+  keep_perf_series: false
   # Top-level names that hold the reviewed cell's result, e.g. [answers].
   # Named, correctness is decided by them alone and a suggestion that stops
   # binding them is reported as failed rather than as a speedup over a cell

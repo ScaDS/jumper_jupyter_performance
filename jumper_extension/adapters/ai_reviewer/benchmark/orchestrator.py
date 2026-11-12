@@ -5,6 +5,9 @@ compete for the very resources being measured, and the baseline was recorded
 alone. Only the repair calls overlap: those are network waits, and letting one
 variant's fix travel while another is being timed costs the measurement nothing.
 """
+from __future__ import annotations
+
+import dataclasses
 import logging
 from concurrent.futures import Future, ThreadPoolExecutor, wait, FIRST_COMPLETED
 from functools import partial
@@ -13,7 +16,10 @@ from typing import Callable
 from jumper_extension.adapters.ai_reviewer.benchmark import fingerprint
 from jumper_extension.adapters.ai_reviewer.benchmark.models import (
     FAILED,
+    INVALID_SYNTAX,
+    MISSING_RESULTS,
     OK,
+    AttemptRecord,
     BenchmarkResult,
     RunOutcome,
 )
@@ -50,6 +56,26 @@ class _Candidate:
         # back on a real measurement instead of throwing it away.
         self.last_verdict: BenchmarkResult | None = None
         self.last_code = ""
+        self.history: list[AttemptRecord] = []
+
+    def note(
+        self,
+        status: str,
+        error: str = "",
+        duration_s: float | None = None,
+        correctness: str = "",
+    ) -> None:
+        """Record what became of the version currently held."""
+        self.history.append(
+            AttemptRecord(
+                attempt=self.attempts,
+                code=self.code,
+                status=status,
+                error=error,
+                duration_s=duration_s,
+                correctness=correctness,
+            )
+        )
 
 
 class BenchmarkOrchestrator:
@@ -190,6 +216,7 @@ class BenchmarkOrchestrator:
             duration_s=duration,
             metrics=metrics,
             correctness=fingerprint.MATCH,
+            **_per_run(baseline_runs),
         )
         prints = baseline_runs[-1].fingerprints
         self._check_declared_results(prints)
@@ -367,6 +394,7 @@ class BenchmarkOrchestrator:
         # Syntax is checkable for free, so broken code never costs a replay -
         # whether it came from the model or from a repair.
         if not self._syntax_ok(candidate):
+            candidate.note(INVALID_SYNTAX, candidate.error)
             self._reject(results, candidate, position, pool, repairing)
             return
 
@@ -385,6 +413,7 @@ class BenchmarkOrchestrator:
                 # timed region did not do the work, so its duration is not a
                 # speedup of anything and must not be settled as one.
                 candidate.error = fingerprint.describe_missing_results(lost)
+                candidate.note(MISSING_RESULTS, candidate.error)
                 self._reject(results, candidate, position, pool, repairing)
                 return
             verdict = self._verdict(candidate, outcome, baseline_duration, baseline_prints)
@@ -393,20 +422,27 @@ class BenchmarkOrchestrator:
 
             # A wrong answer is worth repairing too: it costs the review more
             # than a crash, since nothing else catches it.
-            if verdict.correctness == fingerprint.DIFFERS:
+            diverged = verdict.correctness == fingerprint.DIFFERS
+            if diverged:
                 candidate.error = fingerprint.describe_divergence(
                     baseline_prints,
                     outcome[-1].fingerprints,
                     verdict.differing_names,
                 )
-                if self._submit_fix(candidate, pool, repairing):
-                    self.progress.variant_diverged(
-                        position,
-                        verdict.differing_names,
-                        candidate.attempts,
-                        self.fix_attempts,
-                    )
-                    return
+            candidate.note(
+                OK,
+                error=candidate.error if diverged else "",
+                duration_s=verdict.duration_s,
+                correctness=verdict.correctness,
+            )
+            if diverged and self._submit_fix(candidate, pool, repairing):
+                self.progress.variant_diverged(
+                    position,
+                    verdict.differing_names,
+                    candidate.attempts,
+                    self.fix_attempts,
+                )
+                return
 
             self._settle(results, candidate, verdict)
             self.progress.variant_done(
@@ -417,6 +453,7 @@ class BenchmarkOrchestrator:
             )
         else:
             candidate.error = outcome.error
+            candidate.note(outcome.status, outcome.error)
             self._reject(results, candidate, position, pool, repairing)
 
     def _process_syntax(
@@ -430,15 +467,18 @@ class BenchmarkOrchestrator:
         """Parse one candidate, repairing it if it does not - never running it."""
         position = self._position[candidate.label]
         if self._syntax_ok(candidate):
+            candidate.note(OK)
             self.final_code[candidate.label] = candidate.code
             results[candidate.label] = BenchmarkResult(
                 label=candidate.label,
                 status=OK,
                 attempts=candidate.attempts,
                 correctness=fingerprint.UNVERIFIED,
+                attempt_history=list(candidate.history),
             )
             self.progress.variant_validated(position, candidate.attempts)
         else:
+            candidate.note(INVALID_SYNTAX, candidate.error)
             self._reject(results, candidate, position, pool, repairing)
 
     def _reject(
@@ -478,7 +518,12 @@ class BenchmarkOrchestrator:
             results[candidate.label] = _failed(candidate)
             return
         self.final_code[candidate.label] = candidate.last_code or candidate.code
-        results[candidate.label] = final
+        # The whole history, not the one of the attempt that is reported: a
+        # verdict kept from an earlier attempt still had later ones tried.
+        results[candidate.label] = dataclasses.replace(
+            final,
+            attempt_history=list(candidate.history),
+        )
 
     def _submit_fix(self, candidate: _Candidate, pool: ThreadPoolExecutor, repairing: dict) -> bool:
         """Queue a repair for *candidate*; False once its attempts are spent."""
@@ -606,7 +651,24 @@ class BenchmarkOrchestrator:
             correctness=correctness,
             differing_names=differing,
             missing_names=missing,
+            **_per_run(outcomes),
         )
+
+
+def _per_run(outcomes: list[RunOutcome]) -> dict:
+    """What each timed replay measured, kept beside the medians drawn from it.
+
+    The warm-up stays in: dropping it is a choice the median makes, and the
+    cost of a cold start is worth seeing. Perf series are positional with the
+    durations, or absent altogether when none were kept.
+    """
+    series = [outcome.perf_series for outcome in outcomes]
+    return {
+        "run_durations_s": [outcome.duration_s for outcome in outcomes],
+        "run_wall_s": [outcome.wall_s for outcome in outcomes],
+        "run_perf_series": series if any(series) else [],
+        "fingerprints": outcomes[-1].fingerprints,
+    }
 
 
 def _baseline_failure(outcome: RunOutcome) -> str:
@@ -676,4 +738,5 @@ def _failed(candidate: _Candidate) -> BenchmarkResult:
         status=FAILED,
         attempts=candidate.attempts,
         error=candidate.error,
+        attempt_history=list(candidate.history),
     )

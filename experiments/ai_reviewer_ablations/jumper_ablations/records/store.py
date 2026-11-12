@@ -8,6 +8,7 @@ never appended to: several shards write this directory at once.
 
 from __future__ import annotations
 
+import gzip
 import json
 from pathlib import Path
 from typing import Iterable, Iterator
@@ -16,6 +17,7 @@ from jumper_ablations.files import write_atomically
 from jumper_ablations.records.schema import RunRecord
 
 RECORDS_DIRNAME = "records"
+PERF_SERIES_DIRNAME = "perf_series"
 INDEX_NAME = "runs.jsonl"
 FLAT_NAME = "runs.csv"
 
@@ -76,6 +78,18 @@ class RecordStore:
         write_atomically(path, record.model_dump_json(indent=2) + "\n")
         return path
 
+    def write_perf_series(self, record_id: str, series: dict) -> Path:
+        """Write one record's perf samples, ``{label: [{column: values}]}``.
+
+        One entry per replay, positional with the record's
+        ``run_durations_s``. A compressed file of their own: sampled every
+        50 ms over every replay of every variant they outweigh the record many
+        times over, and loading the records for a report must not pay for them.
+        """
+        path = perf_series_path(self.run_directory, record_id)
+        write_atomically(path, gzip.compress(json.dumps(series).encode("utf-8")))
+        return path
+
     def __iter__(self) -> Iterator[RunRecord]:
         return iter(self.load())
 
@@ -114,6 +128,18 @@ def load_records(run_directory: Path) -> Iterable[RunRecord]:
     for path in sorted(directory.glob("*.json")):
         records.append(RunRecord.model_validate_json(path.read_text("utf-8")))
     return records
+
+
+def perf_series_path(run_directory: Path, record_id: str) -> Path:
+    return Path(run_directory) / PERF_SERIES_DIRNAME / f"{record_id}.json.gz"
+
+
+def load_perf_series(run_directory: Path, record_id: str) -> dict:
+    """One record's perf samples by benchmark label, or {} when none were kept."""
+    path = perf_series_path(run_directory, record_id)
+    if not path.is_file():
+        return {}
+    return json.loads(gzip.decompress(path.read_bytes()))
 
 
 def _index_entry(record: RunRecord) -> dict:

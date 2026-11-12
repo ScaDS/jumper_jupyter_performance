@@ -86,6 +86,10 @@ class BenchmarkProtocol(BaseModel):
     # magic has no flag for it, so the harness sets it in the kernel; None
     # keeps the extension's own default.
     timeout_factor: float | None = Field(default=None, gt=0)
+    # Keep every replay's perf samples of the timed cell, written beside the
+    # records as perf_series/<record id>.json.gz. The reviewer drops them by
+    # default; an experiment keeps them, since getting them later costs a sweep.
+    keep_perf_series: bool = True
     extra_replay_modes: list[str] = Field(default_factory=list)
 
 

@@ -153,6 +153,7 @@ def bootstrap_cell(
     run_id: str,
     sampling: dict | None = None,
     timeout_factor: float | None = None,
+    keep_perf_series: bool | None = None,
 ) -> str:
     arguments = _python_literal(
         {
@@ -165,6 +166,7 @@ def bootstrap_cell(
             "run_id": run_id,
             "sampling": dict(sampling or {}),
             "timeout_factor": timeout_factor,
+            "keep_perf_series": keep_perf_series,
         }
     )
     return (

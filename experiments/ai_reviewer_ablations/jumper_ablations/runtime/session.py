@@ -213,6 +213,9 @@ class AblationSession:
 
         record = self._build_record(window, reviewer_run_id or "", state)
         self.store.write(record)
+        series = _perf_series_from(state)
+        if series:
+            self.store.write_perf_series(record.identity.record_id, series)
 
         summary = {
             "record_id": record.identity.record_id,
@@ -365,7 +368,7 @@ def _outputs_from(state) -> RunOutputs:
         for index, suggestion in enumerate(state.get("suggestions") or [], 1)
     ]
     benchmarks = {
-        label: BenchmarkRecord(**jsonable(dataclasses.asdict(result)))
+        label: _benchmark_record(result)
         for label, result in (state.get("benchmarks") or {}).items()
     }
     return RunOutputs(
@@ -374,6 +377,25 @@ def _outputs_from(state) -> RunOutputs:
         suggestions=suggestions,
         benchmarks=benchmarks,
     )
+
+
+def _benchmark_record(result) -> BenchmarkRecord:
+    """A verdict as the record holds it, its perf series left to their own file.
+
+    Dropped before the deep copy rather than after, since they are the one
+    part of a verdict that is large.
+    """
+    without_series = dataclasses.replace(result, run_perf_series=[])
+    return BenchmarkRecord(**jsonable(dataclasses.asdict(without_series)))
+
+
+def _perf_series_from(state) -> dict:
+    """Each verdict's per-replay perf samples, for those that kept any."""
+    return {
+        label: jsonable(result.run_perf_series)
+        for label, result in ((state or {}).get("benchmarks") or {}).items()
+        if result.run_perf_series
+    }
 
 
 def _cost_from(calls, wall_seconds: float) -> RunCost:
@@ -407,16 +429,20 @@ def bootstrap(
     run_id: str = "",
     sampling: dict | None = None,
     timeout_factor: float | None = None,
+    keep_perf_series: bool | None = None,
 ) -> None:
     """Open the kernel's session and install the observers."""
     global _SESSION
-    if timeout_factor is not None:
-        # The reviewer reads its benchmark defaults from this one composed
-        # config each time it wires a benchmark, so setting it here holds for
-        # every review and resume in the kernel.
-        from jumper_extension.config.loader import load_config
+    # The reviewer reads its benchmark defaults from this one composed config
+    # each time it wires a benchmark, so setting them here holds for every
+    # review and resume in the kernel. None keeps the extension's own default.
+    from jumper_extension.config.loader import load_config
 
-        load_config().ai.benchmark.timeout_factor = timeout_factor
+    benchmark = load_config().ai.benchmark
+    if timeout_factor is not None:
+        benchmark.timeout_factor = timeout_factor
+    if keep_perf_series is not None:
+        benchmark.keep_perf_series = keep_perf_series
     _SESSION = AblationSession(
         run_directory=Path(run_directory),
         usecase=usecase,

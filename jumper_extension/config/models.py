@@ -177,6 +177,10 @@ class AIBenchmarkConfig(BaseModel):
     interval: float = 0.05
     # Kill a variant once it exceeds this multiple of the baseline duration.
     timeout_factor: float = 10.0
+    # Keep each replay's perf samples of the timed cell, not only the medians
+    # drawn from them. Off by default: sampled every ``interval`` seconds, a
+    # long cell times runs times suggestions is a lot to hold for a card.
+    keep_perf_series: bool = False
     # Top-level names that carry the reviewed cell's result. Named, the
     # correctness verdict rests on them alone: a rewrite is then free to move a
     # constant inside a function - which is what deleting the code that read it

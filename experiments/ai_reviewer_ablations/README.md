@@ -267,6 +267,7 @@ results/<run id>/
 ├── meta.json              # suite, protocol, usecases, ablations, machine
 ├── strategies.yaml        # what `--strategy base` meant on that day
 ├── records/<id>.json      # one reviewer invocation, complete
+├── perf_series/<id>.json.gz # perf samples of every benchmark replay
 ├── runs.jsonl, runs.csv   # index and flat view
 ├── passes.jsonl           # one line per kernel pass, with its status
 ├── passes/<pass>/logs/    # the extension's log, incl. ai_prompts.log
@@ -293,7 +294,9 @@ Four ways to look at a finished run, cheapest first:
 
 Everything below `records/` is the raw material: one JSON per reviewer
 invocation holding the verbatim messages, the collected context, the
-suggestions, the benchmark verdicts and the sampling that was applied. The
+suggestions, the benchmark verdicts with every replay's duration and wall
+time, the result signatures and each repair attempt, and the sampling that
+was applied. The perf samples of those replays sit in `perf_series/`. The
 tables are regenerable from it at any time with `cli.evaluate` and
 `cli.report`, so a new metric never costs another sweep.
 

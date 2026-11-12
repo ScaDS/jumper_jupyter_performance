@@ -3,7 +3,12 @@ from unittest.mock import Mock
 
 from jumper_extension.adapters.ai_reviewer.benchmark import fingerprint
 from jumper_extension.adapters.ai_reviewer.benchmark.checks import CheckPlan, Decision
-from jumper_extension.adapters.ai_reviewer.benchmark.models import FAILED, OK, RunOutcome
+from jumper_extension.adapters.ai_reviewer.benchmark.models import (
+    FAILED,
+    INVALID_SYNTAX,
+    OK,
+    RunOutcome,
+)
 from jumper_extension.adapters.ai_reviewer.benchmark.replay import StrategyChanged
 from jumper_extension.adapters.ai_reviewer.benchmark.orchestrator import (
     BASELINE_LABEL,
@@ -138,6 +143,106 @@ def test_a_repair_that_returns_broken_syntax_costs_no_replay():
     assert "def broken(:" not in executed
     assert "def still_broken(:" not in executed
     assert orchestrator.final_code["1"] == "y = 1"
+
+
+
+# --- what is kept beside the medians ---
+
+def test_every_replay_is_kept_beside_the_median_drawn_from_it():
+    timings = {"base": iter([9.0, 4.0, 6.0]), "fast": iter([3.0, 1.0, 2.0])}
+    orchestrator = _orchestrator(lambda code: next(timings[code]), runs=3)
+
+    results = orchestrator.run("base", [("1", "fast")])
+
+    baseline = results[BASELINE_LABEL]
+    # The warm-up stays in the record even though the median leaves it out.
+    assert baseline.run_durations_s == [9.0, 4.0, 6.0]
+    assert baseline.duration_s == 5.0
+    assert baseline.run_wall_s == [10.0, 5.0, 7.0]
+    assert baseline.fingerprints == _PRINTS
+    assert results["1"].run_durations_s == [3.0, 1.0, 2.0]
+    assert results["1"].fingerprints == _PRINTS
+    assert results["1"].run_perf_series == []
+
+
+def test_perf_series_are_kept_per_replay_when_the_runner_kept_them():
+    runner = _runner(lambda code: 1.0)
+    measure = runner.run_once
+
+    def run_once(code, tag, timeout=None):
+        outcome = measure(code, tag, timeout)
+        outcome.perf_series = {"time": [0.0, 0.05], "tag": [tag]}
+        return outcome
+
+    runner.run_once = run_once
+    orchestrator = BenchmarkOrchestrator(
+        runner=runner,
+        fix_fn=lambda code, error, label: code,
+        runs=2,
+    )
+
+    results = orchestrator.run("base", [("1", "fast")])
+
+    assert [series["tag"] for series in results["1"].run_perf_series] == [["1_0"], ["1_1"]]
+
+
+def test_the_repair_history_keeps_every_version_and_what_stopped_it():
+    def behaviour(code):
+        return 4.0 if code == "base" else (1.0 if code == "fixed" else "ValueError: boom")
+
+    orchestrator = _orchestrator(behaviour, fix_fn=lambda code, error, label: "fixed")
+
+    results = orchestrator.run("base", [("1", "broken")])
+
+    history = results["1"].attempt_history
+    assert [(attempt.attempt, attempt.code, attempt.status) for attempt in history] == [
+        (1, "broken", FAILED),
+        (2, "fixed", OK),
+    ]
+    assert history[0].error == "ValueError: boom"
+    assert history[1].duration_s == 1.0
+    assert history[1].correctness == fingerprint.MATCH
+
+
+def test_code_that_does_not_parse_is_recorded_as_such():
+    orchestrator = _orchestrator(
+        lambda code: 4.0 if code == "base" else 1.0,
+        fix_fn=lambda code, error, label: "y = 1",
+    )
+
+    results = orchestrator.run("base", [("1", "def broken(:")])
+
+    assert [(attempt.code, attempt.status) for attempt in results["1"].attempt_history] == [
+        ("def broken(:", INVALID_SYNTAX),
+        ("y = 1", OK),
+    ]
+
+
+def test_a_verdict_kept_from_an_earlier_attempt_still_carries_the_later_ones():
+    def behaviour(code):
+        if code == "base":
+            return 4.0
+        return 0.5 if code == "cheat" else "RuntimeError: worse"
+
+    orchestrator = BenchmarkOrchestrator(
+        runner=_diverging_runner(behaviour, {"cheat"}),
+        fix_fn=lambda code, error, label: "worse",
+        runs=2,
+        fix_attempts=1,
+    )
+
+    results = orchestrator.run("base", [("1", "cheat")])
+
+    # The reported verdict is the diverging first attempt; the repair that
+    # crashed after it is part of the story all the same.
+    assert results["1"].correctness == fingerprint.DIFFERS
+    history = results["1"].attempt_history
+    assert [(attempt.code, attempt.status) for attempt in history] == [
+        ("cheat", OK),
+        ("worse", FAILED),
+    ]
+    assert history[0].correctness == fingerprint.DIFFERS
+    assert "no longer computes the same result" in history[0].error
 
 
 # --- declared result names ---

@@ -39,8 +39,26 @@ class SuggestionRecord(BaseModel):
     target_cell_index: int | None = None
 
 
+class BenchmarkAttemptRecord(BaseModel):
+    """One version of a suggestion the benchmark tried, and what became of it."""
+
+    attempt: int
+    code: str
+    # ok, or what stopped it: invalid_syntax, failed, timeout, missing_results.
+    status: str
+    # The text the repair was asked to fix. On an ok attempt, a divergence.
+    error: str = ""
+    duration_s: float | None = None
+    correctness: str = ""
+
+
 class BenchmarkRecord(BaseModel):
-    """What the benchmark concluded about one suggestion, or the baseline."""
+    """What the benchmark concluded about one suggestion, or the baseline.
+
+    The perf samples of every replay are not held here: they outweigh the rest
+    of the record many times over and no metric reads them, so they are
+    written beside it, to ``perf_series/<record id>.json.gz``.
+    """
 
     label: str
     status: str
@@ -56,6 +74,15 @@ class BenchmarkRecord(BaseModel):
     # without is a cell that binds nothing comparable at all.
     missing_names: list[str] = Field(default_factory=list)
     error: str = ""
+    # Every timed replay in order, the warm-up first: the medians above are
+    # drawn from these, so the spread within one variant stays readable.
+    run_durations_s: list[float | None] = Field(default_factory=list)
+    # Wall-clock of each whole replay, prefix and process start included.
+    run_wall_s: list[float | None] = Field(default_factory=list)
+    # The result signatures the verdict compared, from the last replay.
+    fingerprints: dict = Field(default_factory=dict)
+    # Every version tried: the model's own first, then each repair.
+    attempt_history: list[BenchmarkAttemptRecord] = Field(default_factory=list)
 
     @property
     def ok(self) -> bool:

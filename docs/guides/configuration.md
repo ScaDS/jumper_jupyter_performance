@@ -167,6 +167,7 @@ benchmark:
   fix_attempts: 3
   interval: 0.05
   timeout_factor: 10.0
+  keep_perf_series: false
   checks:
     validate_syntax: true
     run: true
@@ -182,6 +183,7 @@ benchmark:
 | `fix_attempts` | Repair rounds before a failing suggestion is reported as failed. Per run: `--fix-attempts`. |
 | `interval` | Sampling interval for replays, finer than the live monitor's so a fast variant still yields metrics. |
 | `timeout_factor` | A variant is killed past this multiple of the baseline duration. |
+| `keep_perf_series` | Keep every replay's perf samples of the timed cell in `BenchmarkResult.run_perf_series`, not only the medians. Off by default, since a long cell sampled every `interval` seconds is large. Per-replay durations, wall-clock times, result signatures and the repair history are always kept. |
 | `checks.validate_syntax` / `checks.run` | Which [benchmark steps](ai-review/benchmark.md#running-fewer-steps) run. Per run: `--check` / `--skip-check`. |
 | `replay.mode` | How prefix state is rebuilt: `full`, `fork`, `dill`. Per run: `--replay-mode`. See [Replay modes](ai-review/replay-modes.md). |
 | `replay.cross_check` | With a fast mode active, also measure the baseline once through `full` and compare. Differing results send the whole benchmark back to `full`; differing durations warn. Costs one extra prefix replay. |

@@ -31,6 +31,10 @@ benchmark:
   # 1 warm-up plus 6 measured: the reviewer's own median drops the first run.
   runs: 7
   fix_attempts: 3
+  # Keep every replay's perf samples of the timed cell, beside the records as
+  # perf_series/<record id>.json.gz. Per-replay durations, wall-clock times,
+  # result signatures and the repair history are in the records regardless.
+  keep_perf_series: true
   # Replay modes to re-score the *stored* suggestions under, after the review
   # cell's own mode. Suggestions are never regenerated for a mode.
   extra_replay_modes: []
