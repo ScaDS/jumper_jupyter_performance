@@ -5,7 +5,7 @@ You are given the:
     - {{ item.text | indent(6) }}
 {% endfor %}
 
-You must propose 2-4 concrete optimization options.
+You must propose exactly {{ suggestion_count }} concrete optimization option{{ '' if suggestion_count == 1 else 's' }}.
 
 Rules:
 {% for item in rules if item.enabled %}

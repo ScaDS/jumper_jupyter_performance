@@ -2,19 +2,25 @@ import logging
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import pytest
+from pydantic import ValidationError
+
 from jumper_extension.adapters.ai_reviewer.agent.nodes import (
     _other_options_as_diffs,
     _should_refine,
+    _suggestion_list_schema,
     prompt_logger,
     analyze_bottlenecks_node,
     apply_suggestion_node,
     build_analyze_messages,
+    build_suggest_messages,
     collect_context_node,
     display_results_node,
     generate_suggestions_node,
     refine_suggestion_node,
 )
 from jumper_extension.adapters.ai_reviewer.agent.state import Suggestion, empty_state
+from jumper_extension.config.loader import load_config
 
 
 def _state_with_suggestions(**overrides):
@@ -193,6 +199,44 @@ def test_generate_suggestions_node_builds_suggestions_from_structured_output():
     assert "Available libraries" in prompt
     assert "numpy" in prompt
     assert "torch" in prompt
+
+
+
+def test_suggest_step_asks_for_and_accepts_exactly_the_configured_count(monkeypatch):
+    monkeypatch.setattr(load_config().ai.suggestions, "count", 5)
+    state = empty_state(run_id="abc123")
+    state["cell_code"] = "x = compute()"
+    state["analysis"] = "CPU is the bottleneck."
+    structured_llm = Mock()
+    structured_llm.invoke = Mock(return_value=SimpleNamespace(suggestions=[]))
+    llm = Mock()
+    llm.with_structured_output = Mock(return_value=structured_llm)
+
+    generate_suggestions_node(state, llm)
+
+    system_prompt = structured_llm.invoke.call_args[0][0][0].content
+    assert "You must propose exactly 5 concrete optimization options." in system_prompt
+    schema = llm.with_structured_output.call_args[0][0].model_json_schema()
+    assert schema["properties"]["suggestions"]["minItems"] == 5
+    assert schema["properties"]["suggestions"]["maxItems"] == 5
+
+
+def test_a_single_option_is_asked_for_in_the_singular(monkeypatch):
+    monkeypatch.setattr(load_config().ai.suggestions, "count", 1)
+    state = empty_state(run_id="abc123")
+    state["analysis"] = "CPU is the bottleneck."
+
+    system_prompt = build_suggest_messages(state)[0].content
+
+    assert "You must propose exactly 1 concrete optimization option." in system_prompt
+
+
+@pytest.mark.parametrize("returned", [2, 4])
+def test_a_reply_with_another_number_of_options_is_refused(returned):
+    option = {"title": "Vectorize", "description": "Use numpy", "code": "x = vectorized()"}
+
+    with pytest.raises(ValidationError):
+        _suggestion_list_schema(3).model_validate({"suggestions": [option] * returned})
 
 
 def test_display_results_node_delegates_to_review_display_and_keeps_state():

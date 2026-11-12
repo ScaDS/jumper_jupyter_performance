@@ -115,9 +115,9 @@ Define which metric collectors are active for the Python-based monitors
 
 ## `ai` — `config/ai/default.yaml`
 
-Everything `%perfmonitor_ai_review` needs, in three groups: `llm` (which model
-answers), `benchmark` (how suggestions are measured) and `context` (what the
-model is told). Usage is covered in the [AI Review](ai-review/index.md) guides.
+Everything `%perfmonitor_ai_review` needs, in four groups: `llm` (which model
+answers), `suggestions` (how many options it proposes), `benchmark` (how
+suggestions are measured) and `context` (what the model is told). Usage is covered in the [AI Review](ai-review/index.md) guides.
 
 ### `ai.llm` — the model
 
@@ -147,6 +147,17 @@ config: set the environment variable named by `api_key_env` (default
 `JUMPER_AI_API_KEY`) before starting your notebook or IPython session. To use a
 different secret name (e.g. on a shared cluster), change `api_key_env` here and
 export that variable instead.
+
+### `ai.suggestions` — how many options
+
+```yaml
+suggestions:
+  count: 3
+```
+
+| Key | Description |
+|---|---|
+| `count` | Optimization options asked for per review. The suggest prompt names this number, and the structured-output schema accepts exactly that many: an endpoint that honors JSON-schema array bounds cannot return another number, and a reply that does anyway fails to parse. |
 
 ### `ai.benchmark` — measuring suggestions
 

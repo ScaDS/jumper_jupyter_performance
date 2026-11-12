@@ -6,10 +6,13 @@ Shows exactly what ``PromptLibrary`` assembles for each prompt (the system
 half of what the LLM receives). For the full input including the human
 message, see ``agent/preview.py``.
 """
+from __future__ import annotations
+
 import argparse
 
 from jumper_extension.adapters.ai_reviewer.prompts import PromptLibrary
 from jumper_extension.adapters.ai_reviewer.strategy import get_strategy, strategy_ids
+from jumper_extension.config.loader import load_config
 
 
 def main() -> None:
@@ -20,11 +23,19 @@ def main() -> None:
 
     overrides = get_strategy(args.strategy).overrides
     library = PromptLibrary.load()
+    variables = {"suggestion_count": load_config().ai.suggestions.count}
     for prompt_id in library.prompt_ids():
         print("=" * 72)
         print(f"# {prompt_id}   (strategy={args.strategy}, note={args.note!r})")
         print("=" * 72)
-        print(library.render(prompt_id, overrides=overrides, note=args.note))
+        print(
+            library.render(
+                prompt_id,
+                overrides=overrides,
+                note=args.note,
+                variables=variables,
+            )
+        )
         print()
 
 

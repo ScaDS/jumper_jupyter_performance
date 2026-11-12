@@ -13,6 +13,11 @@ llm:
   extra_body: {}
   api_key_env: JUMPER_AI_API_KEY
 
+suggestions:
+  # Optimization options asked for per review. The suggest prompt names this
+  # number and the structured-output schema accepts exactly that many.
+  count: 3
+
 benchmark:
   # Timed replays per suggestion; the first is dropped as warm-up.
   runs: 3

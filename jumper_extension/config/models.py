@@ -116,6 +116,13 @@ class AILLMConfig(BaseModel):
     api_key_env: str = "JUMPER_AI_API_KEY"
 
 
+class AISuggestionsConfig(BaseModel):
+    """How many optimization options a review asks the model for."""
+    # Named in the suggest prompt and enforced by the structured-output schema,
+    # so the count is a property of the configuration, not of the model's mood.
+    count: int = Field(default=3, ge=1)
+
+
 class AIContextConfig(BaseModel):
     """Context-gathering parameters: default strategy and known packages."""
     strategy: str = "faster"
@@ -185,6 +192,7 @@ class AIBenchmarkConfig(BaseModel):
 
 class AIConfig(BaseModel):
     llm: AILLMConfig = Field(default_factory=AILLMConfig)
+    suggestions: AISuggestionsConfig = Field(default_factory=AISuggestionsConfig)
     context: AIContextConfig = Field(default_factory=AIContextConfig)
     benchmark: AIBenchmarkConfig = Field(default_factory=AIBenchmarkConfig)
 

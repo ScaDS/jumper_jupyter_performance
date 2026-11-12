@@ -1,12 +1,15 @@
+from __future__ import annotations
+
 import difflib
 import logging
 import warnings
 from contextlib import contextmanager
+from functools import lru_cache
 from typing import Any, Iterator
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 from jumper_extension.adapters.ai_reviewer.agent.state import (
     OptimizationState,
@@ -17,6 +20,7 @@ from jumper_extension.adapters.ai_reviewer.context.collector import ContextColle
 from jumper_extension.adapters.ai_reviewer.llm.reasoning import split_reasoning, strip_code_fences
 from jumper_extension.adapters.ai_reviewer.prompts import PromptLibrary
 from jumper_extension.adapters.ai_reviewer.ui.review_display import AIReviewDisplay
+from jumper_extension.config.loader import load_config
 from jumper_extension.core.messages import EXTENSION_ERROR_MESSAGES, ExtensionErrorCode
 
 logger = logging.getLogger("extension")
@@ -67,11 +71,35 @@ class _SuggestionSchema(BaseModel):
     )
 
 
-class _SuggestionListSchema(BaseModel):
-    """Structured-output schema for the ranked list of suggestions."""
-    suggestions: list[_SuggestionSchema] = Field(
-        description="Optimization options, ordered from most to least impactful"
+@lru_cache
+def _suggestion_list_schema(count: int) -> type[BaseModel]:
+    """Structured-output schema for a ranked list of exactly *count* suggestions.
+
+    The bounds travel in the JSON schema the endpoint is given, so a server that
+    honors them cannot return another number; a reply that slips past one fails
+    to parse instead of silently changing the count.
+    """
+    return create_model(
+        "_SuggestionListSchema",
+        __doc__="Structured-output schema for the ranked list of suggestions.",
+        suggestions=(
+            list[_SuggestionSchema],
+            Field(
+                min_length=count,
+                max_length=count,
+                description="Optimization options, ordered from most to least impactful",
+            ),
+        ),
     )
+
+
+def _suggestion_count() -> int:
+    """Options a review asks for, as ``ai.suggestions.count`` sets it.
+
+    Read per call rather than at import, so a caller that adjusts the composed
+    config at runtime is honored.
+    """
+    return load_config().ai.suggestions.count
 
 
 def collect_context_node(state: OptimizationState, collector: ContextCollector) -> OptimizationState:
@@ -162,7 +190,14 @@ def build_suggest_messages(state: OptimizationState) -> list[BaseMessage]:
     if state["env_info"]:
         lines.append(f"Available libraries: {state['env_info']}")
     return [
-        SystemMessage(content=_prompts.render("suggest", state["overrides"], state["note"])),
+        SystemMessage(
+            content=_prompts.render(
+                "suggest",
+                state["overrides"],
+                state["note"],
+                variables={"suggestion_count": _suggestion_count()},
+            )
+        ),
         HumanMessage(content="\n\n".join(lines)),
     ]
 
@@ -188,7 +223,7 @@ def _muted_parsed_field_warning() -> Iterator[None]:
 
 def generate_suggestions_node(state: OptimizationState, llm: BaseChatModel) -> OptimizationState:
     """LLM call #2: produce a structured list of optimization suggestions."""
-    structured_llm = llm.with_structured_output(_SuggestionListSchema)
+    structured_llm = llm.with_structured_output(_suggestion_list_schema(_suggestion_count()))
     messages = build_suggest_messages(state)
     _log_request(state["run_id"], "suggest", messages)
     with _muted_parsed_field_warning():

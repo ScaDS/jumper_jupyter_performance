@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 import yaml
@@ -16,7 +18,9 @@ class PromptLibrary:
 
     ``render`` takes an ``overrides`` map (``id -> enabled``) so any caller - a
     deterministic dialog or one an agent builds at runtime - can flip items
-    on/off without this layer knowing where the choice came from.
+    on/off without this layer knowing where the choice came from, and a
+    ``variables`` map that fills plain placeholders such as the number of
+    options the suggest prompt asks for.
     """
 
     def __init__(self, specs: dict[str, dict], env: Environment):
@@ -47,6 +51,7 @@ class PromptLibrary:
         prompt_id: str,
         overrides: dict | None = None,
         note: str | None = None,
+        variables: dict | None = None,
     ) -> str:
         overrides = overrides or {}
         context = {}
@@ -59,7 +64,7 @@ class PromptLibrary:
             else:
                 context[key] = {**value, "enabled": bool(note), "text": note or ""}
         template = self._env.get_template(f"{prompt_id}/template.md")
-        return template.render(**context).strip() + "\n"
+        return template.render(**(variables or {}), **context).strip() + "\n"
 
 
 def _resolve_fragments(spec: dict) -> dict:
